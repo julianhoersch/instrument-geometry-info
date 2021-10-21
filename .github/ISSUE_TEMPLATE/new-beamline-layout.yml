@@ -6,6 +6,8 @@ body:
   - type: markdown
     attributes:
       value: |
+        # Introduction
+        
         Please fill in as much of the following information as possible. This form is not suitable for multi-detector setups. To add a multi-detector setup, please create a
         free-form Github issue.
   - type: dropdown
@@ -30,21 +32,24 @@ body:
     id: beamline
     attributes:
       label: Beamline name
+      description: Please type the beamline name, without hyphens.
   - type: input
     id: config_id
     attributes:
-      label: >
+      label: Configuration
+      description: >
         Please provide an identifier for this configuration of this beamline.
   - type: checkboxes
     id: is-update
     attributes:
-      label: Is this an updated specification (previous one will be deleted)?
+      label: Is updated?
+      description: Is this an update to an existing specification?
       options:
-        - label: Is an update to existing specification
+        - label: Is an update
   - type: input
     id: early-date
     attributes:
-      label: Earliest known date that this configuration is possible (YYYY-MM-DD)
+      description: Earliest known date that this configuration is possible (YYYY-MM-DD)
   - type: input
     id: last-date
     attributes:
