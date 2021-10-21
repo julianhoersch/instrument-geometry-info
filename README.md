@@ -20,7 +20,8 @@ Note that by contributing you are implicitly licensing your contribution as CC0 
 ## Format of information
 
 The geometric information is stored using imgCIF data names. Each beamline configuration is contained in a separate data block
-of files xxx (for beamlines) or xxx (for off-the-shelf laboratory instruments).
+of files `Beamlines/beamline_geometries.cif` (for beamlines) or `Laboratory/laboratory_geometries.cif` (for off-the-shelf 
+laboratory instruments).
 
 ## Accuracy
 
