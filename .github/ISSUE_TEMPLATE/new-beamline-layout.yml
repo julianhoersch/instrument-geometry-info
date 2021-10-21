@@ -40,7 +40,7 @@ body:
     attributes:
       label: Is this an updated specification (previous one will be deleted)?
       options:
-        - Update
+        - label: Update
   - type: input
     id: early-date
     attributes:
