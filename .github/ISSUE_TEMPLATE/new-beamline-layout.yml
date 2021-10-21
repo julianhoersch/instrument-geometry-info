@@ -85,11 +85,10 @@ body:
         top to bottom (phi is topmost, omega is usually bottom-most).
   - type: markdown
     attributes:
-      value: |
-        ## Detector information. 
+      value: >
+        ## Detector information
         
-        Answer the following questions assuming
-        all detector positioning axes are at their home positions. If there is more
+        Answer the following questions assuming all detector positioning axes are at their home positions. If there is more
         than one detector, or detectors
         are non-rectangular, please describe in the comments below.
   - type: dropdown
