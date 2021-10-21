@@ -1,0 +1,132 @@
+name: New beamline layout
+description: Describe a new beamline layout
+title: "[Layout]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please fill in as much of the following information as possible. This form is not suitable for multi-detector setups. To add a multi-detector setup, please create a
+        free-form Github issue.
+  - type: dropdown
+    id: facility
+    attributes:
+      label: Facility name
+      options:
+        - APS
+        - Spring-8
+        - KEK-PF
+        - Australian Synchrotron
+        - J-PARC
+        - ESRF
+        - ILL
+        - Oak Ridge
+        - Diamond
+        - ESS
+        - ANKA
+        - KAERI
+        - Other (please write name in the comments at end of form)
+  - type: input
+    id: beamline
+    attributes:
+      label: Beamline name
+  - type: input
+    id: config_id
+    attributes:
+      label: >
+        Please provide an identifier for this configuration of this beamline.
+  - type: checkbox
+    id: update
+    attributes:
+      label: Is this an updated specification (previous one will be deleted)?
+      options:
+        - Update
+  - type: input
+    id: early-date
+    attributes:
+      label: Earliest known date that this configuration is possible (YYYY-MM-DD)
+  - type: input
+    id: last-date
+    attributes:
+      label: Last known date for this configuration (YYYY-MM-DD), blank if unknown
+  - type: markdown
+    attributes:
+      value: "Answer the following questions for all axes in zero position:"
+  - type: input
+    id: gonio
+    attributes:
+      label: "Looking along the beam towards the detector, at what angle is the goniometer spindle to the horizontal plane, where 0 is '3 oclock' and angles are measured counter-clockwise,
+              so 90 degrees is 12 oclock and 270 degrees is 6 oclock."
+  - type: dropdown
+    id: gonio_rot
+    attributes:
+      label: "When looking at the goniometer in the direction from the crystal towards the goniometer base, what is the sense of positive rotation?"
+      options:
+        - clockwise
+        - anticlockwise
+  - type: input
+    id: axis_stack
+    attributes:
+      label: >
+        For each axis attached to the goniometer, give the axis name (as used in data files) and
+        sense of rotation when looking from the crystal in the direction of the goniometer. Separate
+        each value by a comma, for example 'Chi, clockwise, Omega, anticlockwise'. Do not include
+        the phi axis described by the previous question. List the axes in order of stacking from
+        top to bottom (phi is topmost, omega is usually bottom-most).
+  - type: markdown
+    attributes:
+      value: |
+        Detector information. Answer the following questions assuming
+        all detector positioning axes are at their home positions. If there is more
+        than one detector, or detectors
+        are non-rectangular, please describe in the comments below.
+  - type: dropdown
+    attributes:
+      label: >
+        The first pixel of the raw image is located at what position on the detector when viewing the detector from the crystal
+        position?
+      options:
+        - top left
+        - top right
+        - bottom left
+        - bottom right
+        - other (please describe in comments)
+  - type: dropdown
+    attributes:
+      label: >
+        The second pixel of the raw image is located in what direction relative to the first pixel?
+      options:
+        - horizontal
+        - vertical
+  - type: textarea
+    id: det_axis_stack
+    attributes:
+      label: >
+        If the detector is repositioned during data collection (excluding distance from the
+        sample), please name the repositioning axes as they appear in data files, classify the
+        axes as rotation or translation, and
+        explain their relationship to one another.
+  - type: textarea
+    id: xds
+    attributes:
+      label: >-
+        If XDS is used to reduce data from this configuration, please attach an `XDS.INP`
+        file here.
+  - type: input
+    id: doi
+    attributes:
+      label: >-
+        If available, please give the DOI of a raw data set obtained using this configuration
+        that includes images separated by at least 90 degrees of phi rotation.
+        Consider uploading a test data set to Zenodo if automated public access is not otherwise
+        available for your instrument. These will be used in future for automated checking
+        of the configuration.
+  - type: textarea
+    attributes:
+      label: >
+        Please provide any additional comments.
+        
+        
+        
+        
+      

@@ -1,0 +1,67 @@
+#\#CIF_2.0
+###########################################################################
+#                                                                         #
+#       Beamline geometries                                               #
+#                                                                         #
+###########################################################################
+#
+# This file contains descriptions of geometries for beamlines at
+# synchrotron and neutron sources.  Each configuration for each beamline
+# is contained in a separate data block.
+#
+# Instructions:
+#
+# 1. data blocks are named 'data_<facility>_<beamline>_<config>', for
+# example 'data_KEK-PF_BL14A_1'. <config> may be omitted if absent
+#
+# 2. all data names are as defined in imgCIF or cif core, with the
+# exception of local data names
+#
+# _audit.[local]_valid_at
+# _audit.[local]_valid_from
+# _audit.[local]_valid_to
+# _audit.[local]_details
+#
+# which hold the period of validity of the defined configuration. The imgCIF
+# dictionary and the relevant Volume G chapter should be referred to in
+# order to understand the meaning of the following entries.
+#
+# 3. Where specific values are provided that vary from experiment to
+# experiment (e.g. axis positions), arbitrary values may be provided. Users
+# of this file should
+# give priority to values for these axes found in data files.
+
+data_facility_generic
+
+_audit.[local]_details
+;
+   Generic axes taken from Example 2 of the axis category in the
+   imgCIF dictionary. 4-element detector taken from imgCIF example.
+;
+
+_audit_author.name  'Generic I. Scientist'
+
+        loop_
+        _axis.id
+        _axis.type
+        _axis.equipment
+        _axis.depends_on
+        _axis.vector[1] _axis.vector[2] _axis.vector[3]
+        _axis.offset[1] _axis.offset[2] _axis.offset[3]
+        source       .        source     .       0     0     1   . . .
+        gravity      .        gravity    .       0    -1     0   . . .
+        tranz     translation detector rotz      0     0     1   0 0 -68
+        twotheta  rotation    detector   .       1     0     0   . . .
+        roty      rotation    detector twotheta  0     1     0   0 0 -68
+        rotz      rotation    detector roty      0     0     1   0 0 -68
+
+loop_
+        _diffrn_detector_element.detector_id
+        _diffrn_detector_element.id
+        _diffrn_detector_element.reference_center_fast
+        _diffrn_detector_element.reference_center_slow
+        _diffrn_detector_element.reference_center_units
+        d1     d1_ccd_1  201.5 201.5  mm
+        d1     d1_ccd_2  -1.8  201.5  mm
+        d1     d1_ccd_3  201.6  -1.4  mm
+        d1     d1_ccd_4  -1.7   -1.5  mm

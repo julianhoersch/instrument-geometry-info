@@ -1,0 +1,52 @@
+#\#CIF_2.0
+###########################################################################
+#                                                                         #
+#       Laboratory geometries                                             #
+#                                                                         #
+###########################################################################
+#
+# This file contains descriptions of geometries for lab-based equipment.
+# Each product from each manufacturer is contained in a separate block
+#
+# Instructions:
+#
+# 1. data blocks are named 'data_<manufacturer>_<product>_<config>', for
+# example 'data_Rigaku_XtalabSynergyS_1'. <config> may be omitted if not
+# present.
+#
+# 2. all data names are as defined in imgCIF or cif core, with the
+# exception of local data names
+#
+# _audit.[local]_valid_at
+# _audit.[local]_valid_from
+# _audit.[local]_valid_to
+# _audit.[local]_details
+#
+# which hold the period of validity of the defined configuration. The imgCIF
+# dictionary and the relevant Volume G chapter should be referred to in
+# order to understand the meaning of the following entries.
+#
+# 3. Where specific values are provided that vary from experiment to
+# experiment (e.g. axis positions), arbitrary values may be provided. Users
+# of this file should
+# give priority to values for these axes found in data files.
+
+data_generic_kappa
+
+_audit.[local]_details
+;
+   Generic axes taken from Example 1 of the axis category in the
+   imgCIF dictionary.
+;
+
+_audit_author.name  'Generic L. Crystallographer'
+
+loop_
+        _axis.id
+        _axis.type
+        _axis.equipment
+        _axis.depends_on
+        _axis.vector[1] _axis.vector[2] _axis.vector[3]
+        omega rotation goniometer     .    1        0        0
+        kappa rotation goniometer omega    -.64279  0       -.76604
+        phi   rotation goniometer kappa    1        0        0
