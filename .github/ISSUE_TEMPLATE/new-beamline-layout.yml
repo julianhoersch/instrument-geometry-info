@@ -36,11 +36,11 @@ body:
       label: >
         Please provide an identifier for this configuration of this beamline.
   - type: checkboxes
-    id: update
+    id: is-update
     attributes:
       label: Is this an updated specification (previous one will be deleted)?
       options:
-        - label: Update
+        - label: Is an update to existing specification
   - type: input
     id: early-date
     attributes:
