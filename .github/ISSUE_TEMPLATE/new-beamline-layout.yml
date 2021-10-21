@@ -49,30 +49,35 @@ body:
   - type: input
     id: early-date
     attributes:
+      label: Start date
       description: Earliest known date that this configuration is possible (YYYY-MM-DD)
   - type: input
     id: last-date
     attributes:
-      label: Last known date for this configuration (YYYY-MM-DD), blank if unknown
+      label: Finish date
+      description: Last known date for this configuration (YYYY-MM-DD), blank if unknown
   - type: markdown
     attributes:
       value: "Answer the following questions for all axes in zero position:"
   - type: input
     id: gonio
     attributes:
-      label: "Looking along the beam towards the detector, at what angle is the goniometer spindle to the horizontal plane, where 0 is '3 oclock' and angles are measured counter-clockwise,
+      label: Phi axis orientation
+      description: "Looking along the beam towards the detector, at what angle is the goniometer spindle to the horizontal plane, where 0 is '3 oclock' and angles are measured counter-clockwise,
               so 90 degrees is 12 oclock and 270 degrees is 6 oclock."
   - type: dropdown
     id: gonio_rot
     attributes:
-      label: "When looking at the goniometer in the direction from the crystal towards the goniometer base, what is the sense of positive rotation?"
+      label: Phi axis rotation
+      description: "When looking at the goniometer in the direction from the crystal towards the goniometer base, what is the sense of positive rotation?"
       options:
         - clockwise
         - anticlockwise
   - type: input
     id: axis_stack
     attributes:
-      label: >
+      label: Goniometer axes
+      description: >
         For each axis attached to the goniometer, give the axis name (as used in data files) and
         sense of rotation when looking from the crystal in the direction of the goniometer. Separate
         each value by a comma, for example 'Chi, clockwise, Omega, anticlockwise'. Do not include
@@ -81,13 +86,16 @@ body:
   - type: markdown
     attributes:
       value: |
-        Detector information. Answer the following questions assuming
+        ## Detector information. 
+        
+        Answer the following questions assuming
         all detector positioning axes are at their home positions. If there is more
         than one detector, or detectors
         are non-rectangular, please describe in the comments below.
   - type: dropdown
     attributes:
-      label: >
+      label: Image orientation
+      description: >
         The first pixel of the raw image is located at what position on the detector when viewing the detector from the crystal
         position?
       options:
@@ -98,7 +106,8 @@ body:
         - other (please describe in comments)
   - type: dropdown
     attributes:
-      label: >
+      label: Fast direction
+      description: >
         The second pixel of the raw image is located in what direction relative to the first pixel?
       options:
         - horizontal
@@ -106,7 +115,8 @@ body:
   - type: textarea
     id: det_axis_stack
     attributes:
-      label: >
+      label: Detector axes
+      description: >
         If the detector is repositioned during data collection (excluding distance from the
         sample), please name the repositioning axes as they appear in data files, classify the
         axes as rotation or translation, and
@@ -114,13 +124,15 @@ body:
   - type: textarea
     id: xds
     attributes:
-      label: >-
+      label: xds.inp
+      description: >-
         If XDS is used to reduce data from this configuration, please attach an `XDS.INP`
         file here.
   - type: input
     id: doi
     attributes:
-      label: >-
+      label: Data DOI
+      description: >-
         If available, please give the DOI of a raw data set obtained using this configuration
         that includes images separated by at least 90 degrees of phi rotation.
         Consider uploading a test data set to Zenodo if automated public access is not otherwise
@@ -128,7 +140,8 @@ body:
         of the configuration.
   - type: textarea
     attributes:
-      label: >
+      label: Comments
+      description: >
         Please provide any additional comments.
         
         
