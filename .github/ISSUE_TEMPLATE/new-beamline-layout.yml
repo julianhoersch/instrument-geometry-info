@@ -35,7 +35,7 @@ body:
     attributes:
       label: >
         Please provide an identifier for this configuration of this beamline.
-  - type: checkbox
+  - type: checkboxes
     id: update
     attributes:
       label: Is this an updated specification (previous one will be deleted)?
