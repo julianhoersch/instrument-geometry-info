@@ -13,7 +13,7 @@ default or backup option where the information is not otherwise available.
 The following options are available for contributing a new layout:
 
 1. Raise an issue using the appropriate issue template
-2. Create a pull request on the repository. See the `<not yet created> file` for the way the information should be presented.
+2. Create a pull request on the repository. See `Beamlines/beamline_geometries.cif` for the way the information should be presented.
 
 Note that by contributing you are implicitly licensing your contribution as CC0 (public domain).
   
