@@ -68,14 +68,11 @@ body:
         sense of rotation (a=anticlockwise, c=clockwise) when looking from the crystal in the direction of the goniometer. Separate
         each value by a comma, for example 'Chi, c, Omega, a'. List the axes in order of stacking from
         top to bottom (phi is usually topmost, omega is usually bottom-most).
-  - type: dropdown
+  - type: input
     id: gonio_rot
     attributes:
       label: Rotation axis name
       description: "Of the axes listed in the previous question, which one is the rotation axis used for data collection?"
-      options:
-        - clockwise
-        - anticlockwise
   - type: markdown
     attributes:
       value: >
