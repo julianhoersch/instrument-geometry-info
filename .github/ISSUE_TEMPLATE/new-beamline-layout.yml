@@ -56,27 +56,26 @@ body:
   - type: input
     id: gonio
     attributes:
-      label: Phi axis orientation
+      label: Spindle axis orientation
       description: "Looking along the beam towards the detector, at what angle is the goniometer spindle to the horizontal plane, where 0 is '3 oclock' and angles are measured counter-clockwise,
               so 90 degrees is 12 oclock and 270 degrees is 6 oclock."
-  - type: dropdown
-    id: gonio_rot
-    attributes:
-      label: Rotation axis rotation
-      description: "When looking at the goniometer in the direction from the crystal towards the goniometer base, what is the sense of positive rotation?"
-      options:
-        - clockwise
-        - anticlockwise
   - type: input
     id: axis_stack
     attributes:
       label: Goniometer axes
       description: >
-        For each axis attached to the goniometer, give the axis name (as used in data files) and
+        For each axis attached to the goniometer, give the axis name (as used in data files if known) and
         sense of rotation (a=anticlockwise, c=clockwise) when looking from the crystal in the direction of the goniometer. Separate
-        each value by a comma, for example 'Chi, c, Omega, a'. Please include
-        the axis described by the previous question. List the axes in order of stacking from
+        each value by a comma, for example 'Chi, c, Omega, a'. List the axes in order of stacking from
         top to bottom (phi is usually topmost, omega is usually bottom-most).
+  - type: dropdown
+    id: gonio_rot
+    attributes:
+      label: Rotation axis name
+      description: "Of the axes listed in the previous question, which one is the rotation axis used for data collection?"
+      options:
+        - clockwise
+        - anticlockwise
   - type: markdown
     attributes:
       value: >
