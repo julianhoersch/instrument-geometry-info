@@ -33,12 +33,6 @@ body:
     attributes:
       label: Beamline name
       description: Please type the beamline name, without hyphens.
-  - type: input
-    id: config_id
-    attributes:
-      label: Configuration
-      description: >
-        Please provide an identifier for this configuration of this beamline.
   - type: checkboxes
     id: is-update
     attributes:
@@ -50,7 +44,7 @@ body:
     id: early-date
     attributes:
       label: Start date
-      description: Earliest known date that this configuration is possible (YYYY-MM-DD)
+      description: Earliest known date that this beamline setup is possible, if known (YYYY-MM-DD)
   - type: input
     id: last-date
     attributes:
@@ -68,7 +62,7 @@ body:
   - type: dropdown
     id: gonio_rot
     attributes:
-      label: Phi axis rotation
+      label: Rotation axis rotation
       description: "When looking at the goniometer in the direction from the crystal towards the goniometer base, what is the sense of positive rotation?"
       options:
         - clockwise
@@ -79,10 +73,10 @@ body:
       label: Goniometer axes
       description: >
         For each axis attached to the goniometer, give the axis name (as used in data files) and
-        sense of rotation when looking from the crystal in the direction of the goniometer. Separate
-        each value by a comma, for example 'Chi, clockwise, Omega, anticlockwise'. Do not include
-        the phi axis described by the previous question. List the axes in order of stacking from
-        top to bottom (phi is topmost, omega is usually bottom-most).
+        sense of rotation (a=anticlockwise, c=clockwise) when looking from the crystal in the direction of the goniometer. Separate
+        each value by a comma, for example 'Chi, c, Omega, a'. Please include
+        the axis described by the previous question. List the axes in order of stacking from
+        top to bottom (phi is usually topmost, omega is usually bottom-most).
   - type: markdown
     attributes:
       value: >
@@ -134,7 +128,7 @@ body:
       description: >-
         If available, please give the DOI of a raw data set obtained using this configuration
         that includes images separated by at least 90 degrees of phi rotation.
-        Consider uploading a test data set to Zenodo if automated public access is not otherwise
+        Consider uploading a representative data set to Zenodo if automated public access is not otherwise
         available for your instrument. These will be used in future for automated checking
         of the configuration.
   - type: textarea
