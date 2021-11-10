@@ -52,13 +52,19 @@ body:
       description: Last known date for this configuration (YYYY-MM-DD), blank if unknown
   - type: markdown
     attributes:
-      value: "Answer the following questions for all axes in zero position:"
+      value: >
+      ## Goniometer information
+      
+      Answer the following questions for all axes in zero position.
   - type: input
     id: gonio
     attributes:
-      label: Spindle axis orientation
-      description: "Looking along the beam towards the detector, at what angle is the goniometer spindle to the horizontal plane, where 0 is '3 oclock' and angles are measured counter-clockwise,
-              so 90 degrees is 12 oclock and 270 degrees is 6 oclock."
+      label: Principal axis orientation
+      description: > 
+      With all angles at zero, and looking along the beam towards the detector, imagine an arrow drawn from the sample to the 
+      centre of the goniometer base.
+      At what angle in degrees is this arrow to the horizontal plane, where 0 is '3 o'clock' and angles are measured counter-clockwise,
+      so 90 is 12 o'clock and 270 is 6 o'clock.
   - type: input
     id: axis_stack
     attributes:
@@ -73,6 +79,12 @@ body:
     attributes:
       label: Rotation axis name
       description: "Of the axes listed in the previous question, which one is the rotation axis used for data collection?"
+  - type input
+    id: kappa
+    attributes:
+      label: kappa
+      description: >
+      If your goniometer has a kappa axis, please give its name and kappa angle here, for example "kappa 50"
   - type: markdown
     attributes:
       value: >
