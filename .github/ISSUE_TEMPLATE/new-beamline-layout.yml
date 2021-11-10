@@ -84,7 +84,7 @@ body:
     attributes:
       label: kappa
       description: >
-      If your goniometer has a kappa axis, please give its name and kappa angle here, for example "kappa 50"
+        If your goniometer has a kappa axis, please give its name and kappa angle here, for example "kappa 50"
   - type: markdown
     attributes:
       value: >
