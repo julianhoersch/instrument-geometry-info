@@ -53,9 +53,9 @@ body:
   - type: markdown
     attributes:
       value: >
-      ## Goniometer information
+        ## Goniometer information
       
-      Answer the following questions for all axes in zero position.
+        Answer the following questions for all axes in zero position.
   - type: input
     id: gonio
     attributes:
