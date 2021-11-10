@@ -79,7 +79,7 @@ body:
     attributes:
       label: Rotation axis name
       description: "Of the axes listed in the previous question, which one is the rotation axis used for data collection?"
-  - type input
+  - type: input
     id: kappa
     attributes:
       label: kappa
