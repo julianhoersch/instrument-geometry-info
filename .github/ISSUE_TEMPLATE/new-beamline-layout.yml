@@ -61,10 +61,10 @@ body:
     attributes:
       label: Principal axis orientation
       description: > 
-      With all angles at zero, and looking along the beam towards the detector, imagine an arrow drawn from the sample to the 
-      centre of the goniometer base.
-      At what angle in degrees is this arrow to the horizontal plane, where 0 is '3 o'clock' and angles are measured counter-clockwise,
-      so 90 is 12 o'clock and 270 is 6 o'clock.
+        With all angles at zero, and looking along the beam towards the detector, imagine an arrow drawn from the sample to the 
+        centre of the goniometer base.
+        At what angle in degrees is this arrow to the horizontal plane, where 0 is '3 o'clock' and angles are measured counter-clockwise,
+        so 90 is 12 o'clock and 270 is 6 o'clock.
   - type: input
     id: axis_stack
     attributes:
