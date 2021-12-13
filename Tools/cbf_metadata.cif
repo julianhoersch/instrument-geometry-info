@@ -1,0 +1,66 @@
+_audit.block_id	Diamond_I04
+_diffrn_source.beamline	I04
+_diffrn_source.facility	Diamond
+
+    _array_structure_byte_order         ?
+    _array_structure_compression_type   ?
+    _array_structure.encoding_type      ?
+
+    loop_
+      _diffraction_radiation.type
+      _diffraction_radiation_wavelength.value
+         Synchrotron X-ray Source          0.9794913928630679
+
+    loop_
+      _axis.id
+      _axis.type
+      _axis.equipment
+      _axis.depends_on
+      _axis.vector[1]
+      _axis.vector[2]
+      _axis.vector[3]
+      _axis.offset[1]
+      _axis.offset[2]
+      _axis.offset[3]
+         phi        rotation  goniometer  chi  -1.0 -0.0037 -0.002  0  0  0
+         chi        rotation  goniometer  sam_x  0.0046 0.0372 0.9993  0  0  0
+         omega      rotation  goniometer  .  -1.0 0.0 0.0  0  0  0
+         two_theta  rotation     detector    .          ?   0  0  0  0  0
+         trans      translation  detector    two_theta  0   0  1  0  0  287.2224260231453
+         detx       translation  detector    trans      0   1  0  2224.980974985656  0  0
+         dety       translation  detector    trans      -1  0  0  0  2299.962008717926  0
+
+    loop_
+      _array_structure_list_axis.axis_id
+      _array_structure_list_axis.axis_set_id
+      _array_structure_list_axis.start
+      _array_structure_list_axis.displacement_increment
+         detx                    1                    0                  0.075
+         dety                    2                    0                  0.075
+
+    loop_
+      _array_structure_list.array_id
+      _array_structure_list.axis_set_id
+      _array_structure_list.direction
+      _array_structure_list.index
+      _array_structure_list.precedence
+      _array_structure_list.dimension
+         1             1             increasing             1             1       4148
+         1             2             increasing             2             2       4362
+
+    loop_
+      _diffrn_detector.id
+      _diffrn_detector.number_of_axes
+         1                        2
+
+    loop_
+      _diffrn_detector_axis.axis_id
+      _diffrn_detector_axis.detector_id
+         detx                     1
+         dety                     1
+
+    _diffrn_scan_axis.axis_id                omega
+    _diffrn_scan_axis.angle_start            0.0 359.90000000000003
+    _diffrn_scan_axis.displacement_start     0  0
+    _diffrn_scan_axis.angle_increment        0.1 0.1
+    _diffrn_scan_frame_axis.angle_increment  0.1 0.1
