@@ -11,10 +11,12 @@ _diffrn_source.facility	Diamond
     _array_structure_compression_type   ?
     _array_structure.encoding_type      ?
 
-    loop_
-      _diffraction_radiation.type
-      _diffraction_radiation_wavelength.value
-         %(RADN_TYPE)s          %(RADN_WAVELEN)s
+   _diffraction_radiation.type     %(RADN_TYPE)s
+ 
+ loop_
+      _diffrn_radiation_wavelength.id
+      _diffrn_radiation_wavelength.value
+       1          %(RADN_WAVELEN)s
 
     loop_
       _axis.id
