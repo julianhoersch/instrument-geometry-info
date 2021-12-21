@@ -1,5 +1,7 @@
 from argparse import ArgumentParser
+from glob import glob
 import h5py as h5
+import re
 import sys
 
 DLS_I04_TEMPLATE = """\
@@ -66,11 +68,20 @@ _diffrn_source.facility	Diamond
          detx                     1
          dety                     1
 
+    _diffrn_scan.frames                      %(N_FRAMES)s
     _diffrn_scan_axis.axis_id                %(SCAN_AXIS)s
     _diffrn_scan_axis.angle_start            %(SCAN_START)s
-    _diffrn_scan_axis.displacement_start     0  0
+    _diffrn_scan_axis.displacement_start     0
     _diffrn_scan_axis.angle_increment        %(SCAN_INCR)s
     _diffrn_scan_frame_axis.angle_increment  %(SCAN_INCR)s
+
+    loop_
+      _array_data_external_data.id
+      _array_data_external_data.format
+      _array_data_external_data.uri
+      _array_data_external_data.path
+      _array_data_external_data.frame
+%(DATA_FRAME_LINKS)s
 """
 
 class DLS_I04_MAP:
@@ -148,16 +159,18 @@ class DLS_I04_MAP:
         }
 
         self.items['scan_info'] = {
+           'nframes_tag': 'N_FRAMES',
+           'nframes_value': 0,
            'axisid_tag': 'SCAN_AXIS',
            'axisid_name': '',
            'axstart_tag': 'SCAN_START',
-           'axstart_range': '',
+           'axstart_value': '',
            'axincr_tag': 'SCAN_INCR',
-           'axincr_range': ''
+           'axincr_value': ''
         }
     
 
-    def extract_from_hdf5(self, fn):
+    def extract_from_hdf5(self, fn, fpath_stem, imgfiles):
 
         tags_dict = {}
         scan_axes = {'phi': False, 'chi': False, 'omega': False }
@@ -170,11 +183,11 @@ class DLS_I04_MAP:
                 if len(h5item[()]) > 1:
                     print(' ... identified as scan axis')
                     self.items['scan_info']['axisid_name'] = k
-                    self.items['scan_info']['axstart_range'] = \
-                      f'{h5item[()][0]} {h5item[()][-1]}'
+                    n_frames = len(h5item[()])
+                    self.items['scan_info']['nframes_value'] = n_frames
+                    self.items['scan_info']['axstart_value'] = f'{h5item[()][0]}'
                     incr_range = f[f'entry/sample/transformations/{k}_increment_set'][()]
-                    self.items['scan_info']['axincr_range'] = \
-                      f'{incr_range[0]} {incr_range[-1]}'
+                    self.items['scan_info']['axincr_value'] = f'{incr_range[0]}'
 
 
                 # the transformation 'type' attribute is a bytestring tb. coverted to string
@@ -214,13 +227,24 @@ class DLS_I04_MAP:
                              ]:
                 tags_dict[tag] = item
 
-            print('Collect INFO for scan axis')
-            sdict = self.items['scan_info']
-            for tag, item in [(sdict['axisid_tag'], sdict['axisid_name']),
-                              (sdict['axstart_tag'], sdict['axstart_range']),
-                              (sdict['axincr_tag'], sdict['axincr_range'])
-                             ]:
-                tags_dict[tag] = item
+        print('Collect INFO for scan axis')
+        sdict = self.items['scan_info']
+        for tag, item in [(sdict['nframes_tag'], sdict['nframes_value']),
+                          (sdict['axisid_tag'], sdict['axisid_name']),
+                          (sdict['axstart_tag'], sdict['axstart_value']),
+                          (sdict['axincr_tag'], sdict['axincr_value'])
+                         ]:
+            tags_dict[tag] = item
+
+        if n_frames != len(imgfiles):
+            print(' WARNING!\n'
+                  ' N(scan frames) in master file differs from N(image files).\n'
+                  ' Frame links will be truncated to available information.'
+                  )
+        frame_links = '' 
+        for i, fnpath in enumerate(imgfiles):
+            frame_links += f'        {(i+1):-4d} CBF file://{fnpath} _array_data.data 1\n'
+        tags_dict['DATA_FRAME_LINKS'] = frame_links
 
         return tags_dict
 
@@ -230,16 +254,42 @@ class DLS_I04_MAP:
             f.write(self.template % tags)
 
 
+def check_cbf_array(fn):
+    '''
+    For CBF data: get layout of the binary data array 
+    '''
+    pass
+
+
+def check_frames_location(fpath_stem):
+    '''
+    Only applicable in case of a local folder with file set
+    '''
+    fnames = sorted(glob(f'{fpath_stem}*.cbf'))
+    print(f'found N = {len(fnames)} files under the path/stem name')
+    if len(fnames) == 0:
+        print(' WARNING!\n'
+              ' No files found matching the pattern;'
+              ' Check correctness of path and stem name'
+             )
+    return fnames
+
+
 def main():
 
     print('imgCIF mapping tool')
+
     ap = ArgumentParser(prog='imgcif_mapper')
     ap.add_argument('infile', type=str, help='path/name of input HDF5 file with metadata')
+    ap.add_argument('frames', type=str, help='path and name stem of external image frames')
     args = ap.parse_args(sys.argv[1:])
+
     print('metadata source is input file:', args.infile)
+    print('external image file location:', '/'.join(args.frames.split('/')[:-1]))
+    imgfiles = check_frames_location(args.frames)
     metadata_map = DLS_I04_MAP()
-    tags = metadata_map.extract_from_hdf5(args.infile)
-    print(tags)
+    tags = metadata_map.extract_from_hdf5(args.infile, args.frames, imgfiles)
+    #print(tags)
     metadata_map.write_imgcif(tags)
 
 if __name__ == '__main__':
