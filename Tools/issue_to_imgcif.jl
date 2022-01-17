@@ -147,8 +147,9 @@ make_detector_axes(raw_info) = begin
     vector = [[missing,0,0],[0,0,1]]
     principal = raw_info["Spindle axis orientation"]
     corner = raw_info["Image orientation"]
+    rot_sense = raw_info["Goniometer axes"][2][1]
     # Work out det_x and det_y
-    x_d,y_d = determine_detx_dety(principal,corner)
+    x_d,y_d = determine_detx_dety(principal,corner,rot_sense)
     push!(vector,x_d)
     push!(vector,y_d)
     # Beam centre is unknown for now
@@ -159,10 +160,14 @@ end
 # Determine direction of detx (horizontal) and dety (vertical) in
 # imgCIF coordinates.
 
-determine_detx_dety(principal_angle,corner) = begin
+determine_detx_dety(principal_angle,corner,rot_dir) = begin
     # Start with basic value and then flip as necessary
-    x_direction = 1        # spindle is at 0, top_left origin
-    y_direction = -1       #
+    x_direction = [1,0,0]        # spindle is at 0, clockwise, top_left origin
+    y_direction = [0,-1,0]       #
+    if rot_dir == "c"            #ie anticlockwise in imgCIF sense
+        x_direction *= -1
+        y_direction *= -1
+    end 
     if corner == "top right"
         x_direction *= -1
     elseif corner == "bottom right"
@@ -172,20 +177,16 @@ determine_detx_dety(principal_angle,corner) = begin
         y_direction *= -1
     end
     if principal_angle == "90"
-        x_direction *= -1
+        temp = x_direction
+        x_direction = y_direction
+        y_direction = -1*temp
     elseif principal_angle == "180"
         x_direction *= -1
         y_direction *= -1
     elseif principal_angle == "270"
-        y_direction *= -1
-    end
-
-    if (principal_angle in ["180","0"])
-        x_direction = [x_direction,0,0]
-        y_direction = [0,y_direction,0]
-    else           
-        x_direction = [0,x_direction,0]
-        y_direction = [y_direction,0,0]
+        temp = x_direction
+        x_direction = -1*y_direction
+        y_direction = temp
     end
     return x_direction,y_direction
 end
