@@ -73,7 +73,7 @@ body:
         For each axis attached to the goniometer, give the axis name (as used in data files if known) and
         sense of rotation (a=anticlockwise, c=clockwise) when looking from the crystal in the direction of the goniometer. Separate
         each value by a comma, for example 'Chi, c, Omega, a'. List the axes in order of stacking from
-        top to bottom (phi is usually topmost, omega is usually bottom-most).
+        closest to the crystal to furthest (phi would typically be first if present, omega is usually last).
   - type: input
     id: gonio_rot
     attributes:
