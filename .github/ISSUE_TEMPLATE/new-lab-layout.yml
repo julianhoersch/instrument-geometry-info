@@ -5,7 +5,7 @@ labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
-      value: |
+      value: >
         # Introduction
         
         Please fill in as much of the following information as possible. This form is not suitable for multi-detector setups. To add a multi-detector setup, please create a
@@ -28,6 +28,13 @@ body:
     attributes:
       label: Model
       description: Please give the manufacturer model name.
+  - type: input
+    id: extra
+    attributes:
+      label: Location
+      description: >
+        If geometry and/or detector varies for the same manufacturer and model, please provide the location of the
+        instrument, for example, "University of Wessex Crystallography Lab"
   - type: markdown
     attributes:
       value: >
