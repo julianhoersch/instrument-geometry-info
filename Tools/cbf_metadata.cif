@@ -2,11 +2,11 @@ _audit.block_id	Diamond_I04
 _diffrn_source.beamline	I04
 _diffrn_source.facility	Diamond
 
-    _array_structure_byte_order         ?
-    _array_structure_compression_type   ?
-    _array_structure.encoding_type      ?
+    _array_structure_byte_order         LITTLE_ENDIAN
+    _array_structure_compression_type   "x-CBF_BYTE_OFFSET"
+    _array_structure.encoding_type      BINARY
 
-   _diffraction_radiation.type     Synchrotron X-ray Source
+   _diffraction_radiation.type     'Synchrotron X-ray Source'
  
  loop_
       _diffrn_radiation_wavelength.id
@@ -27,10 +27,10 @@ _diffrn_source.facility	Diamond
          phi        rotation  goniometer  chi  -1.0 -0.0037 -0.002  0  0  0
          chi        rotation  goniometer  sam_x  0.0046 0.0372 0.9993  0  0  0
          omega      rotation  goniometer  .  -1.0 0.0 0.0  0  0  0
-         two_theta  rotation     detector    .          ?   0  0  0  0  0
-         trans      translation  detector    two_theta  0   0  1  0  0  287.2224260231453
-         detx       translation  detector    trans      0   1  0  2224.980974985656  0  0
-         dety       translation  detector    trans      -1  0  0  0  2299.962008717926  0
+         two_theta  rotation     detector    .          ?   0  0   0  0  0
+         trans      translation  detector    two_theta  0   0  1   0  0  287.2224260231453
+         detx       translation  detector    trans      1   0  0  -2224.980974985656  0  0
+         dety       translation  detector    trans      0  -1  0   0  2299.962008717926  0
 
     loop_
       _array_structure_list_axis.axis_id
@@ -53,47 +53,100 @@ _diffrn_source.facility	Diamond
     loop_
       _diffrn_detector.id
       _diffrn_detector.number_of_axes
-         1                        2
+         det1                        1
 
     loop_
       _diffrn_detector_axis.axis_id
       _diffrn_detector_axis.detector_id
-         detx                     1
-         dety                     1
+         trans                    det1
 
+    loop_
+      _array_data.id
+      _array_data.external_format
+      _array_data.external_location_uri
+        ext1    CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0001.cbf
+        ext2    CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0002.cbf
+        ext3    CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0003.cbf
+        ext4    CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0004.cbf
+        ext5    CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0005.cbf
+        ext6    CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0006.cbf
+        ext7    CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0007.cbf
+        ext8    CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0008.cbf
+        ext9    CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0009.cbf
+        ext10   CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0010.cbf
+        ext11   CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0011.cbf
+        ext12   CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0012.cbf
+        ext13   CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0013.cbf
+        ext14   CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0014.cbf
+        ext15   CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0015.cbf
+        ext16   CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0016.cbf
+        ext17   CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0017.cbf
+        ext18   CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0018.cbf
+        ext19   CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0019.cbf
+        ext20   CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0020.cbf
+        ext21   CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f1810.cbf
+        ext22   CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f3600.cbf
+
+
+    loop_
+      _diffrn_data_frame.id
+      _diffrn_data_frame.binary_id
+      _diffrn_data_frame.array_id
+           1  ext1    1
+           2  ext2    1
+           3  ext3    1
+           4  ext4    1
+           5  ext5    1
+           6  ext6    1
+           7  ext7    1
+           8  ext8    1
+           9  ext9    1
+          10  ext10   1
+          11  ext11   1
+          12  ext12   1
+          13  ext13   1
+          14  ext14   1
+          15  ext15   1
+          16  ext16   1
+          17  ext17   1
+          18  ext18   1
+          19  ext19   1
+          20  ext20   1
+          21  ext21   1
+          22  ext22   1
+
+
+    _diffrn_scan.id SCAN1
     _diffrn_scan.frames                      3600
     _diffrn_scan_axis.axis_id                omega
     _diffrn_scan_axis.angle_start            0.0
     _diffrn_scan_axis.displacement_start     0
     _diffrn_scan_axis.angle_increment        0.1
-    _diffrn_scan_frame_axis.angle_increment  0.1
 
     loop_
-      _array_data_external_data.id
-      _array_data_external_data.format
-      _array_data_external_data.uri
-      _array_data_external_data.path
-      _array_data_external_data.frame
-           1 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0001.cbf _array_data.data 1
-           2 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0002.cbf _array_data.data 1
-           3 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0003.cbf _array_data.data 1
-           4 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0004.cbf _array_data.data 1
-           5 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0005.cbf _array_data.data 1
-           6 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0006.cbf _array_data.data 1
-           7 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0007.cbf _array_data.data 1
-           8 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0008.cbf _array_data.data 1
-           9 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0009.cbf _array_data.data 1
-          10 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0010.cbf _array_data.data 1
-          11 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0011.cbf _array_data.data 1
-          12 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0012.cbf _array_data.data 1
-          13 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0013.cbf _array_data.data 1
-          14 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0014.cbf _array_data.data 1
-          15 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0015.cbf _array_data.data 1
-          16 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0016.cbf _array_data.data 1
-          17 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0017.cbf _array_data.data 1
-          18 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0018.cbf _array_data.data 1
-          19 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0019.cbf _array_data.data 1
-          20 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f0020.cbf _array_data.data 1
-          21 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f1810.cbf _array_data.data 1
-          22 CBF file:///home/fabio/Devel/COMCIFS/CBF-RUNS/6RLR/s01f3600.cbf _array_data.data 1
-
+      _diffrn_scan_frame.frame_id
+      _diffrn_scan_frame.scan_id
+      _diffrn_scan_frame.frame_number
+           1  SCAN1    1
+           2  SCAN1    2
+           3  SCAN1    3
+           4  SCAN1    4
+           5  SCAN1    5
+           6  SCAN1    6
+           7  SCAN1    7
+           8  SCAN1    8
+           9  SCAN1    9
+          10  SCAN1   10
+          11  SCAN1   11
+          12  SCAN1   12
+          13  SCAN1   13
+          14  SCAN1   14
+          15  SCAN1   15
+          16  SCAN1   16
+          17  SCAN1   17
+          18  SCAN1   18
+          19  SCAN1   19
+          20  SCAN1   20
+          21  SCAN1   21
+          22  SCAN1   22
+      

@@ -1,19 +1,59 @@
+'''
+Conversion of metadata information from various input formats
+[WIP: currently HDF5 NxMx]
+to imgCIF output
+'''
+
 from argparse import ArgumentParser
 from glob import glob
 import h5py as h5
 import re
 import sys
 
+class CBF_ARRAY_INFO:
+
+    '''
+    For CBF data: class to map data array properties
+    from a miniCBF header
+    '''
+
+    def __init__(self):
+
+        self.items = {
+            'order_tag': 'BYTE_ORDER',
+            'order_src': 'X-Binary-Element-Byte-Order',
+            'compr_tag': 'BYTE_COMPRN',
+            'compr_src': 'conversions=',
+            'encod_tag': 'BYTE_ENCODE',
+            'encod_src': 'Content-Transfer-Encoding'
+        }
+
+    def extract_from_header(self, fn):
+        with open(fn, 'rb') as f:
+            raw_header = f.read(4096).decode('latin-1')
+            header_lines = raw_header.splitlines()
+        tags_dict = {}
+        for ln in header_lines:
+            if self.items['order_src'] in ln:
+                tags_dict[self.items['order_tag']] = ln.split()[-1]
+            if self.items['encod_src'] in ln:
+                tags_dict[self.items['encod_tag']] = ln.split()[-1]
+            if self.items['compr_src'] in ln:
+                tags_dict[self.items['compr_tag']] = ln.split('=')[-1]
+        return tags_dict
+
+    
+
 DLS_I04_TEMPLATE = """\
 _audit.block_id	Diamond_I04
 _diffrn_source.beamline	I04
 _diffrn_source.facility	Diamond
 
-    _array_structure_byte_order         ?
-    _array_structure_compression_type   ?
-    _array_structure.encoding_type      ?
+    _array_structure_byte_order         %(BYTE_ORDER)s
+    _array_structure_compression_type   %(BYTE_COMPRN)s
+    _array_structure.encoding_type      %(BYTE_ENCODE)s
 
-   _diffraction_radiation.type     %(RADN_TYPE)s
+   _diffraction_radiation.type     '%(RADN_TYPE)s'
  
  loop_
       _diffrn_radiation_wavelength.id
@@ -34,10 +74,10 @@ _diffrn_source.facility	Diamond
          phi        %(PHI_TYPE)s  goniometer  %(PHI_DEP)s  %(PHI_OVEC)s  0  0  0
          chi        %(CHI_TYPE)s  goniometer  %(CHI_DEP)s  %(CHI_OVEC)s  0  0  0
          omega      %(OMG_TYPE)s  goniometer  %(OMG_DEP)s  %(OMG_OVEC)s  0  0  0
-         two_theta  rotation     detector    .          ?   0  0  0  0  0
-         trans      translation  detector    two_theta  0   0  1  0  0  %(DET_ZDIST)s
-         detx       translation  detector    trans      0   1  0  %(DET_BMCENT_X)s  0  0
-         dety       translation  detector    trans      -1  0  0  0  %(DET_BMCENT_Y)s  0
+         two_theta  rotation     detector    .          ?   0  0   0  0  0
+         trans      translation  detector    two_theta  0   0  1   0  0  %(DET_ZDIST)s
+         detx       translation  detector    trans      1   0  0  -%(DET_BMCENT_X)s  0  0
+         dety       translation  detector    trans      0  -1  0   0  %(DET_BMCENT_Y)s  0
 
     loop_
       _array_structure_list_axis.axis_id
@@ -60,31 +100,44 @@ _diffrn_source.facility	Diamond
     loop_
       _diffrn_detector.id
       _diffrn_detector.number_of_axes
-         1                        2
+         det1                        1
 
     loop_
       _diffrn_detector_axis.axis_id
       _diffrn_detector_axis.detector_id
-         detx                     1
-         dety                     1
+         trans                    det1
 
+    loop_
+      _array_data.id
+      _array_data.external_format
+      _array_data.external_location_uri
+%(DATA_EXT_LINKS)s
+
+    loop_
+      _diffrn_data_frame.id
+      _diffrn_data_frame.binary_id
+      _diffrn_data_frame.array_id
+%(DATA_FRAME_IDS)s
+
+    _diffrn_scan.id SCAN1
     _diffrn_scan.frames                      %(N_FRAMES)s
     _diffrn_scan_axis.axis_id                %(SCAN_AXIS)s
     _diffrn_scan_axis.angle_start            %(SCAN_START)s
     _diffrn_scan_axis.displacement_start     0
     _diffrn_scan_axis.angle_increment        %(SCAN_INCR)s
-    _diffrn_scan_frame_axis.angle_increment  %(SCAN_INCR)s
 
     loop_
-      _array_data_external_data.id
-      _array_data_external_data.format
-      _array_data_external_data.uri
-      _array_data_external_data.path
-      _array_data_external_data.frame
-%(DATA_FRAME_LINKS)s
+      _diffrn_scan_frame.frame_id
+      _diffrn_scan_frame.scan_id
+      _diffrn_scan_frame.frame_number
+%(SCAN_FRAME_IDS)s      
 """
 
 class DLS_I04_MAP:
+
+    '''
+    Class to map from a Diamond Light Source HDF5-NxMx master 
+    '''
 
     def __init__(self):
 
@@ -168,7 +221,6 @@ class DLS_I04_MAP:
            'axincr_tag': 'SCAN_INCR',
            'axincr_value': ''
         }
-    
 
     def extract_from_hdf5(self, fn, fpath_stem, imgfiles):
 
@@ -236,15 +288,29 @@ class DLS_I04_MAP:
                          ]:
             tags_dict[tag] = item
 
+        '''
+        Verify that the number of external files matches
+        the specified array size as in the metadata.
+        '''
         if n_frames != len(imgfiles):
             print(' WARNING!\n'
                   ' N(scan frames) in master file differs from N(image files).\n'
                   ' Frame links will be truncated to available information.'
                   )
-        frame_links = '' 
+        '''
+        Construct the required three loops related to scan frames,
+        data/image files and the binary IDs that map the frames to files.
+        '''
+        frame_links = ''
+        frame_ids = ''
+        scan_frames = '' 
         for i, fnpath in enumerate(imgfiles):
-            frame_links += f'        {(i+1):-4d} CBF file://{fnpath} _array_data.data 1\n'
-        tags_dict['DATA_FRAME_LINKS'] = frame_links
+            frame_links += f'        ext{(i+1):<4} CBF file://{fnpath}\n'
+            frame_ids   += f'        {(i+1):4}  ext{(i+1):<4} 1\n'
+            scan_frames += f'        {(i+1):4}  SCAN1 {(i+1):4}\n'
+        tags_dict['DATA_EXT_LINKS'] = frame_links
+        tags_dict['DATA_FRAME_IDS'] = frame_ids
+        tags_dict['SCAN_FRAME_IDS'] = scan_frames
 
         return tags_dict
 
@@ -252,13 +318,6 @@ class DLS_I04_MAP:
 
         with open('cbf_metadata.cif', 'w') as f:
             f.write(self.template % tags)
-
-
-def check_cbf_array(fn):
-    '''
-    For CBF data: get layout of the binary data array 
-    '''
-    pass
 
 
 def check_frames_location(fpath_stem):
@@ -287,9 +346,11 @@ def main():
     print('metadata source is input file:', args.infile)
     print('external image file location:', '/'.join(args.frames.split('/')[:-1]))
     imgfiles = check_frames_location(args.frames)
+    data_array_info = CBF_ARRAY_INFO()
+    byte_tags = data_array_info.extract_from_header(imgfiles[0])
     metadata_map = DLS_I04_MAP()
-    tags = metadata_map.extract_from_hdf5(args.infile, args.frames, imgfiles)
-    #print(tags)
+    hdf5_tags = metadata_map.extract_from_hdf5(args.infile, args.frames, imgfiles)
+    tags = {**byte_tags, **hdf5_tags}
     metadata_map.write_imgcif(tags)
 
 if __name__ == '__main__':
