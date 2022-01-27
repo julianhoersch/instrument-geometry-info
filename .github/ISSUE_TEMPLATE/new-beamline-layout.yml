@@ -15,18 +15,34 @@ body:
     attributes:
       label: Facility name
       options:
+        - Alba
+        - ANKA
         - APS
-        - Spring-8
-        - KEK-PF
         - Australian Synchrotron
-        - J-PARC
-        - ESRF
-        - ILL
-        - Oak Ridge
+        - DESY
         - Diamond
         - ESS
-        - ANKA
+        - Elettra
+        - ESRF
+        - EUXFEL
+        - FRM II
+        - HZDR
+        - HZB
+        - ILL
+        - ISIS
+        - J-PARC
         - KAERI
+        - KEK-PF
+        - MAXIV
+        - NSLS II
+        - NIST NCNR
+        - Oak Ridge National Laboratory
+        - PSI
+        - Sesame
+        - SLAC
+        - Sirius
+        - Soleil
+        - Spring-8
         - Other (please write name in the comments at end of form)
   - type: input
     id: beamline
