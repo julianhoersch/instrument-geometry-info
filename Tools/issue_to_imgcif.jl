@@ -125,7 +125,7 @@ make_gonio_axes(raw_info) = begin
 end
         
 """
-        make_detector_axes(raw_info,principal_rot)
+        make_detector_axes(raw_info)
 
     Add information concerning the detector axes. We define our own axis names,
     with the detector distance being inserted when the data file is read. We
@@ -137,6 +137,9 @@ end
     4. vector -> worked out from user-provided info
     5. offset -> beam centre
 
+    Note that the imgCIF X axis is always from the sample to the goniometer,
+    in particular, it does not change direction depending on the sense of
+    rotation of the goniometer.
 """
 make_detector_axes(raw_info) = begin
     axis_id = ["two_theta","trans","detx","dety"]
@@ -147,9 +150,8 @@ make_detector_axes(raw_info) = begin
     vector = [[missing,0,0],[0,0,1]]
     principal = raw_info["Spindle axis orientation"]
     corner = raw_info["Image orientation"]
-    rot_sense = raw_info["Goniometer axes"][2][1]
     # Work out det_x and det_y
-    x_d,y_d = determine_detx_dety(principal,corner,rot_sense)
+    x_d,y_d = determine_detx_dety(principal,corner)
     push!(vector,x_d)
     push!(vector,y_d)
     # Beam centre is unknown for now
@@ -160,14 +162,10 @@ end
 # Determine direction of detx (horizontal) and dety (vertical) in
 # imgCIF coordinates.
 
-determine_detx_dety(principal_angle,corner,rot_dir) = begin
+determine_detx_dety(principal_angle,corner) = begin
     # Start with basic value and then flip as necessary
-    x_direction = [1,0,0]        # spindle is at 0, clockwise, top_left origin
+    x_direction = [1,0,0]        # spindle is at 0, top_left origin
     y_direction = [0,-1,0]       #
-    if rot_dir == "c"            #ie anticlockwise in imgCIF sense
-        x_direction *= -1
-        y_direction *= -1
-    end 
     if corner == "top right"
         x_direction *= -1
     elseif corner == "bottom right"
