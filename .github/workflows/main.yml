@@ -76,7 +76,9 @@ jobs:
       - name: check_all_files
         run: |
                julia -e 'using Pkg; Pkg.status()'
-               for file in ./Examples
+               pwd
+               ls Examples
+               for file in Examples/*.cif
                do      
                   echo "Checking $file"
                   julia -O0 ./imgcifhandler/tools/image_tests.jl $file
