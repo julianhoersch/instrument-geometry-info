@@ -30,6 +30,8 @@ jobs:
       # Check syntax of all CIF files
         - name: check_syntax
           uses: COMCIFS/cif_syntax_check_action@master
+          with:
+            check-dictionary: Examples
           id: cif_syntax_check
   conformance:
     runs-on: ubuntu-latest
