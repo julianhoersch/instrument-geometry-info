@@ -31,7 +31,7 @@ jobs:
         - name: check_syntax
           uses: COMCIFS/cif_syntax_check_action@master
           with:
-            check-dictionary: Examples
+            check-directory: Examples
           id: cif_syntax_check
   conformance:
     runs-on: ubuntu-latest
@@ -79,7 +79,7 @@ jobs:
                for file in Examples/*.cif
                do      
                   echo "Checking $file"
-                  julia -O0 ./imgcifhandler/tools/image_check.jl $file
+                  julia -O0 ./imgcifhandler/tools/image_tests.jl $file
                   if [ $? != 0 ] 
                   then 
                     exit 1 ;
