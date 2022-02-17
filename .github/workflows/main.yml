@@ -77,7 +77,7 @@ jobs:
         run: |
                julia -e 'using Pkg; Pkg.status()'
                pwd
-               ls Examples
+               ls
                for file in Examples/*.cif
                do      
                   echo "Checking $file"
