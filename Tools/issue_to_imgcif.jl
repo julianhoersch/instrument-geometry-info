@@ -147,7 +147,7 @@ make_detector_axes(raw_info) = begin
     axis_type[1] = "rotation"
     equip = fill("detector",4)
     depends_on = [nothing,"two_theta","trans","trans"]
-    vector = [[missing,0,0],[0,0,1]]
+    vector = [[missing,0,0],[0,0,-1]]
     principal = raw_info["Spindle axis orientation"]
     corner = raw_info["Image orientation"]
     # Work out det_x and det_y
