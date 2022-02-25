@@ -148,7 +148,7 @@ make_detector_axes(raw_info) = begin
     equip = fill("detector",4)
     depends_on = [nothing,"two_theta","trans","trans"]
     vector = [[missing,0,0],[0,0,1]]
-    principal = raw_info["Spindle axis orientation"]
+    principal = raw_info["Principal axis orientation"]
     corner = raw_info["Image orientation"]
     # Work out det_x and det_y
     x_d,y_d = determine_detx_dety(principal,corner)
@@ -263,15 +263,30 @@ end
 
 describe_facility(raw_info,imgblock) = begin
     base = "_diffrn_source."
-    imgblock[base*"beamline"] = [raw_info["Beamline name"]]
-    imgblock[base*"facility"] = [raw_info["Facility name"]]
+    if haskey(raw_info,"Beamline name")
+        imgblock[base*"beamline"] = [raw_info["Beamline name"]]
+        imgblock[base*"facility"] = [raw_info["Facility name"]]
+    else
+        imgblock[base*"make"] = [raw_info["Name of manufacturer"]*"-"*raw_info["Model"]]
+        if haskey(raw_info,"Location")
+            imgblock[base*"details"] = ["Located at $(raw_info["Location"])"]
+        end
+    end
 end
 
 
 make_block_id(raw_info) = begin
-    fname = replace(raw_info["Facility name"],r"[^A-Za-z0-9_]"=>"_")
-    bline = replace(raw_info["Beamline name"],r"[^A-Za-z0-9_]"=>"_")
-    block_id = fname*"_"*bline
+    repregex = r"[^A-Za-z0-9_]"
+    if haskey(raw_info,"Facility name")
+        fname = replace(raw_info["Facility name"],repregex=>"_")
+        bline = replace(raw_info["Beamline name"],repregex=>"_")
+        block_id = fname*"_"*bline
+    else
+        mname = replace(raw_info["Name of manufacturer"],repregex=>"_")
+        model = replace(raw_info["Model"],repregex=>"_")
+        loc = replace(get(raw_info,"Location",""),repregex=>"_")
+        block_id = mname*"_"*model
+    end
     return block_id
 end
 
@@ -314,10 +329,18 @@ end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     if length(ARGS) < 1
-        println("Usage: julia issue_to_imgcif.jl <issue_number>")
+        println("Usage: julia issue_to_imgcif.jl [-r] <issue_number>")
         println("""
 <issue_number> is an issue number in the Github instrument-geometry-info
-repository that has been created by the automatic submission tool.""")
+repository that has been created by the automatic submission tool.
+     Use option -r to see the raw information downloaded from Github.""")
+    elseif length(ARGS) == 2
+        if ARGS[1] == "-r"
+            issue_number = ARGS[2]
+            println(issue_number |> get_issue)
+        else
+            throw(error("Incorrect option, only -r recognised"))
+        end
     else
         issue_number = ARGS[1]
         final_block = issue_number |> get_issue |> parse_issue |> post_process |> create_cif_block
