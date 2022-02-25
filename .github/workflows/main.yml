@@ -30,6 +30,8 @@ jobs:
       # Check syntax of all CIF files
         - name: check_syntax
           uses: COMCIFS/cif_syntax_check_action@master
+          with:
+            check-directory: Examples
           id: cif_syntax_check
   conformance:
     runs-on: ubuntu-latest
@@ -52,8 +54,8 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
                julia -e 'import Pkg;Pkg.add(["CrystalInfoFramework","Lerche","FilePaths","ArgParse"])'
-               julia -e 'import Pkg;Pkg.add(["https://github.com/jamesrhester/ImgCIFHandler.jl","URIs","Colors"])' 
-               julia -e 'import Pkg;Pkg.add(["ImageInTerminal","ImageContrastAdjustment"])' 
+               julia -e 'import Pkg;Pkg.add(url="https://github.com/jamesrhester/ImgCIFHandler.jl")' 
+               julia -e 'import Pkg;Pkg.add(["Colors","Sixel","ImageInTerminal","ImageContrastAdjustment","URIs"])' 
 
       - name: checkout
         uses: actions/checkout@v2
@@ -71,13 +73,13 @@ jobs:
             pwd
             which julia
 
-      - name: one_dict_layout
+      - name: check_all_files
         run: |
                julia -e 'using Pkg; Pkg.status()'
-               for file in Examples
+               for file in main/Examples/*.cif
                do      
                   echo "Checking $file"
-                  julia -O0 ./imgcifhandler/tools/image_check.jl $file
+                  julia -O0 ./imgcifhandler/tools/image_tests.jl $file
                   if [ $? != 0 ] 
                   then 
                     exit 1 ;
