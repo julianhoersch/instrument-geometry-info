@@ -7,8 +7,45 @@ to imgCIF output
 from argparse import ArgumentParser
 from glob import glob
 import h5py as h5
+import os
 import re
+import requests
 import sys
+
+TOKEN_NAME = 'fda_zen_01'
+ACCESS_TOKEN = '73LIoratcpkJ9uRfRUTY4dOiZBWZMP8BoUfUyrcA2ySlIjBH3kCEGYPybhoI'
+
+def get_files_online(rec_num):
+
+    r = requests.get(f'https://zenodo.org/api/records/{rec_num}',
+        params={'access_token': ACCESS_TOKEN})
+
+    file_list = []
+    for item in r.json()['files']:
+        file_link = item['links']['self']
+        file_name = os.path.split(file_link)[-1]
+        file_list.append((file_link, file_name))
+
+    return file_list
+
+
+def download_master(file_url, file_name):
+
+    r = requests.get(file_url, params={'access_token': ACCESS_TOKEN})
+
+    with open(file_name, 'wb') as f:
+        f.write(r.content)
+
+
+def frames_from_master(file_name):
+
+    with h5.File(file_name, 'r') as f:
+        group = f['entry/data']
+        for key in group:
+            link = group.get(key, getlink=True)
+            if isinstance(link, h5.ExternalLink):
+                print(f'  {key} -> {link.filename}/{link.path}')
+            # how many frames in each?     
 
 class CBF_ARRAY_INFO:
 
@@ -339,19 +376,49 @@ def main():
     print('imgCIF mapping tool')
 
     ap = ArgumentParser(prog='imgcif_mapper')
-    ap.add_argument('infile', type=str, help='path/name of input HDF5 file with metadata')
-    ap.add_argument('frames', type=str, help='path and name stem of external image frames')
+    ap.add_argument('record', type=str, help='record # of the Zenodo repository')
+    ap.add_argument('-i', '--input-file', type=str, help='path/name of input HDF5 file with metadata')
+    ap.add_argument('-f', '--frames', type=str, help='path and name stem of external image frames')
+    ap.add_argument('-a', '--archive', type=str, help='path and name stem of external image frames')
     args = ap.parse_args(sys.argv[1:])
 
-    print('metadata source is input file:', args.infile)
-    print('external image file location:', '/'.join(args.frames.split('/')[:-1]))
-    imgfiles = check_frames_location(args.frames)
-    data_array_info = CBF_ARRAY_INFO()
-    byte_tags = data_array_info.extract_from_header(imgfiles[0])
+    print('record #:',args.record)
+
+    if args.input_file is None:
+        # Default
+        print('taking metadata from online HDF5 master')
+        file_list = get_files_online(args.record)
+        for flink, fname in file_list:
+            print(f'{flink:84s} {fname:20s}')
+            if 'master' in fname:
+                meta_file = fname
+                meta_link = flink
+        print('master found:', meta_file)
+        download_master(meta_link, meta_file)
+    else:
+        # Overrides online mode if present
+        print('metadata source is input file:', args.input_file)
+        if not os.path.exists(args.input_file):
+            print('local input file not found')
+            exit(0)
+        meta_file = args.input_file
+
+    if args.frames is None:
+        print('get image frames from master/repository')
+        frames_from_master(meta_file)
+        # imgfiles = ['a', 'b', 'c']
+    else:
+        print('external image file location:', '/'.join(args.frames.split('/')[:-1]))
+        imgfiles = check_frames_location(args.frames)
+        data_array_info = CBF_ARRAY_INFO()
+        byte_tags = data_array_info.extract_from_header(imgfiles[0])
+    
     metadata_map = DLS_I04_MAP()
-    hdf5_tags = metadata_map.extract_from_hdf5(args.infile, args.frames, imgfiles)
+    hdf5_tags = metadata_map.extract_from_hdf5(meta_file, args.frames, imgfiles)
     tags = {**byte_tags, **hdf5_tags}
     metadata_map.write_imgcif(tags)
 
 if __name__ == '__main__':
+
     main()
+
