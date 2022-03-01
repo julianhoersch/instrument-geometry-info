@@ -101,6 +101,7 @@ The items we have to fill in are:
 
 Note that our questions assume looking from above whereas imgCIF is looking from
 below, so the sense of rotation is reversed.
+
 """
 make_gonio_axes(raw_info) = begin
     n = length(raw_info["Goniometer axes"][1])
@@ -111,19 +112,46 @@ make_gonio_axes(raw_info) = begin
         push!(depends_on,i)
     end
     push!(depends_on,nothing)
-    # Direction of rotation: either [100] or [-100] unless kappa (not yet covered)
+    kappa_axis = split(get(raw_info,"kappa","- - -"),[' ',','])[1]
     vector = Vector{Union{Missing,Real}}[]
-    for d in raw_info["Goniometer axes"][2]
-        if d == "c"
-            push!(vector,[-1,0,0])
+    for (a,d) in zip(raw_info["Goniometer axes"]...)
+        rotfac = d == "c" ? -1 : 1
+        if a == kappa_axis
+            push!(vector,get_kappa_info(raw_info)*rotfac)
         else
-            push!(vector,[1,0,0])
+            push!(vector,[1,0,0]*rotfac)
         end
     end
     offset = fill(Union{Missing,Real}[0,0,0],n)
     return raw_info["Goniometer axes"][1],axis_type,equip,depends_on,vector,offset
 end
-        
+
+#
+#
+#
+get_kappa_info(raw_info) = begin
+    all_axes = raw_info["Goniometer axes"]
+    kinfo = split(raw_info["kappa"],[' ',','],keepempty=false)
+    if length(kinfo) == 2 push!(kinfo,"0") end
+    axname = kinfo[1]
+    if !(axname in all_axes[1])
+        throw(error("Kappa axis $axname not listed as a goniometer axis"))
+    end
+    kapang = parse(Float64,kinfo[2])
+    kappoise = parse(Float64,kinfo[3])
+    # Now calculate direction of axis
+    dwn_comp = cosd(kapang)
+    across_comp = sind(kapang)
+    x_comp = -1*dwn_comp
+    if kappoise == 0
+        #is under incident beam collimator in X-Z plane
+        z_comp = -1*across_comp
+    elseif kappoise == 180
+        z_comp = across_comp
+    end
+    return [x_comp,0.0,z_comp]
+end
+
 """
         make_detector_axes(raw_info)
 
@@ -333,11 +361,15 @@ if abspath(PROGRAM_FILE) == @__FILE__
         println("""
 <issue_number> is an issue number in the Github instrument-geometry-info
 repository that has been created by the automatic submission tool.
-     Use option -r to see the raw information downloaded from Github.""")
+     Use option -r to see the raw information downloaded from Github and
+     -rr to see the parsed information.""")
     elseif length(ARGS) == 2
         if ARGS[1] == "-r"
             issue_number = ARGS[2]
             println(issue_number |> get_issue)
+        elseif ARGS[1] == "-rr"
+            issue_number = ARGS[2]
+            println(issue_number |> get_issue |> parse_issue |> post_process)
         else
             throw(error("Incorrect option, only -r recognised"))
         end
