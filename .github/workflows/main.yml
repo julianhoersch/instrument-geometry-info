@@ -54,7 +54,7 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
                julia -e 'import Pkg;Pkg.add(["CrystalInfoFramework","Lerche","FilePaths","ArgParse"])'
-               julia -e 'import Pkg;Pkg.add(url="https://github.com/jamesrhester/ImgCIFHandler.jl")' 
+               julia -e 'import Pkg;Pkg.add("ImgCIFHandler")' 
                julia -e 'import Pkg;Pkg.add(["Colors","Sixel","ImageInTerminal","ImageContrastAdjustment","URIs"])' 
 
       - name: checkout
