@@ -108,13 +108,19 @@ body:
       description: >
          The size of pixels in mm in order horizontal, vertical (eg '0.12, 0.15'). If identical sizes, a single number is sufficient. 
          Pixels are assumed to have no space between them, if this is not the case please write in the comments section below.
+  - type: input
+    id: two_theta
+    attributes:
+      label: Two theta axis
+      description: >
+        When looking from above, what is the sense of rotation of the two theta axis?
   - type: textarea
     id: det_axis_stack
     attributes:
-      label: Detector axes
+      label: Other detector axes
       description: >
         If the detector is repositioned during data collection (excluding distance from the
-        sample), please name the repositioning axes as they appear in data files, classify the
+        sample and two theta), please name the repositioning axes as they appear in data files, classify the
         axes as rotation or translation, and
         explain their relationship to one another.
   - type: textarea
