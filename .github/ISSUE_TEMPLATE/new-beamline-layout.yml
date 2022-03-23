@@ -144,7 +144,7 @@ body:
         If the detector is repositioned during data collection (excluding distance from the
         sample), please name the repositioning axes as they appear in data files, classify the
         axes as rotation or translation, and
-        explain their relationship to one another.
+        explain their relationship to one another, including direction of rotation/translation.
   - type: textarea
     id: xds
     attributes:
