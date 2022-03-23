@@ -129,6 +129,13 @@ body:
       options:
         - horizontal
         - vertical
+  - type: input
+    id: pixsize
+    attributes:
+      label: Pixel size
+      description: >
+         The size of pixels in mm in order horizontal, vertical (eg '0.12, 0.15'). If identical sizes, a single number is sufficient. 
+         Pixels are assumed to have no space between them, if this is not the case please write in the comments section below.
   - type: textarea
     id: det_axis_stack
     attributes:
