@@ -84,22 +84,32 @@ class CBF_ARRAY_INFO:
 
 
     def set_void_tags(self):
-
-        # construct for HDF5-only use 
-
+        '''
+        construct imgCIF definitions for HDF5-only use w/o content
+        note that this block is not written at all currently, the
+        method is for 'reserve' 
+        '''
         return {'BYTE_ORDER': 'n/a', 'BYTE_ENCODE': 'n/a', 'BYTE_COMPRN': 'n/a'} 
-    
+
+
+# template for CBF image byte information, conditionally used
+
+BYTE_INFO_TEMPLATE = """\
+    _array_structure_byte_order         %(BYTE_ORDER)s
+    _array_structure_compression_type   %(BYTE_COMPRN)s
+    _array_structure.encoding_type      %(BYTE_ENCODE)s
+
+"""
+
+# master template for the imgCIF output with DLS data
 
 DLS_I04_TEMPLATE = """\
 _audit.block_id	Diamond_I04
 _diffrn_source.beamline	I04
 _diffrn_source.facility	Diamond
 
-    _array_structure_byte_order         %(BYTE_ORDER)s
-    _array_structure_compression_type   %(BYTE_COMPRN)s
-    _array_structure.encoding_type      %(BYTE_ENCODE)s
-
-   _diffrn_radiation.type     '%(RADN_TYPE)s'
+%(BYTE_INFO_BLOCK)s
+    _diffrn_radiation.type     '%(RADN_TYPE)s'
  
  loop_
       _diffrn_radiation_wavelength.id
@@ -448,21 +458,23 @@ def main():
     if args.frames is None:
         print('get image frames from master/repository')
         imgfiles = frames_from_master(meta_file)
-        byte_tags = data_array_info.set_void_tags()
+        byte_tags = data_array_info.set_void_tags()  # not used at all under this condition
+        byte_block_str = ''
         mode = 'hdf5'
     else:
         print('external image file location:', '/'.join(args.frames.split('/')[:-1]))
         imgfiles = check_frames_location(args.frames)
         byte_tags = data_array_info.extract_from_header(imgfiles[0])
+        byte_block_str = BYTE_INFO_TEMPLATE % (byte_tags)
         mode = 'hybrid'
     
     metadata_map = DLS_I04_MAP()
     metadata_tags = metadata_map.extract_from_hdf5(meta_file, args.frames, imgfiles)
 
-    if args.frames is None:
+    if mode == 'hdf5':
         n_frames = metadata_map.items['scan_info']['nframes_value']
         print(f'{n_frames} frames in {len(imgfiles)} HDF5 data files.')
-        print('Please give a list of frames per file (info not available from the master)')
+        print('Please give a list of N(frames) per file (info missing in the master)')
         user_str = input(' > ')
         for pattern in [' ', ',', ', ']:
             try:
@@ -471,13 +483,13 @@ def main():
                 continue
         for i, fn in enumerate(imgfiles):
             print(fn, frame_nums[i])
-        #framelink_tags = metadata_map.fill_frame_info_cbf(n_frames, imgfiles)
         framelink_tags = metadata_map.fill_frame_info_hdf5(args.record, imgfiles, frame_nums)
     else:
         framelink_tags = metadata_map.fill_frame_info_cbf(len(imgfiles), imgfiles)
 
-    tags = {**byte_tags, **metadata_tags, **framelink_tags}
+    tags = {'BYTE_INFO_BLOCK': byte_block_str, **metadata_tags, **framelink_tags}
     metadata_map.write_imgcif(tags)
+
 
 if __name__ == '__main__':
 

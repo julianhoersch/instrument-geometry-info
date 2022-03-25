@@ -2,9 +2,6 @@ _audit.block_id	Diamond_I04
 _diffrn_source.beamline	I04
 _diffrn_source.facility	Diamond
 
-    _array_structure_byte_order         n/a
-    _array_structure_compression_type   n/a
-    _array_structure.encoding_type      n/a
 
    _diffrn_radiation.type     'Synchrotron X-ray Source'
  
