@@ -118,7 +118,7 @@ _diffrn_source.facility	Diamond
       _axis.offset[2]
       _axis.offset[3]
          phi        %(PHI_TYPE)s  goniometer  %(PHI_DEP)s  %(PHI_OVEC)s  0  0  0
-         chi        %(CHI_TYPE)s  goniometer  %(CHI_DEP)s  %(CHI_OVEC)s  0  0  0
+         chi        %(CHI_TYPE)s  goniometer  omega  %(CHI_OVEC)s  0  0  0
          omega      %(OMG_TYPE)s  goniometer  %(OMG_DEP)s  %(OMG_OVEC)s  0  0  0
          two_theta  rotation     detector    .          ?   0  0   0  0  0
          trans      translation  detector    two_theta  0   0  1   0  0  %(DET_ZDIST)s
@@ -130,8 +130,8 @@ _diffrn_source.facility	Diamond
       _array_structure_list_axis.axis_set_id
       _array_structure_list_axis.displacement
       _array_structure_list_axis.displacement_increment
-         detx                    1                    0                  %(DET_PXSIZE_X)s
-         dety                    2                    0                  %(DET_PXSIZE_Y)s
+         detx                    1                    %(HALF_PXSIZE_X)s          %(DET_PXSIZE_X)s
+         dety                    2                    %(HALF_PXSIZE_Y)s          %(DET_PXSIZE_Y)s
 
     loop_
       _array_structure_list.array_id
@@ -156,11 +156,7 @@ _diffrn_source.facility	Diamond
     loop_
       _array_data.array_id
       _array_data.external_format
-      %(MODE_DEPENDENT_INFO)s
-      _array_data.external_path
-      _array_data.external_location_uri
-      _array_data.external_archive_path
-      _array_data.external_frame
+      %(ARRAY_COLUMNS_SPEC)s
 %(DATA_EXT_LINKS)s
 
     loop_
@@ -206,7 +202,8 @@ class DLS_I04_MAP:
            'beamcent_tag': ['DET_BMCENT_X', 'DET_BMCENT_Y'],
            'xpxsz_path': 'entry/instrument/detector/x_pixel_size',
            'ypxsz_path': 'entry/instrument/detector/y_pixel_size',
-           'pixsize_tag': ['DET_PXSIZE_X', 'DET_PXSIZE_Y']
+           'pixsize_tag': ['DET_PXSIZE_X', 'DET_PXSIZE_Y'],
+           'halfsize_tag': ['HALF_PXSIZE_X', 'HALF_PXSIZE_Y']
         }
         self.items['instrument_info'] = {
            'radtype_path': 'entry/instrument/source/type',
@@ -318,6 +315,8 @@ class DLS_I04_MAP:
                               (sdict['beamcent_tag'][1], f[sdict['ycent_path']][()]),
                               (sdict['pixsize_tag'][0], f[sdict['xpxsz_path']][()]),
                               (sdict['pixsize_tag'][1], f[sdict['ypxsz_path']][()]),
+                              (sdict['halfsize_tag'][0], f[sdict['xpxsz_path']][()]/2.0),
+                              (sdict['halfsize_tag'][1], f[sdict['ypxsz_path']][()]/2.0),
                              ]:
                 tags_dict[tag] = item
 
@@ -355,7 +354,7 @@ class DLS_I04_MAP:
         data/image files and the binary IDs that map the frames to files.
         '''
         tags_dict = {}
-        tags_dict['MODE_DEPENDENT_INFO'] = '_array_data.external_path'
+        tags_dict['ARRAY_COLUMNS_SPEC'] = '_array_data.external_path'
         frame_links = ''
         frame_ids = ''
         scan_frames = '' 
@@ -372,9 +371,9 @@ class DLS_I04_MAP:
     def fill_frame_info_hdf5(self, rec_num, imgfiles, n_frames_per_file):
 
         tags_dict = {}
-        tags_dict['MODE_DEPENDENT_INFO'] = '_array_data.external_location_uri\n
-_array_data.external_archive_path\n
-_array_data.external_frame'
+        tags_dict['ARRAY_COLUMNS_SPEC'] = '_array_data.external_location_uri\n'\
+      '      _array_data.external_archive_path\n'\
+      '      _array_data.external_frame'
         frame_links = ''
         frame_ids = ''
         scan_frames = '' 
@@ -382,7 +381,7 @@ _array_data.external_frame'
         for i, entry in enumerate(imgfiles):
             fn, dpath = entry
             for j in range(1, n_frames_per_file[i]+1):
-                frame_links += f'        ext{k:<4} HDF5 https://zenodo.org/api/records/{rec_num}/{fn} {dpath} {j}\n'
+                frame_links += f'        ext{k:<4} HDF5 https://zenodo.org/record/{rec_num}/files/{fn} {dpath} {j}\n'
                 frame_ids   += f'        {k:4}  ext{k:<4} 1\n'
                 scan_frames += f'        {k:4}  SCAN1 {k:4}\n'
                 k += 1
