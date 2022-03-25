@@ -165,6 +165,7 @@ _diffrn_source.facility	Diamond
 
     loop_
       _array_data.array_id
+      _array_data.binary_id
       _array_data.external_format
       %(ARRAY_COLUMNS_SPEC)s
 %(DATA_EXT_LINKS)s
@@ -369,7 +370,7 @@ class DLS_I04_MAP:
         frame_ids = ''
         scan_frames = '' 
         for i, fnpath in enumerate(imgfiles):
-            frame_links += f'        ext{(i+1):<4} CBF file://{fnpath}\n'
+            frame_links += f'        1 ext{(i+1):<4} CBF file://{fnpath}\n'
             frame_ids   += f'        {(i+1):4}  ext{(i+1):<4} 1\n'
             scan_frames += f'        {(i+1):4}  SCAN1 {(i+1):4}\n'
         tags_dict['DATA_EXT_LINKS'] = frame_links
@@ -391,7 +392,7 @@ class DLS_I04_MAP:
         for i, entry in enumerate(imgfiles):
             fn, dpath = entry
             for j in range(1, n_frames_per_file[i]+1):
-                frame_links += f'        ext{k:<4} HDF5 https://zenodo.org/record/{rec_num}/files/{fn} {dpath} {j}\n'
+                frame_links += f'        1 ext{k:<4} HDF5 https://zenodo.org/record/{rec_num}/files/{fn} {dpath} {j}\n'
                 frame_ids   += f'        {k:4}  ext{k:<4} 1\n'
                 scan_frames += f'        {k:4}  SCAN1 {k:4}\n'
                 k += 1
