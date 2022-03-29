@@ -104,6 +104,7 @@ BYTE_INFO_TEMPLATE = """\
 # master template for the imgCIF output with DLS data
 
 DLS_I04_TEMPLATE = """\
+data_%(RECORD)s
 _audit.block_id	Diamond_I04
 _diffrn_source.beamline	I04
 _diffrn_source.facility	Diamond
@@ -180,8 +181,10 @@ _diffrn_source.facility	Diamond
     _diffrn_scan.frames                      %(N_FRAMES)s
     _diffrn_scan_axis.axis_id                %(SCAN_AXIS)s
     _diffrn_scan_axis.angle_start            %(SCAN_START)s
-    _diffrn_scan_axis.displacement_start     0
+    _diffrn_scan_axis.angle_range            %(SCAN_RANGE)s
     _diffrn_scan_axis.angle_increment        %(SCAN_INCR)s
+    _diffrn_scan_axis.displacement_start     0
+    _diffrn_scan_axis.displacement_range     0
 
     loop_
       _diffrn_scan_frame.frame_id
@@ -277,7 +280,9 @@ class DLS_I04_MAP:
            'axstart_tag': 'SCAN_START',
            'axstart_value': '',
            'axincr_tag': 'SCAN_INCR',
-           'axincr_value': ''
+           'axincr_value': '',
+           'axrange_tag': 'SCAN_RANGE',
+           'axrange_value': ''
         }
 
     def extract_from_hdf5(self, fn, fpath_stem, imgfiles):
@@ -298,6 +303,8 @@ class DLS_I04_MAP:
                     self.items['scan_info']['axstart_value'] = f'{h5item[()][0]}'
                     incr_range = f[f'entry/sample/transformations/{k}_increment_set'][()]
                     self.items['scan_info']['axincr_value'] = f'{incr_range[0]}'
+                    axis_angle_range = n_frames * incr_range[0]        # total range
+                    self.items['scan_info']['axrange_value'] = f'{axis_angle_range}'
 
 
                 # the transformation 'type' attribute is a bytestring tb. coverted to string
@@ -344,6 +351,7 @@ class DLS_I04_MAP:
         for tag, item in [(sdict['nframes_tag'], sdict['nframes_value']),
                           (sdict['axisid_tag'], sdict['axisid_name']),
                           (sdict['axstart_tag'], sdict['axstart_value']),
+                          (sdict['axrange_tag'], sdict['axrange_value']),
                           (sdict['axincr_tag'], sdict['axincr_value'])
                          ]:
             tags_dict[tag] = item
@@ -488,7 +496,7 @@ def main():
     else:
         framelink_tags = metadata_map.fill_frame_info_cbf(len(imgfiles), imgfiles)
 
-    tags = {'BYTE_INFO_BLOCK': byte_block_str, **metadata_tags, **framelink_tags}
+    tags = {'RECORD': args.record, 'BYTE_INFO_BLOCK': byte_block_str, **metadata_tags, **framelink_tags}
     metadata_map.write_imgcif(tags)
 
 

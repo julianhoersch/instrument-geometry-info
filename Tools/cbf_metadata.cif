@@ -1,3 +1,4 @@
+data_5886687
 _audit.block_id	Diamond_I04
 _diffrn_source.beamline	I04
 _diffrn_source.facility	Diamond
@@ -7276,8 +7277,10 @@ _diffrn_source.facility	Diamond
     _diffrn_scan.frames                      3600
     _diffrn_scan_axis.axis_id                omega
     _diffrn_scan_axis.angle_start            0.0
-    _diffrn_scan_axis.displacement_start     0
+    _diffrn_scan_axis.angle_range            360.0
     _diffrn_scan_axis.angle_increment        0.1
+    _diffrn_scan_axis.displacement_start     0
+    _diffrn_scan_axis.displacement_range     0
 
     loop_
       _diffrn_scan_frame.frame_id
