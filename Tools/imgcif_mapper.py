@@ -131,10 +131,10 @@ _diffrn_source.facility	Diamond
          phi        %(PHI_TYPE)s  goniometer  %(PHI_DEP)s  %(PHI_OVEC)s  0  0  0
          chi        %(CHI_TYPE)s  goniometer  omega  %(CHI_OVEC)s  0  0  0
          omega      %(OMG_TYPE)s  goniometer  %(OMG_DEP)s  %(OMG_OVEC)s  0  0  0
-         two_theta  rotation     detector    .          ?   0  0   0  0  0
-         trans      translation  detector    two_theta  0   0  1   0  0  %(DET_ZDIST)s
-         detx       translation  detector    trans      1   0  0  -%(DET_BMCENT_X)s  0  0
-         dety       translation  detector    trans      0  -1  0   0  %(DET_BMCENT_Y)s  0
+         two_theta  rotation     detector    .          ?   0   0   0   0   0
+         trans      translation  detector    two_theta  0   0  -1   0   0   %(DET_ZDIST)s
+         detx       translation  detector    trans      1   0   0  -%(DET_BMCENT_X)s   0   0
+         dety       translation  detector    trans      0  -1   0   0   %(DET_BMCENT_Y)s   0
 
     loop_
       _array_structure_list_axis.axis_id
