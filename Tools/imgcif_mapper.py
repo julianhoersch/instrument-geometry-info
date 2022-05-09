@@ -108,9 +108,15 @@ _diffrn_source.facility	Diamond
          trans                    det1
 
     loop_
-      _array_data.id
-      _array_data.external_format
-      _array_data.external_location_uri
+      _array_data.binary_id
+      _array_data.array_id
+      _array_data.external_data_id
+%(ARRAY_DATA_INFO)s
+
+    loop_
+      _array_data_external_data.id
+      _array_data_external_data.format
+      _array_data_external_data.uri
 %(DATA_EXT_LINKS)s
 
     loop_
@@ -305,9 +311,11 @@ class DLS_I04_MAP:
         frame_ids = ''
         scan_frames = '' 
         for i, fnpath in enumerate(imgfiles):
+            array_links += f'        {(i+1):<4} 1 ext{(i+1):<4}\n'
             frame_links += f'        ext{(i+1):<4} CBF file://{fnpath}\n'
-            frame_ids   += f'        {(i+1):4}  ext{(i+1):<4} 1\n'
+            frame_ids   += f'        {(i+1):4}  {(i+1):<4} 1\n'
             scan_frames += f'        {(i+1):4}  SCAN1 {(i+1):4}\n'
+        tags_dict['ARRAY_DATA_INFO'] = array_links 
         tags_dict['DATA_EXT_LINKS'] = frame_links
         tags_dict['DATA_FRAME_IDS'] = frame_ids
         tags_dict['SCAN_FRAME_IDS'] = scan_frames
