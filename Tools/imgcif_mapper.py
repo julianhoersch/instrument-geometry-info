@@ -7,8 +7,48 @@ to imgCIF output
 from argparse import ArgumentParser
 from glob import glob
 import h5py as h5
+import os
 import re
+import requests
 import sys
+
+TOKEN_NAME = 'fda_zen_01'
+ACCESS_TOKEN = '73LIoratcpkJ9uRfRUTY4dOiZBWZMP8BoUfUyrcA2ySlIjBH3kCEGYPybhoI'
+
+def get_files_online(rec_num):
+
+    r = requests.get(f'https://zenodo.org/api/records/{rec_num}',
+        params={'access_token': ACCESS_TOKEN})
+
+    file_list = []
+    for item in r.json()['files']:
+        file_link = item['links']['self']
+        file_name = os.path.split(file_link)[-1]
+        file_list.append((file_link, file_name))
+
+    return file_list
+
+
+def download_master(file_url, file_name):
+
+    r = requests.get(file_url, params={'access_token': ACCESS_TOKEN})
+
+    with open(file_name, 'wb') as f:
+        f.write(r.content)
+
+
+def frames_from_master(file_name):
+
+    frame_files = []
+    with h5.File(file_name, 'r') as f:
+        group = f['entry/data']
+        for key in group:
+            link = group.get(key, getlink=True)
+            if isinstance(link, h5.ExternalLink):
+                print(f'  {key} -> {link.filename}/{link.path}')
+                frame_files.append((link.filename, link.path))
+    return frame_files
+
 
 class CBF_ARRAY_INFO:
 
@@ -42,18 +82,35 @@ class CBF_ARRAY_INFO:
                 tags_dict[self.items['compr_tag']] = ln.split('=')[-1]
         return tags_dict
 
-    
 
-DLS_I04_TEMPLATE = """\
-_audit.block_id	Diamond_I04
-_diffrn_source.beamline	I04
-_diffrn_source.facility	Diamond
+    def set_void_tags(self):
+        '''
+        construct imgCIF definitions for HDF5-only use w/o content
+        note that this block is not written at all currently, the
+        method is for 'reserve' 
+        '''
+        return {'BYTE_ORDER': 'n/a', 'BYTE_ENCODE': 'n/a', 'BYTE_COMPRN': 'n/a'} 
 
+
+# template for CBF image byte information, conditionally used
+
+BYTE_INFO_TEMPLATE = """\
     _array_structure_byte_order         %(BYTE_ORDER)s
     _array_structure_compression_type   %(BYTE_COMPRN)s
     _array_structure.encoding_type      %(BYTE_ENCODE)s
 
-   _diffraction_radiation.type     '%(RADN_TYPE)s'
+"""
+
+# master template for the imgCIF output with DLS data
+
+DLS_I04_TEMPLATE = """\
+data_%(RECORD)s
+_audit.block_id	Diamond_I04
+_diffrn_source.beamline	I04
+_diffrn_source.facility	Diamond
+
+%(BYTE_INFO_BLOCK)s
+    _diffrn_radiation.type     '%(RADN_TYPE)s'
  
  loop_
       _diffrn_radiation_wavelength.id
@@ -72,20 +129,20 @@ _diffrn_source.facility	Diamond
       _axis.offset[2]
       _axis.offset[3]
          phi        %(PHI_TYPE)s  goniometer  %(PHI_DEP)s  %(PHI_OVEC)s  0  0  0
-         chi        %(CHI_TYPE)s  goniometer  %(CHI_DEP)s  %(CHI_OVEC)s  0  0  0
+         chi        %(CHI_TYPE)s  goniometer  omega  %(CHI_OVEC)s  0  0  0
          omega      %(OMG_TYPE)s  goniometer  %(OMG_DEP)s  %(OMG_OVEC)s  0  0  0
-         two_theta  rotation     detector    .          ?   0  0   0  0  0
-         trans      translation  detector    two_theta  0   0  1   0  0  %(DET_ZDIST)s
-         detx       translation  detector    trans      1   0  0  -%(DET_BMCENT_X)s  0  0
-         dety       translation  detector    trans      0  -1  0   0  %(DET_BMCENT_Y)s  0
+         two_theta  rotation     detector    .          ?   0   0   0   0   0
+         trans      translation  detector    two_theta  0   0  -1   0   0   %(DET_ZDIST)s
+         detx       translation  detector    trans      1   0   0  -%(DET_BMCENT_X)s   0   0
+         dety       translation  detector    trans      0  -1   0   0   %(DET_BMCENT_Y)s   0
 
     loop_
       _array_structure_list_axis.axis_id
       _array_structure_list_axis.axis_set_id
-      _array_structure_list_axis.start
+      _array_structure_list_axis.displacement
       _array_structure_list_axis.displacement_increment
-         detx                    1                    0                  %(DET_PXSIZE_X)s
-         dety                    2                    0                  %(DET_PXSIZE_Y)s
+         detx                    1                    %(HALF_PXSIZE_X)s          %(DET_PXSIZE_X)s
+         dety                    2                    %(HALF_PXSIZE_Y)s          %(DET_PXSIZE_Y)s
 
     loop_
       _array_structure_list.array_id
@@ -97,10 +154,8 @@ _diffrn_source.facility	Diamond
          1             1             increasing             1             1       %(ARR_DIMN_1)s
          1             2             increasing             2             2       %(ARR_DIMN_2)s
 
-    loop_
-      _diffrn_detector.id
-      _diffrn_detector.number_of_axes
-         det1                        1
+      _diffrn_detector.id             det1
+      _diffrn_detector.number_of_axes 1
 
     loop_
       _diffrn_detector_axis.axis_id
@@ -114,9 +169,7 @@ _diffrn_source.facility	Diamond
 %(ARRAY_DATA_INFO)s
 
     loop_
-      _array_data_external_data.id
-      _array_data_external_data.format
-      _array_data_external_data.uri
+      %(ARRAY_COLUMNS_SPEC)s
 %(DATA_EXT_LINKS)s
 
     loop_
@@ -126,11 +179,14 @@ _diffrn_source.facility	Diamond
 %(DATA_FRAME_IDS)s
 
     _diffrn_scan.id SCAN1
-    _diffrn_scan.frames                      %(N_FRAMES)s
-    _diffrn_scan_axis.axis_id                %(SCAN_AXIS)s
-    _diffrn_scan_axis.angle_start            %(SCAN_START)s
-    _diffrn_scan_axis.displacement_start     0
-    _diffrn_scan_axis.angle_increment        %(SCAN_INCR)s
+    _diffrn_scan.frames                           %(N_FRAMES)s
+    _diffrn_scan_axis.axis_id                     %(SCAN_AXIS)s
+    _diffrn_scan_axis.angle_start                 %(SCAN_START)s
+    _diffrn_scan_axis.angle_range                 %(SCAN_RANGE)s
+    _diffrn_scan_axis.angle_increment             %(SCAN_INCR)s
+    _diffrn_scan_axis.displacement_start          0
+    _diffrn_scan_axis.displacement_range          0
+    _diffrn_scan_axis.displacement_increment      0
 
     loop_
       _diffrn_scan_frame.frame_id
@@ -162,7 +218,8 @@ class DLS_I04_MAP:
            'beamcent_tag': ['DET_BMCENT_X', 'DET_BMCENT_Y'],
            'xpxsz_path': 'entry/instrument/detector/x_pixel_size',
            'ypxsz_path': 'entry/instrument/detector/y_pixel_size',
-           'pixsize_tag': ['DET_PXSIZE_X', 'DET_PXSIZE_Y']
+           'pixsize_tag': ['DET_PXSIZE_X', 'DET_PXSIZE_Y'],
+           'halfsize_tag': ['HALF_PXSIZE_X', 'HALF_PXSIZE_Y']
         }
         self.items['instrument_info'] = {
            'radtype_path': 'entry/instrument/source/type',
@@ -225,7 +282,9 @@ class DLS_I04_MAP:
            'axstart_tag': 'SCAN_START',
            'axstart_value': '',
            'axincr_tag': 'SCAN_INCR',
-           'axincr_value': ''
+           'axincr_value': '',
+           'axrange_tag': 'SCAN_RANGE',
+           'axrange_value': ''
         }
 
     def extract_from_hdf5(self, fn, fpath_stem, imgfiles):
@@ -246,6 +305,8 @@ class DLS_I04_MAP:
                     self.items['scan_info']['axstart_value'] = f'{h5item[()][0]}'
                     incr_range = f[f'entry/sample/transformations/{k}_increment_set'][()]
                     self.items['scan_info']['axincr_value'] = f'{incr_range[0]}'
+                    axis_angle_range = n_frames * incr_range[0]        # total range
+                    self.items['scan_info']['axrange_value'] = f'{axis_angle_range}'
 
 
                 # the transformation 'type' attribute is a bytestring tb. coverted to string
@@ -274,6 +335,8 @@ class DLS_I04_MAP:
                               (sdict['beamcent_tag'][1], f[sdict['ycent_path']][()]),
                               (sdict['pixsize_tag'][0], f[sdict['xpxsz_path']][()]),
                               (sdict['pixsize_tag'][1], f[sdict['ypxsz_path']][()]),
+                              (sdict['halfsize_tag'][0], f[sdict['xpxsz_path']][()]/2.0),
+                              (sdict['halfsize_tag'][1], f[sdict['ypxsz_path']][()]/2.0),
                              ]:
                 tags_dict[tag] = item
 
@@ -290,9 +353,13 @@ class DLS_I04_MAP:
         for tag, item in [(sdict['nframes_tag'], sdict['nframes_value']),
                           (sdict['axisid_tag'], sdict['axisid_name']),
                           (sdict['axstart_tag'], sdict['axstart_value']),
+                          (sdict['axrange_tag'], sdict['axrange_value']),
                           (sdict['axincr_tag'], sdict['axincr_value'])
                          ]:
             tags_dict[tag] = item
+        return tags_dict
+
+    def fill_frame_info_cbf(self, n_frames, imgfiles):
 
         '''
         Verify that the number of external files matches
@@ -307,6 +374,8 @@ class DLS_I04_MAP:
         Construct the required three loops related to scan frames,
         data/image files and the binary IDs that map the frames to files.
         '''
+        tags_dict = {}
+        tags_dict['ARRAY_COLUMNS_SPEC'] = '_array_data.external_path'
         frame_links = ''
         frame_ids = ''
         scan_frames = '' 
@@ -322,6 +391,34 @@ class DLS_I04_MAP:
 
         return tags_dict
 
+    def fill_frame_info_hdf5(self, rec_num, imgfiles, n_frames_per_file):
+
+        tags_dict = {}
+        tags_dict['ARRAY_COLUMNS_SPEC'] = '_array_data_external_data.id\n'\
+      '      _array_data_external_data.format\n'\
+      '      _array_data_external_data.uri\n'\
+      '      _array_data_external_data.archive_path\n'\
+      '      _array_data_external_data.frame'
+        array_links = ''
+        frame_links = ''
+        frame_ids = ''
+        scan_frames = '' 
+        k = 1
+        for i, entry in enumerate(imgfiles):
+            fn, dpath = entry
+            for j in range(1, n_frames_per_file[i]+1):
+                array_links += f'        {k:<4} 1 ext{k:<4}\n'
+                frame_links += f'        ext{k:<4} HDF5 https://zenodo.org/record/{rec_num}/files/{fn} {dpath} {j}\n'
+                frame_ids   += f'        {k:4}  {k:<4} 1\n'
+                scan_frames += f'        {k:4}  SCAN1 {k:4}\n'
+                k += 1
+        tags_dict['ARRAY_DATA_INFO'] = array_links
+        tags_dict['DATA_EXT_LINKS'] = frame_links
+        tags_dict['DATA_FRAME_IDS'] = frame_ids
+        tags_dict['SCAN_FRAME_IDS'] = scan_frames
+
+        return tags_dict
+        
     def write_imgcif(self, tags):
 
         with open('cbf_metadata.cif', 'w') as f:
@@ -347,19 +444,72 @@ def main():
     print('imgCIF mapping tool')
 
     ap = ArgumentParser(prog='imgcif_mapper')
-    ap.add_argument('infile', type=str, help='path/name of input HDF5 file with metadata')
-    ap.add_argument('frames', type=str, help='path and name stem of external image frames')
+    ap.add_argument('record', type=str, help='record # of the Zenodo repository')
+    ap.add_argument('-i', '--input-file', type=str, help='path/name of input HDF5 file with metadata')
+    ap.add_argument('-f', '--frames', type=str, help='path and name stem of external image frames')
+    ap.add_argument('-a', '--archive', type=str, help='path and name stem of external image frames')
     args = ap.parse_args(sys.argv[1:])
 
-    print('metadata source is input file:', args.infile)
-    print('external image file location:', '/'.join(args.frames.split('/')[:-1]))
-    imgfiles = check_frames_location(args.frames)
+    print('record #:',args.record)
+
+    if args.input_file is None:
+        # Default
+        print('taking metadata from online HDF5 master')
+        file_list = get_files_online(args.record)
+        for flink, fname in file_list:
+            print(f'{flink:84s} {fname:20s}')
+            if 'master' in fname:
+                meta_file = fname
+                meta_link = flink
+        print('master found:', meta_file)
+        download_master(meta_link, meta_file)
+    else:
+        # Overrides online mode if present
+        print('metadata source is input file:', args.input_file)
+        if not os.path.exists(args.input_file):
+            print('local input file not found')
+            exit(0)
+        meta_file = args.input_file
+
     data_array_info = CBF_ARRAY_INFO()
-    byte_tags = data_array_info.extract_from_header(imgfiles[0])
+
+    if args.frames is None:
+        print('get image frames from master/repository')
+        imgfiles = frames_from_master(meta_file)
+        byte_tags = data_array_info.set_void_tags()  # not used at all under this condition
+        byte_block_str = ''
+        mode = 'hdf5'
+    else:
+        print('external image file location:', '/'.join(args.frames.split('/')[:-1]))
+        imgfiles = check_frames_location(args.frames)
+        byte_tags = data_array_info.extract_from_header(imgfiles[0])
+        byte_block_str = BYTE_INFO_TEMPLATE % (byte_tags)
+        mode = 'hybrid'
+    
     metadata_map = DLS_I04_MAP()
-    hdf5_tags = metadata_map.extract_from_hdf5(args.infile, args.frames, imgfiles)
-    tags = {**byte_tags, **hdf5_tags}
+    metadata_tags = metadata_map.extract_from_hdf5(meta_file, args.frames, imgfiles)
+
+    if mode == 'hdf5':
+        n_frames = metadata_map.items['scan_info']['nframes_value']
+        print(f'{n_frames} frames in {len(imgfiles)} HDF5 data files.')
+        print('Please give a list of N(frames) per file (info missing in the master)')
+        user_str = input(' > ')
+        for pattern in [' ', ',', ', ']:
+            try:
+                frame_nums = [int(x) for x in user_str.split(pattern)]
+            except:
+                continue
+        for i, fn in enumerate(imgfiles):
+            print(fn, frame_nums[i])
+        framelink_tags = metadata_map.fill_frame_info_hdf5(args.record, imgfiles, frame_nums)
+    else:
+        framelink_tags = metadata_map.fill_frame_info_cbf(len(imgfiles), imgfiles)
+
+    tags = {'RECORD': args.record, 'BYTE_INFO_BLOCK': byte_block_str, **metadata_tags, **framelink_tags}
     metadata_map.write_imgcif(tags)
 
+
 if __name__ == '__main__':
+
     main()
+
