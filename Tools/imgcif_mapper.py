@@ -5,12 +5,15 @@ to imgCIF output
 '''
 
 from argparse import ArgumentParser
+from gettext import translation
 from glob import glob
+from tkinter.ttk import Separator
 import h5py as h5
 import os
 import re
 import requests
 import sys
+import numpy as np
 
 TOKEN_NAME = 'fda_zen_01'
 ACCESS_TOKEN = '73LIoratcpkJ9uRfRUTY4dOiZBWZMP8BoUfUyrcA2ySlIjBH3kCEGYPybhoI'
@@ -87,123 +90,41 @@ class CBF_ARRAY_INFO:
         '''
         construct imgCIF definitions for HDF5-only use w/o content
         note that this block is not written at all currently, the
-        method is for 'reserve' 
+        method is for 'reserve'
         '''
-        return {'BYTE_ORDER': 'n/a', 'BYTE_ENCODE': 'n/a', 'BYTE_COMPRN': 'n/a'} 
+        return {'BYTE_ORDER': 'n/a', 'BYTE_ENCODE': 'n/a', 'BYTE_COMPRN': 'n/a'}
 
 
-# template for CBF image byte information, conditionally used
+    def fill_template(self, td):
+        """Fill the arrayt info template.
 
-BYTE_INFO_TEMPLATE = """\
-    _array_structure_byte_order         %(BYTE_ORDER)s
-    _array_structure_compression_type   %(BYTE_COMPRN)s
-    _array_structure.encoding_type      %(BYTE_ENCODE)s
+        Args:
+            td (dict): A dictionary containing the byte info.
 
+        Returns:
+            string : The byte info string.
+        """
+        BYTE_INFO_TEMPLATE = f"""\
+
+_array_structure_byte_order         {td['BYTE_ORDER']}
+_array_structure_compression_type   {td['BYTE_COMPRN']}
+_array_structure.encoding_type      {td['BYTE_ENCODE']}
 """
+        return BYTE_INFO_TEMPLATE
 
-# master template for the imgCIF output with DLS data
-
-DLS_I04_TEMPLATE = """\
-data_%(RECORD)s
-_audit.block_id	Diamond_I04
-_diffrn_source.beamline	I04
-_diffrn_source.facility	Diamond
-
-%(BYTE_INFO_BLOCK)s
-    _diffrn_radiation.type     '%(RADN_TYPE)s'
- 
- loop_
-      _diffrn_radiation_wavelength.id
-      _diffrn_radiation_wavelength.value
-       1          %(RADN_WAVELEN)s
-
-    loop_
-      _axis.id
-      _axis.type
-      _axis.equipment
-      _axis.depends_on
-      _axis.vector[1]
-      _axis.vector[2]
-      _axis.vector[3]
-      _axis.offset[1]
-      _axis.offset[2]
-      _axis.offset[3]
-         phi        %(PHI_TYPE)s  goniometer  %(PHI_DEP)s  %(PHI_OVEC)s  0  0  0
-         chi        %(CHI_TYPE)s  goniometer  omega  %(CHI_OVEC)s  0  0  0
-         omega      %(OMG_TYPE)s  goniometer  %(OMG_DEP)s  %(OMG_OVEC)s  0  0  0
-         two_theta  rotation     detector    .          ?   0   0   0   0   0
-         trans      translation  detector    two_theta  0   0  -1   0   0   %(DET_ZDIST)s
-         detx       translation  detector    trans      1   0   0  -%(DET_BMCENT_X)s   0   0
-         dety       translation  detector    trans      0  -1   0   0   %(DET_BMCENT_Y)s   0
-
-    loop_
-      _array_structure_list_axis.axis_id
-      _array_structure_list_axis.axis_set_id
-      _array_structure_list_axis.displacement
-      _array_structure_list_axis.displacement_increment
-         detx                    1                    %(HALF_PXSIZE_X)s          %(DET_PXSIZE_X)s
-         dety                    2                    %(HALF_PXSIZE_Y)s          %(DET_PXSIZE_Y)s
-
-    loop_
-      _array_structure_list.array_id
-      _array_structure_list.axis_set_id
-      _array_structure_list.direction
-      _array_structure_list.index
-      _array_structure_list.precedence
-      _array_structure_list.dimension
-         1             1             increasing             1             1       %(ARR_DIMN_1)s
-         1             2             increasing             2             2       %(ARR_DIMN_2)s
-
-      _diffrn_detector.id             det1
-      _diffrn_detector.number_of_axes 1
-
-    loop_
-      _diffrn_detector_axis.axis_id
-      _diffrn_detector_axis.detector_id
-         trans                    det1
-
-    loop_
-      _array_data.binary_id
-      _array_data.array_id
-      _array_data.external_data_id
-%(ARRAY_DATA_INFO)s
-
-    loop_
-      %(ARRAY_COLUMNS_SPEC)s
-%(DATA_EXT_LINKS)s
-
-    loop_
-      _diffrn_data_frame.id
-      _diffrn_data_frame.binary_id
-      _diffrn_data_frame.array_id
-%(DATA_FRAME_IDS)s
-
-    _diffrn_scan.id SCAN1
-    _diffrn_scan.frames                           %(N_FRAMES)s
-    _diffrn_scan_axis.axis_id                     %(SCAN_AXIS)s
-    _diffrn_scan_axis.angle_start                 %(SCAN_START)s
-    _diffrn_scan_axis.angle_range                 %(SCAN_RANGE)s
-    _diffrn_scan_axis.angle_increment             %(SCAN_INCR)s
-    _diffrn_scan_axis.displacement_start          0
-    _diffrn_scan_axis.displacement_range          0
-    _diffrn_scan_axis.displacement_increment      0
-
-    loop_
-      _diffrn_scan_frame.frame_id
-      _diffrn_scan_frame.scan_id
-      _diffrn_scan_frame.frame_number
-%(SCAN_FRAME_IDS)s      
-"""
 
 class DLS_I04_MAP:
 
     '''
-    Class to map from a Diamond Light Source HDF5-NxMx master 
+    Class to map from a Diamond Light Source HDF5-NxMx master
     '''
 
     def __init__(self):
 
-        self.template = DLS_I04_TEMPLATE
+        # as seen from from the tail of the vector, either 'clockwise' or
+        # 'counter_clockwise' -> counter_clockwise will lead to negative
+        # increments for the scan
+        self._goniometer_rot_direction = 'clockwise'
 
         self.items = {}
         '''
@@ -212,7 +133,7 @@ class DLS_I04_MAP:
         '''
         self.items['data_arr_info'] = {
            'dims_path': 'entry/instrument/detector/module/data_size',
-           'arrdim_tag': ['ARR_DIMN_1', 'ARR_DIMN_2'], 
+           'arrdim_tag': ['ARR_DIMN_1', 'ARR_DIMN_2'],
            'xcent_path': 'entry/instrument/detector/beam_center_x',
            'ycent_path': 'entry/instrument/detector/beam_center_y',
            'beamcent_tag': ['DET_BMCENT_X', 'DET_BMCENT_Y'],
@@ -228,7 +149,9 @@ class DLS_I04_MAP:
            'wavelen_tag': 'RADN_WAVELEN',
            # for the detector distance we have different source items
            'detdist_path': 'entry/instrument/detector_distance',
-           'detdist_tag': 'DET_ZDIST'
+           'detdist_tag': 'DET_ZDIST',
+           'int_time_tag' : 'INT_TIME',
+           'int_time_path' : '/entry/instrument/detector/count_time'
         }
         '''
         for axes (NXpositioner) the information sub-dictionary under the given
@@ -273,7 +196,6 @@ class DLS_I04_MAP:
            'vector_attr_itemno': 3,
            'vector_tag': 'OMG_OVEC'
         }
-
         self.items['scan_info'] = {
            'nframes_tag': 'N_FRAMES',
            'nframes_value': 0,
@@ -286,28 +208,66 @@ class DLS_I04_MAP:
            'axrange_tag': 'SCAN_RANGE',
            'axrange_value': ''
         }
+        self.items['fast_info'] = {
+            'path': '/entry/instrument/detector/module/fast_pixel_direction',
+            'angle_tag': 'FST_ANGLE',
+            'depend_attr_itemno': 0,
+            'depend_tag': 'FST_DEP',
+            'offset_attr_itemno': 1,
+            'offset_tag': 'FST_OFF',
+            'tftype_attr_itemno': 2,
+            'tftype_tag': 'FST_TYPE',
+            'vector_attr_itemno': 4,
+            'vector_tag': 'FST_OVEC'
+        }
+        self.items['slow_info'] = {
+            'path': '/entry/instrument/detector/module/slow_pixel_direction',
+            'angle_tag': 'SLW_ANGLE',
+            'depend_attr_itemno': 0,
+            'depend_tag': 'SLW_DEP',
+            'offset_attr_itemno': 1,
+            'offset_tag': 'SLW_OFF',
+            'tftype_attr_itemno': 2,
+            'tftype_tag': 'SLW_TYPE',
+            'vector_attr_itemno': 4,
+            'vector_tag': 'SLW_OVEC'
+        }
+        self.items['trans_info'] = {
+            'path': '/entry/instrument/detector_z/det_z',
+            'angle_tag': 'SLW_ANGLE',
+            'depend_attr_itemno': 0,
+            'depend_tag': 'TRS_DEP',
+            'tftype_attr_itemno': 1,
+            'tftype_tag': 'TRS_TYPE',
+            'vector_attr_itemno': 3,
+            'vector_tag': 'TRS_OVEC'
+        }
+
 
     def extract_from_hdf5(self, fn, fpath_stem, imgfiles):
 
         tags_dict = {}
-        scan_axes = {'phi': False, 'chi': False, 'omega': False }
+        # scan_axes = {'phi': False, 'chi': False, 'omega': False }
 
         with h5.File(fn) as f:
-            for k in ['phi', 'chi', 'omega']:
+            for k in ['phi', 'chi', 'omega', 'fast', 'slow', 'trans']:
 
                 print('Collect INFO for', k)
                 h5item = f[self.items[f'{k}_info']['path']]
-                if len(h5item[()]) > 1:
-                    print(' ... identified as scan axis')
-                    self.items['scan_info']['axisid_name'] = k
-                    n_frames = len(h5item[()])
-                    self.items['scan_info']['nframes_value'] = n_frames
-                    self.items['scan_info']['axstart_value'] = f'{h5item[()][0]}'
-                    incr_range = f[f'entry/sample/transformations/{k}_increment_set'][()]
-                    self.items['scan_info']['axincr_value'] = f'{incr_range[0]}'
-                    axis_angle_range = n_frames * incr_range[0]        # total range
-                    self.items['scan_info']['axrange_value'] = f'{axis_angle_range}'
-
+                try:
+                    if len(h5item[()]) > 1:
+                        print(' ... identified as scan axis')
+                        self.items['scan_info']['axisid_name'] = k
+                        n_frames = len(h5item[()])
+                        self.items['scan_info']['nframes_value'] = n_frames
+                        self.items['scan_info']['axstart_value'] = f'{h5item[()][0]}'
+                        incr_range = f[f'entry/sample/transformations/{k}_increment_set'][()]
+                        self.items['scan_info']['axincr_value'] = f'{incr_range[0]}'
+                        axis_angle_range = n_frames * incr_range[0]        # total range
+                        self.items['scan_info']['axrange_value'] = f'{axis_angle_range}'
+                except TypeError:
+                    # for fast and slow this is a scalar and no list
+                    pass
 
                 # the transformation 'type' attribute is a bytestring tb. coverted to string
                 tag = self.items[f'{k}_info']['tftype_tag']
@@ -317,7 +277,32 @@ class DLS_I04_MAP:
                 # same for the 'depends_on' attribute, but for imgCIF we need only the path tail
                 tag = self.items[f'{k}_info']['depend_tag']
                 attr = self.items[f'{k}_info']['depend_attr_itemno']
-                tags_dict[tag] = list(h5item.attrs.items())[attr][1].decode('utf-8').split('/')[-1]
+
+                # iterate through the dependencies until a depndency on
+                # '.', 'omega', 'chi' or 'phi' is found
+                depends_on = list(h5item.attrs.items())\
+                    [attr][1].decode('utf-8').split('/')[-1]
+                depends_on_h5item = f[list(h5item.attrs.items())\
+                    [attr][1].decode('utf-8')]
+
+                while depends_on in ['sam_x', 'sam_y', 'sam_z', 'module_offset']:
+                    depends_on = list(depends_on_h5item.attrs.items())\
+                        [attr][1].decode('utf-8').split('/')[-1]
+
+                    depends_on_h5item = f[list(depends_on_h5item.attrs.items())\
+                        [attr][1].decode('utf-8')]
+
+                # rename det_z to trans
+                if depends_on == 'det_z':
+                    depends_on = 'trans'
+
+                # some manual changes in the depends_on fields
+                if k == 'slow':
+                    depends_on = 'detx'
+                elif k == 'trans':
+                    depends_on = 'two_theta'
+
+                tags_dict[tag] = depends_on
 
                 '''
                 the orientation vector attribute is an array of floats that we convert to string
@@ -325,14 +310,18 @@ class DLS_I04_MAP:
                 '''
                 tag = self.items[f'{k}_info']['vector_tag']
                 attr = self.items[f'{k}_info']['vector_attr_itemno']
-                tags_dict[tag] = ' '.join([str(s) for s in list(h5item.attrs.items())[attr][1]])
+                separator = '  '
+                tags_dict[tag] = separator.join([str(s) for s in list(h5item.attrs.items())[attr][1]])
+                # print(tags_dict[tag])
 
             print('Collect INFO for detector/frame/array')
             sdict = self.items['data_arr_info']
             for tag, item in [(sdict['arrdim_tag'][0], f[sdict['dims_path']][()][0]),
                               (sdict['arrdim_tag'][1], f[sdict['dims_path']][()][1]),
-                              (sdict['beamcent_tag'][0], f[sdict['xcent_path']][()]),
-                              (sdict['beamcent_tag'][1], f[sdict['ycent_path']][()]),
+                              (sdict['beamcent_tag'][0],
+                                f[sdict['xcent_path']][()] * f[sdict['xpxsz_path']][()]),
+                              (sdict['beamcent_tag'][1],
+                                f[sdict['ycent_path']][()] * f[sdict['ypxsz_path']][()]),
                               (sdict['pixsize_tag'][0], f[sdict['xpxsz_path']][()]),
                               (sdict['pixsize_tag'][1], f[sdict['ypxsz_path']][()]),
                               (sdict['halfsize_tag'][0], f[sdict['xpxsz_path']][()]/2.0),
@@ -344,7 +333,8 @@ class DLS_I04_MAP:
             sdict = self.items['instrument_info']
             for tag, item in [(sdict['radtype_tag'], f[sdict['radtype_path']][()].decode('utf-8')),
                               (sdict['wavelen_tag'], f[sdict['wavelen_path']][()]),
-                              (sdict['detdist_tag'], f[sdict['detdist_path']][()][0])
+                              (sdict['detdist_tag'], f[sdict['detdist_path']][()][0]),
+                              (sdict['int_time_tag'], f[sdict['int_time_path']][()]),
                              ]:
                 tags_dict[tag] = item
 
@@ -357,7 +347,36 @@ class DLS_I04_MAP:
                           (sdict['axincr_tag'], sdict['axincr_value'])
                          ]:
             tags_dict[tag] = item
+
+        # conversion from NeXus/McStas to CBF coordinate system
+        # the kind of transformations (rotation) which have to be performed depend
+        # on the position and rotation direction of the goniometer (seen from
+        # the source)
+        if tags_dict['OMG_OVEC'] == separator.join(['-1.0', '0.0', '0.0']):
+            self._goniometer_pos = 'right'
+        elif tags_dict['OMG_OVEC'] == separator.join(['1.0', '0.0', '0.0']):
+            self._goniometer_pos = 'left'
+        else:
+            self._goniometer_pos = 'undefined'
+
+        print(f'Identified goiniometer position (from source): {self._goniometer_pos}')
+        print(f'Goniometer rotation direction set to: {self._goniometer_rot_direction}')
+
+        # create offsets
+        for offset in ['PHI_OFFSET', 'CHI_OFFSET', 'OMG_OFFSET', 'SLW_OFFSET']:
+            tags_dict[offset] = separator.join(['0.0', '0.0', '0.0'])
+
+        tags_dict['TRS_OFFSET'] = \
+            separator.join(['0.0', '0.0', f"{tags_dict['DET_ZDIST']}"])
+        tags_dict['FST_OFFSET'] = \
+            separator.join([f"{tags_dict['DET_BMCENT_X']}",
+                            f"{tags_dict['DET_BMCENT_Y']}", '0.0'])
+
+        tags_dict = transform_nexus_to_cbf_coordinates(
+            tags_dict, self._goniometer_pos, self._goniometer_rot_direction)
+
         return tags_dict
+
 
     def fill_frame_info_cbf(self, n_frames, imgfiles):
 
@@ -378,13 +397,13 @@ class DLS_I04_MAP:
         tags_dict['ARRAY_COLUMNS_SPEC'] = '_array_data.external_path'
         frame_links = ''
         frame_ids = ''
-        scan_frames = '' 
+        scan_frames = ''
         for i, fnpath in enumerate(imgfiles):
             array_links += f'        {(i+1):<4} 1 ext{(i+1):<4}\n'
             frame_links += f'        ext{(i+1):<4} CBF file://{fnpath}\n'
-            frame_ids   += f'        {(i+1):4}  {(i+1):<4} 1\n'
-            scan_frames += f'        {(i+1):4}  SCAN1 {(i+1):4}\n'
-        tags_dict['ARRAY_DATA_INFO'] = array_links 
+            frame_ids   += f'        {(i+1):<4}  {(i+1):<4} 1\n'
+            scan_frames += f'        {(i+1):<4}  SCAN1 {(i+1):<4}\n'
+        tags_dict['ARRAY_DATA_INFO'] = array_links
         tags_dict['DATA_EXT_LINKS'] = frame_links
         tags_dict['DATA_FRAME_IDS'] = frame_ids
         tags_dict['SCAN_FRAME_IDS'] = scan_frames
@@ -394,23 +413,24 @@ class DLS_I04_MAP:
     def fill_frame_info_hdf5(self, rec_num, imgfiles, n_frames_per_file):
 
         tags_dict = {}
-        tags_dict['ARRAY_COLUMNS_SPEC'] = '_array_data_external_data.id\n'\
-      '      _array_data_external_data.format\n'\
-      '      _array_data_external_data.uri\n'\
-      '      _array_data_external_data.archive_path\n'\
-      '      _array_data_external_data.frame'
+        tags_dict['ARRAY_COLUMNS_SPEC'] = \
+      '    _array_data_external_data.id\n'\
+      '    _array_data_external_data.format\n'\
+      '    _array_data_external_data.uri\n'\
+      '    _array_data_external_data.path\n'\
+      '    _array_data_external_data.frame'
         array_links = ''
         frame_links = ''
         frame_ids = ''
-        scan_frames = '' 
+        scan_frames = ''
         k = 1
         for i, entry in enumerate(imgfiles):
             fn, dpath = entry
             for j in range(1, n_frames_per_file[i]+1):
                 array_links += f'        {k:<4} 1 ext{k:<4}\n'
                 frame_links += f'        ext{k:<4} HDF5 https://zenodo.org/record/{rec_num}/files/{fn} {dpath} {j}\n'
-                frame_ids   += f'        {k:4}  {k:<4} 1\n'
-                scan_frames += f'        {k:4}  SCAN1 {k:4}\n'
+                frame_ids   += f'        {k:<4}  {k:<4} 1\n'
+                scan_frames += f'        {k:<4}  SCAN1 {k:<4}\n'
                 k += 1
         tags_dict['ARRAY_DATA_INFO'] = array_links
         tags_dict['DATA_EXT_LINKS'] = frame_links
@@ -418,11 +438,140 @@ class DLS_I04_MAP:
         tags_dict['SCAN_FRAME_IDS'] = scan_frames
 
         return tags_dict
-        
+
+    def find_max_len(self, col, dic):
+        """Find the maximum string lenght of a column to align entries propertly.
+
+        Args:
+            col (string): The string that identifies entries belonging to the
+                same column (from tags)..
+            dic (dict): The dictionary containing all tags.
+
+        Returns:
+            max_len (int) : The maximum lenght.
+        """
+        max_len = 0
+        for tag, value in dic.items():
+            if 'RADN_TYPE' in tag:
+                continue
+            if col in tag:
+                if len(value) > max_len:
+                    max_len = len(value)
+
+        return max_len
+
+
+    def fill_template(self, td):
+        """Fill the template for DLS_I04 with the values in the tags dictionary.
+
+        Note: The depends_on attributes of the two_theta and dety axis are altered
+        manually in the extract from hdf5 method.
+
+        Args:
+            td (dict): The tags dictionary.
+
+        Returns:
+            DLS_I04_TEMPLATE (string): The template filled with values.
+        """
+
+        stop = {}
+        for col in ['TYPE', 'DEP', 'OVEC', 'OFFSET']:
+            stop[col[:2]] = self.find_max_len(col, td)
+
+        DLS_I04_TEMPLATE = f"""\
+data_{td['RECORD']}
+_database.dataset_doi       '10.5281/zenodo.5886687'
+_audit.block_code           Diamond_I04
+_diffrn_source.beamline     I04
+_diffrn_source.facility     Diamond
+_diffrn_radiation.type      '{td['RADN_TYPE']}'
+{td['BYTE_INFO_BLOCK']}
+loop_
+    _diffrn_radiation_wavelength.id
+    _diffrn_radiation_wavelength.value
+        1          {td['RADN_WAVELEN']}
+
+loop_
+    _axis.id
+    _axis.type
+    _axis.equipment
+    _axis.depends_on
+    _axis.vector[1]
+    _axis.vector[2]
+    _axis.vector[3]
+    _axis.offset[1]
+    _axis.offset[2]
+    _axis.offset[3]
+        phi        {td['PHI_TYPE']:{stop['TY']}}  goniometer  {td['PHI_DEP']:{stop['DE']}}  {td['PHI_OVEC']:{stop['OV']}}  {td['PHI_OFFSET']}
+        chi        {td['CHI_TYPE']:{stop['TY']}}  goniometer  {td['CHI_DEP']:{stop['DE']}}  {td['CHI_OVEC']:{stop['OV']}}  {td['CHI_OFFSET']}
+        omega      {td['OMG_TYPE']:{stop['TY']}}  goniometer  {td['OMG_DEP']:{stop['DE']}}  {td['OMG_OVEC']:{stop['OV']}}  {td['OMG_OFFSET']}
+        two_theta  {td['OMG_TYPE']:{stop['TY']}}  detector    {td['OMG_DEP']:{stop['DE']}}  {td['OMG_OVEC']:{stop['OV']}}  {td['OMG_OFFSET']}
+        trans      {td['TRS_TYPE']:{stop['TY']}}  detector    {td['TRS_DEP']:{stop['DE']}}  {td['TRS_OVEC']:{stop['OV']}}  {td['TRS_OFFSET']}
+        detx       {td['FST_TYPE']:{stop['TY']}}  detector    {td['FST_DEP']:{stop['DE']}}  {td['FST_OVEC']:{stop['OV']}}  {td['FST_OFFSET']}
+        dety       {td['SLW_TYPE']:{stop['TY']}}  detector    {td['SLW_DEP']:{stop['DE']}}  {td['SLW_OVEC']:{stop['OV']}}  {td['SLW_OFFSET']}
+
+loop_
+    _array_structure_list_axis.axis_id
+    _array_structure_list_axis.axis_set_id
+    _array_structure_list_axis.displacement
+    _array_structure_list_axis.displacement_increment
+        detx        1         {td['HALF_PXSIZE_X']}        {td['DET_PXSIZE_X']}
+        dety        2         {td['HALF_PXSIZE_Y']}        {td['DET_PXSIZE_Y']}
+
+loop_
+    _array_structure_list.array_id
+    _array_structure_list.axis_set_id
+    _array_structure_list.direction
+    _array_structure_list.index
+    _array_structure_list.precedence
+    _array_structure_list.dimension
+        1          1          increasing    1        1       {td['ARR_DIMN_1']}
+        1          2          increasing    2        2       {td['ARR_DIMN_2']}
+
+_diffrn_detector.id               det1
+_diffrn_detector.number_of_axes   1
+
+loop_
+    _diffrn_detector_axis.axis_id
+    _diffrn_detector_axis.detector_id
+        trans      det1
+
+loop_
+    _array_data.binary_id
+    _array_data.array_id
+    _array_data.external_data_id
+{td['ARRAY_DATA_INFO']}
+loop_
+{td['ARRAY_COLUMNS_SPEC']}
+{td['DATA_EXT_LINKS']}
+loop_
+    _diffrn_data_frame.id
+    _diffrn_data_frame.binary_id
+    _diffrn_data_frame.array_id
+{td['DATA_FRAME_IDS']}
+_diffrn_scan.id                               SCAN1
+_diffrn_scan.frames                           {td['N_FRAMES']}
+_diffrn_scan.integration_time 	              {td['INT_TIME']}
+_diffrn_scan_axis.axis_id                     {td['SCAN_AXIS']}
+_diffrn_scan_axis.angle_start                 {td['SCAN_START']}
+_diffrn_scan_axis.angle_range                 {td['SCAN_RANGE']}
+_diffrn_scan_axis.angle_increment             {td['SCAN_INCR']}
+_diffrn_scan_axis.displacement_start          0.0
+_diffrn_scan_axis.displacement_range          0.0
+_diffrn_scan_axis.displacement_increment      0.0
+
+loop_
+    _diffrn_scan_frame.frame_id
+    _diffrn_scan_frame.scan_id
+    _diffrn_scan_frame.frame_number
+{td['SCAN_FRAME_IDS']}"""
+
+        return DLS_I04_TEMPLATE
+
     def write_imgcif(self, tags):
 
         with open('cbf_metadata.cif', 'w') as f:
-            f.write(self.template % tags)
+            f.write(tags)
 
 
 def check_frames_location(fpath_stem):
@@ -437,6 +586,91 @@ def check_frames_location(fpath_stem):
               ' Check correctness of path and stem name'
              )
     return fnames
+
+
+def transform_nexus_to_cbf_coordinates(tags_dict, goniometer_pos,
+                                       goniometer_rot_direction):
+    """Transform the from NeXus to CBF coordinate system depending on the
+    position and rotation direction of the goniometer.
+
+    Args:
+        tags_dict (dict) : The dictionary containing the tags and its values
+        goniometer_pos (string): The position of the goniometer seen from the
+            source ('left' or 'right')
+        goniometer_rot_direction (string): The rotation direction of the
+            goniometer seen from the tail of the vector ('clockwise' or
+            'counter_clockwise')
+
+    Returns:
+        tags_dict (dict): The transformed tags dictionary.
+    """
+    for tag, value in tags_dict.items():
+        if 'OVEC' in tag or 'OFFSET' in tag:
+            tags_dict[tag] = rotate_from_nexus_to_cbf(value, goniometer_pos)
+        elif 'SCAN_INCR' in tag:
+            assert goniometer_rot_direction in ['clockwise', 'counter_clockwise'], \
+                """Unknown goniometer position! Please choose between
+                'clockwise' and 'counter_clockwise.'"""
+            if goniometer_rot_direction == 'counter_clockwise':
+                tags_dict[tag] = f'-{value}'
+                tags_dict['SCAN_RANGE'] = f"-{tags_dict['SCAN_RANGE']}"
+
+    return tags_dict
+
+
+def rotate_from_nexus_to_cbf(vector, goniometer_pos):
+    """Rotate the vectors from NeXus to CBF coordinate system.
+
+    Args:
+        vector (string): The vector that shall be rotated as string e.g. '1 0 0'
+        goniometer_pos (string): The position of the goniometer seen from the
+            source ('left' or 'right')
+
+    Returns:
+        rotated_vector (string): The rotated vector.
+    """
+
+    assert goniometer_pos in ['left', 'right'], \
+        "Unknown goniometer position! Please choose between 'left' and 'right'."
+
+    if goniometer_pos == 'right':
+        rotated_vector = rotate_vector(vector, 'y')
+
+    elif goniometer_pos == 'left':
+        rotated_vector = rotate_vector(vector, 'x')
+
+    return rotated_vector
+
+
+def rotate_vector(vector, rotation_axis):
+    """Rotate a vector around a rotation axis.
+
+    Args:
+        vector (string): The vector that shall be rotated as string e.g. '1 0 0'
+        rotation_axis (string): The axis around which shall be rotated
+            'x', 'y' or 'z')
+
+    Returns:
+        rotated_vector (string): The rotated vector.
+    """
+    single_separator = ' '
+    vector_array = np.fromstring(vector, dtype=np.float64, sep=single_separator)
+    count = int(vector.count(single_separator) / (len(vector_array) - 1))
+    separator = single_separator*count
+
+    if rotation_axis == 'x':
+        rot = vector_array * np.array([1, -1, -1])
+    elif rotation_axis == 'y':
+        rot = vector_array * np.array([-1, 1, -1])
+    elif rotation_axis == 'z':
+        rot = vector_array * np.array([-1, -1, 1])
+    else:
+        rot = None
+    # remove leading minus at zeros
+    rot[rot==0] = 0.0
+    rot = separator.join(str(x) for x in rot)
+
+    return rot
 
 
 def main():
@@ -483,9 +717,9 @@ def main():
         print('external image file location:', '/'.join(args.frames.split('/')[:-1]))
         imgfiles = check_frames_location(args.frames)
         byte_tags = data_array_info.extract_from_header(imgfiles[0])
-        byte_block_str = BYTE_INFO_TEMPLATE % (byte_tags)
+        byte_block_str = data_array_info.fill_template(byte_tags)
         mode = 'hybrid'
-    
+
     metadata_map = DLS_I04_MAP()
     metadata_tags = metadata_map.extract_from_hdf5(meta_file, args.frames, imgfiles)
 
@@ -506,7 +740,10 @@ def main():
         framelink_tags = metadata_map.fill_frame_info_cbf(len(imgfiles), imgfiles)
 
     tags = {'RECORD': args.record, 'BYTE_INFO_BLOCK': byte_block_str, **metadata_tags, **framelink_tags}
-    metadata_map.write_imgcif(tags)
+    template_filled = metadata_map.fill_template(tags)
+
+
+    metadata_map.write_imgcif(template_filled)
 
 
 if __name__ == '__main__':
