@@ -61,9 +61,9 @@ body:
         of the &#967; direction of rotation. List the axes in order of stacking from
         closest to the crystal to furthest (`phi` would typically be first if present, `omega` is usually last).
   - type: input
-    id: kappa
+    id: &#954;
     attributes:
-      label: &#954;
+      label: kappa
       description: >
         If your goniometer has a &#954; axis, please give its name and &#954; angle here, for example "kappa 50". When looking
         from above, with the beam going from left to right and all axes at their zero positions, the &#954; base is assumed to
