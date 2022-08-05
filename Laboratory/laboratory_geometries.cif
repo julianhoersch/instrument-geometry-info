@@ -14,15 +14,7 @@
 # example 'data_Rigaku_XtalabSynergyS_1'. <config> may be omitted if not
 # present.
 #
-# 2. all data names are as defined in imgCIF or cif core, with the
-# exception of local data names
-#
-# _audit.[local]_valid_at
-# _audit.[local]_valid_from
-# _audit.[local]_valid_to
-# _audit.[local]_details
-#
-# which hold the period of validity of the defined configuration. The imgCIF
+# 2. all data names are as defined in imgCIF or cif core. The imgCIF
 # dictionary and the relevant Volume G chapter should be referred to in
 # order to understand the meaning of the following entries.
 #
@@ -50,3 +42,58 @@ loop_
         omega rotation goniometer     .    1        0        0
         kappa rotation goniometer omega    -.64279  0       -.76604
         phi   rotation goniometer kappa    1        0        0
+
+# Bruker APEX II
+
+data_Bruker_Kappa_APEXII
+
+_diffrn.id BRUKER
+_audit.block_id	Bruker_Kappa_APEXII
+_diffrn_source.make	'Bruker-Kappa APEXII'
+_diffrn_source.details	'Located at Utrecht University'
+
+loop_
+_axis.id
+_axis.depends_on
+_axis.equipment
+_axis.type
+_axis.vector[1]
+_axis.vector[2]
+_axis.vector[3]
+_axis.offset[1]
+_axis.offset[2]
+_axis.offset[3]
+ gravity . gravity general 1 0 0 0 0 0
+ OMEGA . goniometer rotation   1 0 0 0 0 0
+ KAPPA OMEGA goniometer rotation  0.642788 0 -0.766044 0 0 0
+ PHI KAPPA goniometer rotation  1 0 0 0 0 0
+ TWOTHETA . detector rotation   1 0 0 0 0 0
+ DX TWOTHETA detector translation 0 0 -1 0 0 0
+ YAW DX detector rotation -1 0 0 0 0 0
+ PITCH YAW detector rotation 0  1 0 0 0 0
+ ROLL PITCH detector rotation 0 0 1 0 0 0
+ H ROLL detector translation 0  1 0 0 0 0
+ V H detector translation  1 0 0 0 0 0
+ELEMENT_X V detector translation 0  1 0 -30.7201 -30.7201 0
+ELEMENT_Y ELEMENT_X detector translation  1 0 0 0 0 0
+loop_
+_array_structure_list_axis.axis_set_id
+_array_structure_list_axis.axis_id
+_array_structure_list_axis.displacement
+_array_structure_list_axis.displacement_increment
+ ELEMENT_X ELEMENT_X 0.0600002 0.12
+ ELEMENT_Y ELEMENT_Y 0.0600002 0.12
+
+_array_structure.id IMAGE
+_array_structure.byte_order little_endian
+_array_structure.encoding_type 'signed 32-bit integer'
+
+loop_
+_array_structure_list.array_id
+_array_structure_list.index
+_array_structure_list.dimension
+_array_structure_list.precedence
+_array_structure_list.direction
+_array_structure_list.axis_set_id
+ IMAGE 1 512 1 increasing ELEMENT_X
+ IMAGE 2 512 2 increasing ELEMENT_Y
