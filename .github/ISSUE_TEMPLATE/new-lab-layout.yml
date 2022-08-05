@@ -135,18 +135,18 @@ body:
     attributes:
       label: xds.inp
       description: >-
-        If XDS is used to reduce data from this configuration, please attach an `XDS.INP`
+        If XDS is used to reduce data from this configuration, please paste the contents of the `XDS.INP`
         file here.
   - type: input
     id: doi
     attributes:
       label: Data DOI
       description: >-
-        If available, please give the DOI of a raw data set obtained using this configuration
-        that includes images separated by at least 90 degrees of phi rotation.
-        Consider uploading a representative data set to Zenodo if automated public access is not otherwise
-        available for your instrument. These data will be used (in future) for automated checking
-        of the configuration.
+        Please give the DOI of a raw data set obtained using this configuration
+        that includes at least one full scan. We suggest uploading a data set from a single
+        crystal (e.g. a calibration crystal) to Zenodo 
+        if automated public access is not otherwise
+        available for data from your instrument. These data will be used to validate the configuration.
   - type: textarea
     attributes:
       label: Comments
