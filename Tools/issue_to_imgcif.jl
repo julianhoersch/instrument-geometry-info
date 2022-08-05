@@ -340,8 +340,9 @@ describe_array(raw_info,imgblock) = begin
     imgblock[base*"axis_id"] = ["detx","dety"]
     imgblock[base*"axis_set_id"] = ["1","2"]
     imgblock[base*"displacement"] = [hor/2,vert/2]   #half pixel size
+    imgblock[base*"displacement_increment"] = [hor,vert]
     create_loop!(imgblock,[base*"axis_id",base*"axis_set_id",
-                      base*"displacement"])
+                      base*"displacement",base*"displacement_increment"])
     
     # array structure list
     base = "_array_structure_list."
