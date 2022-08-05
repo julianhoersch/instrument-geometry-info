@@ -57,22 +57,22 @@ body:
       description: >
         For each axis attached to the goniometer, give the axis name (as used in data files if known) and
         sense of rotation (a=anticlockwise, c=clockwise) when looking from the crystal in the direction of the goniometer. Separate
-        each value by a comma, for example 'Chi, c, Omega, a'. See the instructions for chi below for correct description
-        of the chi direction of rotation. List the axes in order of stacking from
-        closest to the crystal to furthest (phi would typically be first if present, omega is usually last).
+        each value by a comma, for example 'Chi, c, Omega, a'. See the instructions for &#967; below for correct description
+        of the &#967; direction of rotation. List the axes in order of stacking from
+        closest to the crystal to furthest (`phi` would typically be first if present, `omega` is usually last).
   - type: input
     id: kappa
     attributes:
-      label: kappa
+      label: &#954;
       description: >
-        If your goniometer has a kappa axis, please give its name and kappa angle here, for example "kappa 50". When looking
-        from above, with the beam going from left to right and all axes at their zero positions, the kappa base is assumed to
+        If your goniometer has a &#954; axis, please give its name and &#954; angle here, for example "kappa 50". When looking
+        from above, with the beam going from left to right and all axes at their zero positions, the &#954; base is assumed to
         be at the left. If this is not the case, please append the base location as a counter-clockwise rotation from this 
-        position when looking from above. For example, if the kappa base is located on the detector side, type "kappa 50 180".
+        position when looking from above. For example, if the &#954; base is located on the detector side, type "kappa 50 180".
   - type: input
     id: chi
     attributes:
-      label: chi
+      label: &#967;
       description: >
         If your goniometer has a &#967; axis, please give its name here, followed by an &#969; angle at which the &#967; rotation
         axis is parallel to the beam. The sense of rotation provided for &#967; in the "Goniometer axes" question above is the
