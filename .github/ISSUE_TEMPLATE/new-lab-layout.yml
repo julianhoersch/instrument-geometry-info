@@ -57,22 +57,29 @@ body:
       description: >
         For each axis attached to the goniometer, give the axis name (as used in data files if known) and
         sense of rotation (a=anticlockwise, c=clockwise) when looking from the crystal in the direction of the goniometer. Separate
-        each value by a comma, for example 'Chi, c, Omega, a'. List the axes in order of stacking from
-        closest to the crystal to furthest (phi would typically be first if present, omega is usually last).
-  - type: input
-    id: gonio_rot
-    attributes:
-      label: Rotation axis name
-      description: "Of the axes listed in the previous question, which one is the rotation axis used for data collection?"
+        each value by a comma, for example 'Chi, c, Omega, a'. See the instructions for &#967; below for correct description
+        of the &#967; direction of rotation. List the axes in order of stacking from
+        closest to the crystal to furthest (`phi` would typically be first if present, `omega` is usually last).
   - type: input
     id: kappa
     attributes:
       label: kappa
       description: >
-        If your goniometer has a kappa axis, please give its name and kappa angle here, for example "kappa 50". When looking
-        from above, with the beam going from left to right and all axes at their zero positions, the kappa base is assumed to
+        If your goniometer has a &#954; axis, please give its name and &#954; angle here, for example "kappa 50". When looking
+        from above, with the beam going from left to right and all axes at their zero positions, the &#954; base is assumed to
         be at the left. If this is not the case, please append the base location as a counter-clockwise rotation from this 
-        position when looking from above. For example, if the kappa base is located on the detector side, type "kappa 50 180".
+        position when looking from above. For example, if the &#954; base is located on the detector side, type "kappa 50 180".
+  - type: input
+    id: chi
+    attributes:
+      label: chi
+      description: >
+        If your goniometer has a &#967; axis, please give its name here, followed by an &#969; angle at which the &#967; rotation
+        axis is parallel to the beam. The sense of rotation provided for &#967; in the "Goniometer axes" question above is the
+        sense of rotation when the &#969; axis has been rotated by this angle and the &#967; axis is viewed from the beam source.
+        For example, if &#969; is rotated by 90 to bring the &#967; axis parallel to the beam and moving to positive &#967; rotates the crystal
+        anticlockwise when viewed from the source, `chi,a` should be given for "Goniometer axes" and `chi 90` should be provided 
+        here. `chi,c` with `chi -90` would also describe the same situation.
   - type: markdown
     attributes:
       value: >
@@ -128,18 +135,18 @@ body:
     attributes:
       label: xds.inp
       description: >-
-        If XDS is used to reduce data from this configuration, please attach an `XDS.INP`
+        If XDS is used to reduce data from this configuration, please paste the contents of the `XDS.INP`
         file here.
   - type: input
     id: doi
     attributes:
       label: Data DOI
       description: >-
-        If available, please give the DOI of a raw data set obtained using this configuration
-        that includes images separated by at least 90 degrees of phi rotation.
-        Consider uploading a representative data set to Zenodo if automated public access is not otherwise
-        available for your instrument. These data will be used (in future) for automated checking
-        of the configuration.
+        Please give the DOI of a raw data set obtained using this configuration
+        that includes at least one full scan. We suggest uploading a data set from a single
+        crystal (e.g. a calibration crystal) to Zenodo 
+        if automated public access is not otherwise
+        available for data from your instrument. These data will be used to validate the configuration.
   - type: textarea
     attributes:
       label: Comments
