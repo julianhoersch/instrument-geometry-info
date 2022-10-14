@@ -76,7 +76,7 @@ body:
       description: >
         If your goniometer has a &#967; axis, please give its name here, followed by an &#969; angle at which the &#967; rotation
         axis is parallel to the beam. The sense of rotation provided for &#967; in the "Goniometer axes" question above is the
-        sense of rotation when the &#969; axis has been rotated by this angle and the &#967; axis is viewed from the beam direction.
+        sense of rotation when the &#969; axis has been rotated by this angle and the &#967; axis is viewed from the beam source.
         For example, if &#969; is rotated by 90 to bring the &#967; axis parallel to the beam and moving to positive &#967; rotates the crystal
         anticlockwise when viewed from the source, `chi,a` should be given for "Goniometer axes" and `chi 90` should be provided 
         here. `chi,c` with `chi -90` would also describe the same situation.
