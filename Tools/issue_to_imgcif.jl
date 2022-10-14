@@ -109,11 +109,13 @@ below, so the sense of rotation is reversed.
 
 """
 make_gonio_axes(raw_info) = begin
+    
     axes,senses = raw_info["Goniometer axes"]
     n = length(axes)
     axis_type = fill("rotation",n)
     equip = fill("goniometer",n)
     kappa_axis = split(get(raw_info,"kappa","- - -"),[' ',','])[1]
+    chi_axis = split(get(raw_info,"chi","- -"),[' ',','])[1]
 
     # Construct axis dependency chain
 
@@ -130,21 +132,20 @@ make_gonio_axes(raw_info) = begin
     vector = Vector{Union{Missing,Real}}[]
     for (a,d) in zip(axes,senses)
         rotfac = d == principal ? 1 : -1
-        if a == kappa_axis
+        if lowercase(a) == lowercase(kappa_axis)
             kv = get_kappa_info(raw_info)
             kv[1] *= rotfac
             push!(vector,kv)
+        elseif lowercase(a) == lowercase(chi_axis)
+            push!(vector, get_chi_info(raw_info))
         else
-            push!(vector,[1,0,0]*rotfac)
+            push!(vector, [1, 0, 0] * rotfac)
         end
     end
     offset = fill(Union{Missing,Real}[0,0,0],n)
-    return raw_info["Goniometer axes"][1],axis_type,equip,depends_on,vector,offset
+    return raw_info["Goniometer axes"][1], axis_type, equip, depends_on, vector, offset
 end
 
-#
-#
-#
 get_kappa_info(raw_info) = begin
 
     # extract kappa information
@@ -173,6 +174,34 @@ get_kappa_info(raw_info) = begin
         z_comp = across_comp
     end
     return [up_comp,0.0,z_comp]
+end
+
+get_chi_info(raw_info) = begin
+
+    # Extract chi information
+
+    axes, senses = raw_info["Goniometer axes"]
+    cinfo = split(raw_info["chi"],[' ',','],keepempty=false)
+    axname = lowercase( first( cinfo ) )
+    if !(axname in lowercase.(axes))
+        throw(error("Chi axis name $axname not listed as a goniometer axis"))
+    end
+    r = -1 * parse(Float64, cinfo[2])
+
+    # Now turn this into an axis direction
+    # At the provided rotation, the chi axis is parallel to z. It is rotated
+    # by -chi_rot about omega to bring it to the start position. The sense
+    # of omega rotation is always about 1 0 0 by definition
+
+    chi_sense = indexin([axname], lowercase.(axes))[]
+    chi_sense = senses[chi_sense]
+
+    chi_beam_dir = chi_sense == "a" ? [0, 0, 1] : [0, 0, -1]
+    chi_rot = [1 0 0; 0 cosd(r) -sind(r); 0 sind(r) cosd(r)]
+
+    @debug "For chi axis:" chi_rot chi_beam_dir
+    return chi_rot * chi_beam_dir
+
 end
 
 """
