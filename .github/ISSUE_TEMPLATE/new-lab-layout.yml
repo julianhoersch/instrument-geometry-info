@@ -116,6 +116,14 @@ body:
          The size of pixels in mm in order horizontal, vertical (eg '0.12, 0.15'). If identical sizes, a single number is sufficient. 
          Pixels are assumed to have no space between them, if this is not the case please write in the comments section below.
   - type: input
+    id: pixnum
+    attributes:
+      label: Number of pixels
+      description: >
+         The number of pixels in the fast and slow directions (eg '195, 487'). This can usually be found by opening an output frame
+         in a text editor and examining the header. If unknown, please provide a DOI below where at least one output frame from this
+         detector is available.
+  - type: input
     id: two_theta
     attributes:
       label: Two theta axis
