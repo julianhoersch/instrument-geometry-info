@@ -250,9 +250,9 @@ make_detector_axes(raw_info) = begin
     push!(vector,x_d)
     push!(vector,y_d)
     
-    # Beam centre and distance is unknown for now
+    # Beam centre is unknown for now
 
-    offset = [[0,0,0],[0,0,missing],[missing,missing,0],[0,0,0]]
+    offset = [[0,0,0],[0,0,0],[missing,missing,0],[0,0,0]]
     return axis_id,axis_type,equip,depends_on,vector,offset
 end
 
