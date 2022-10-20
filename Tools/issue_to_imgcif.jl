@@ -288,10 +288,10 @@ determine_detx_dety(principal_angle,principal_sense,corner) = begin
         temp = x_direction
         x_direction = y_direction
         y_direction = -1*temp
-    elseif principal_angle == 180
+    elseif pa == 180
         x_direction *= -1
         y_direction *= -1
-    elseif principal_angle == 270
+    elseif pa == 270
         temp = x_direction
         x_direction = -1*y_direction
         y_direction = temp
