@@ -267,8 +267,9 @@ _diffrn_scan_axis.angle_range
             if a == dets["axis"]
                 step = dets["incr"]
                 range = dets["range"]
+                val = dets["start"]
             end
-            
+
             if is_trans_axis(a)
                 println(op, "SCAN$s  $a $val $step $range . . .")
             else
