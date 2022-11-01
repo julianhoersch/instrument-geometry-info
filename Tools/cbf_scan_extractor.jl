@@ -1,4 +1,4 @@
-# Extract and output scan information from minicbf files
+# Extract and output scan information from minicbf or ADSC files
 
 # Assumptions:
 # 1. files are named in some form of xxxx_scanno(_)frameno.cbf
@@ -13,20 +13,24 @@ using ArgParse
 # Configuration information
 
 const rot_axes = ("chi", "phi", "detector_2theta", "two_theta", "omega")
-const trans_axes = ("detector_distance", "dx", "trans")
+const trans_axes = ("detector_distance", "dx", "trans", "distance")
 
 is_trans_axis(axis) = axis in trans_axes
 is_rot_axis(axis) = axis in rot_axes
 
-get_scan_info(frame_dir) = begin
+get_scan_info(frame_dir; stem = Regex(".*_")) = begin
 
-    frame_catcher, all_names = get_scan_frame_fmt(frame_dir)
+    frame_catcher, all_names = get_scan_frame_fmt(frame_dir, stem = stem)
 
     # index them all for speed
 
     all_frames = map(all_names) do an
         m = match(frame_catcher, an)
-        (m["scan"],parse(Int, m["frame"])) => an
+        if haskey(m, "scan")
+            (m["scan"],parse(Int, m["frame"])) => an
+        else
+            ("01", parse(Int, m["frame"])) => an
+        end
     end
 
     all_frames = Dict(all_frames)
@@ -36,6 +40,10 @@ get_scan_info(frame_dir) = begin
     scan_info = Dict()
 
     axes = union(rot_axes, trans_axes)
+
+    frame_type = determine_frame_type( joinpath(frame_dir, first(all_frames).second))
+
+    @debug "$frame_type determined"
     
     for s in all_scans
         
@@ -47,11 +55,11 @@ get_scan_info(frame_dir) = begin
         # Get information for first and last frame
 
         fname = joinpath( frame_dir, all_frames[(s, 1)])
-        vals, scan_ax, scan_incr, et, wl = get_frame_info(fname, axes)
+        vals, scan_ax, scan_incr, et, wl = get_frame_info(frame_type, fname, axes)
         start = vals[scan_ax]
 
         fname = joinpath( frame_dir, all_frames[(s, length(frames))])
-        vals, _, _, _, _ = get_frame_info(fname, axes)
+        vals, _, _, _, _ = get_frame_info(frame_type, fname, axes)
         finish = vals[scan_ax]
 
         # Check increment and range match
@@ -76,50 +84,83 @@ get_scan_info(frame_dir) = begin
 end
 
 # Deduce scan/frame naming convention
-get_scan_frame_fmt(frame_dir) = begin
+get_scan_frame_fmt(frame_dir; stem = Regex(".*_")) = begin
     
     all_names = readdir(frame_dir)
-    filter!(x-> x[end-3:end] == ".cbf", all_names)
+    filter!(x-> x[end-3:end] in (".cbf",".img"), all_names)
+    if !ismissing(stem)
+        filter!(x -> startswith(x, stem), all_names)
+    end
     sort!(all_names)
 
-    rr = r".*_(?<scan>[0-9]+1)(?<sep>0|_)(?<frame>[0-9]+1)\.cbf"
-    m = match(rr,all_names[1])
+    # Analyse number of digits between stem and extension: if less than
+    # 5, no scan present
 
-    s_pos = m.offsets[1]
-    s_len = length(m["scan"])
-    f_len = length(m["frame"])
-    if m["sep"] == "0"
-        f_pos = m.offsets[2]
-        f_len = f_len + 1
+    test_name = all_names[1]
+    stem_len = length(match(stem, test_name).match)
+    num_digits = count(r"[0-9]", test_name[stem_len:end-4])
+
+    @debug "Num digits for $test_name" num_digits
+
+    if num_digits > 4
+        rr = stem * r"(?<scan>[0-9]+1)(?<sep>0|_)(?<frame>[0-9]+1)\.(cbf|img)"
+        
+        m = match(rr,all_names[1])
+
+        s_pos = m.offsets[1]
+        s_len = length(m["scan"])
+        f_len = length(m["frame"])
+        if m["sep"] == "0"
+            f_pos = m.offsets[2]
+            f_len = f_len + 1
+        else
+            f_pos = m.offsets[3]
+        end
+
+        fr_sc_regex = stem * Regex("(?<scan>[0-9]{$s_len})_?(?<frame>[0-9]{$f_len})")
+
     else
-        f_pos = m.offsets[3]
+        
+        fr_sc_regex = stem * r"(?<frame>[0-9]+)"
+
     end
 
-    fr_sc_regex = ".*_(?<scan>[0-9]{$s_len})_?(?<frame>[0-9]{$f_len})"
-
-    @assert !isnothing(match(Regex(fr_sc_regex), all_names[end]))
+    @assert !isnothing(match(fr_sc_regex, all_names[end]))
     
-    return Regex(fr_sc_regex), all_names
+    return fr_sc_regex, all_names
+end
+
+"""
+    
+Determine the type of frame file: currently SMV (ADSC) and CBF are
+recognised.
+"""
+determine_frame_type(filename) = begin
+
+    header = read(filename, 512)
+    if 0x0c in header return Val(:SMV) end
+    if occursin("_array_data", header) return Val(:CBF) end
+    return missing
 end
 
 """
 Return any values found for provided axes. All axes converted to lowercase.
 """
-get_frame_info(fname, axes) = begin
+get_frame_info(t::Val{:CBF}, fname, axes) = begin
     
     header = readuntil(fname, "--CIF-BINARY-FORMAT-SECTION--")
     lines = lowercase.(split(header, "\n"))
 
-    ax_vals = map(ax -> (lowercase(ax), (get_header_value(lines, ax))), axes)
+    ax_vals = map(ax -> (lowercase(ax), (get_header_value(t,lines, ax))), axes)
     filter!( x-> x[2] != nothing, ax_vals)
     ax_vals = convert_units.(ax_vals)
 
-    ax_incr = map(ax -> (lowercase(ax), get_header_value(lines, ax*"_increment")), axes)
+    ax_incr = map(ax -> (lowercase(ax), get_header_value(t,lines, ax*"_increment")), axes)
     filter!( x-> x[2] != nothing, ax_incr)
     ax_incr = convert_units.(ax_incr)
     
-    et, _ = get_header_value(lines, "exposure_time")
-    wl, _ = get_header_value(lines, "wavelength")
+    et, _ = get_header_value(t, lines, "exposure_time")
+    wl, _ = get_header_value(t, lines, "wavelength")
 
     scan_ax = findfirst( x -> !isapprox(x[2], 0, atol = 1e-6), ax_incr)
     
@@ -127,10 +168,27 @@ get_frame_info(fname, axes) = begin
     
 end
 
+# For a single-axis diffractometer currently
+get_frame_info(t::Val{:SMV}, fname, _) = begin
+
+    header = String(read(fname, 512))
+    lines = lowercase.(split(header, "\n"))
+
+    ax_vals = [("phi", get_header_value(t, lines, "phi"))]
+    push!(ax_vals, ("trans", get_header_value(t, lines, "distance")))
+    ax_incr = [("phi", get_header_value(t, lines, "osc_range"))]
+    push!(ax_vals, ("trans", 0.0))
+
+    et = get_header_value(t, lines, "time")
+    wl = get_header_value(t, lines, "wavelength")
+
+    return Dict(ax_vals), "phi", ax_incr[1][2], et, wl 
+end
+
 """
     Get the value following the string given in matcher and units if present
 """
-get_header_value(lines, matcher) = begin
+get_header_value(::Val{:CBF}, lines, matcher) = begin
 
     rr = Regex("$matcher[ =]+")
     one_line = filter( x-> !isnothing(match(rr, x)), lines)
@@ -148,6 +206,28 @@ get_header_value(lines, matcher) = begin
     #@debug "To get value" val
 
     return parse(Float64, val), units
+end
+
+"""
+    Get the value following the string given in matcher and units if present
+"""
+get_header_value(::Val{:SMV}, lines, matcher) = begin
+
+    rr = Regex("^$matcher[ =]+")
+    one_line = filter( x-> !isnothing(match(rr, x)), lines)
+    if length(one_line) != 1
+        return nothing
+    end
+
+    one_line = one_line[]
+    #@debug "Extracting from" one_line
+
+    m = match(Regex("$matcher[ =]+(?<val>[A-Za-z0-9+-.]+)"), one_line)
+    val = strip(m["val"])
+
+    #@debug "To get value" val
+
+    return parse(Float64, val)
 end
 
 """
@@ -438,6 +518,10 @@ parse_cmdline(d) = begin
         "-l", "--location"
         help = "Final URL of files in output."
         nargs = 1
+        "-s", "--stem"
+        help = "Constant portion of frame file name. This can help determine the scan/frame file naming convention"
+        nargs = 1
+        default = [""]
         "-i", "--include"
         help = "Include directory name as part of frame location info in output"
         nargs = 0
@@ -466,10 +550,11 @@ if abspath(PROGRAM_FILE) == @__FILE__
     frame_dir = parsed_args["directory"]
     do_output = parsed_args["output"] != nothing
     prepend_dir = parsed_args["include"] ? splitpath(frame_dir)[end] : ""
-
+    file_stem = parsed_args["stem"][] == "" ? Regex(".*_") : Regex(parsed_args["stem"][])
+    
     # Analyse CBF files
     
-    scan_info, all_frames = get_scan_info(frame_dir)
+    scan_info, all_frames = get_scan_info(frame_dir, stem = file_stem)
 
     # Rename axes
 
