@@ -4,23 +4,29 @@ Conversion of metadata information from various input formats
 to imgCIF output
 '''
 
-from argparse import ArgumentParser
-from gettext import translation
-from glob import glob
-from tkinter.ttk import Separator
-import h5py as h5
 import os
-import re
-import requests
 import sys
+from argparse import ArgumentParser
+from glob import glob
+import h5py as h5
+import requests
 import numpy as np
 
 TOKEN_NAME = 'fda_zen_01'
 ACCESS_TOKEN = '73LIoratcpkJ9uRfRUTY4dOiZBWZMP8BoUfUyrcA2ySlIjBH3kCEGYPybhoI'
 
 def get_files_online(rec_num):
+    """Retrive a file from online.
 
-    r = requests.get(f'https://zenodo.org/api/records/{rec_num}',
+    Args:
+        rec_num (str): the record number
+
+    Returns:
+        list: A list containing tuples with the file link and name.
+    """
+
+    r = requests.get(
+        f'https://zenodo.org/api/records/{rec_num}',
         params={'access_token': ACCESS_TOKEN})
 
     file_list = []
@@ -33,6 +39,12 @@ def get_files_online(rec_num):
 
 
 def download_master(file_url, file_name):
+    """Download the master file.
+
+    Args:
+        file_url (str): the file url
+        file_name (str): the file name
+    """
 
     r = requests.get(file_url, params={'access_token': ACCESS_TOKEN})
 
@@ -41,6 +53,14 @@ def download_master(file_url, file_name):
 
 
 def frames_from_master(file_name):
+    """Obtain the frames from the master.
+
+    Args:
+        file_name (str): the file name
+
+    Returns:
+        list: a list of tuples containing the frame files
+    """
 
     frame_files = []
     with h5.File(file_name, 'r') as f:
@@ -71,8 +91,16 @@ class CBF_ARRAY_INFO:
             'encod_src': 'Content-Transfer-Encoding'
         }
 
-    def extract_from_header(self, fn):
-        with open(fn, 'rb') as f:
+    def extract_from_header(self, filename):
+        """Extract information from the header.
+
+        Args:
+            filename (str): the filename from which to extract the information
+
+        Returns:
+            dict: the tags found in the header
+        """
+        with open(filename, 'rb') as f:
             raw_header = f.read(4096).decode('latin-1')
             header_lines = raw_header.splitlines()
         tags_dict = {}
@@ -125,6 +153,7 @@ class DLS_I04_MAP:
         # 'counter_clockwise' -> counter_clockwise will lead to negative
         # increments for the scan
         self._goniometer_rot_direction = 'clockwise'
+        self._goniometer_pos = None
 
         self.items = {}
         '''
@@ -132,26 +161,26 @@ class DLS_I04_MAP:
           at the actual dataset value, as scalar or vector
         '''
         self.items['data_arr_info'] = {
-           'dims_path': 'entry/instrument/detector/module/data_size',
-           'arrdim_tag': ['ARR_DIMN_1', 'ARR_DIMN_2'],
-           'xcent_path': 'entry/instrument/detector/beam_center_x',
-           'ycent_path': 'entry/instrument/detector/beam_center_y',
-           'beamcent_tag': ['DET_BMCENT_X', 'DET_BMCENT_Y'],
-           'xpxsz_path': 'entry/instrument/detector/x_pixel_size',
-           'ypxsz_path': 'entry/instrument/detector/y_pixel_size',
-           'pixsize_tag': ['DET_PXSIZE_X', 'DET_PXSIZE_Y'],
-           'halfsize_tag': ['HALF_PXSIZE_X', 'HALF_PXSIZE_Y']
+            'dims_path': 'entry/instrument/detector/module/data_size',
+            'arrdim_tag': ['ARR_DIMN_1', 'ARR_DIMN_2'],
+            'xcent_path': 'entry/instrument/detector/beam_center_x',
+            'ycent_path': 'entry/instrument/detector/beam_center_y',
+            'beamcent_tag': ['DET_BMCENT_X', 'DET_BMCENT_Y'],
+            'xpxsz_path': 'entry/instrument/detector/x_pixel_size',
+            'ypxsz_path': 'entry/instrument/detector/y_pixel_size',
+            'pixsize_tag': ['DET_PXSIZE_X', 'DET_PXSIZE_Y'],
+            'halfsize_tag': ['HALF_PXSIZE_X', 'HALF_PXSIZE_Y']
         }
         self.items['instrument_info'] = {
-           'radtype_path': 'entry/instrument/source/type',
-           'radtype_tag': 'RADN_TYPE',
-           'wavelen_path': 'entry/instrument/beam/incident_wavelength',
-           'wavelen_tag': 'RADN_WAVELEN',
-           # for the detector distance we have different source items
-           'detdist_path': 'entry/instrument/detector_distance',
-           'detdist_tag': 'DET_ZDIST',
-           'int_time_tag' : 'INT_TIME',
-           'int_time_path' : '/entry/instrument/detector/count_time'
+            'radtype_path': 'entry/instrument/source/type',
+            'radtype_tag': 'RADN_TYPE',
+            'wavelen_path': 'entry/instrument/beam/incident_wavelength',
+            'wavelen_tag': 'RADN_WAVELEN',
+            # for the detector distance we have different source items
+            'detdist_path': 'entry/instrument/detector_distance',
+            'detdist_tag': 'DET_ZDIST',
+            'int_time_tag' : 'INT_TIME',
+            'int_time_path' : '/entry/instrument/detector/count_time'
         }
         '''
         for axes (NXpositioner) the information sub-dictionary under the given
@@ -167,46 +196,46 @@ class DLS_I04_MAP:
           target template tag '<AX>_OVEC')
         '''
         self.items['phi_info'] = {
-           'path': 'entry/sample/sample_phi/phi',
-           'angle_tag': 'PHI_ANGLE',
-           'depend_attr_itemno': 0,
-           'depend_tag': 'PHI_DEP',
-           'tftype_attr_itemno': 1,
-           'tftype_tag': 'PHI_TYPE',
-           'vector_attr_itemno': 3,
-           'vector_tag': 'PHI_OVEC'
+            'path': 'entry/sample/sample_phi/phi',
+            'angle_tag': 'PHI_ANGLE',
+            'depend_attr_itemno': 0,
+            'depend_tag': 'PHI_DEP',
+            'tftype_attr_itemno': 1,
+            'tftype_tag': 'PHI_TYPE',
+            'vector_attr_itemno': 3,
+            'vector_tag': 'PHI_OVEC'
         }
         self.items['chi_info'] = {
-           'path': 'entry/sample/sample_chi/chi',
-           'angle_tag': 'CHI_ANGLE',
-           'depend_attr_itemno': 0,
-           'depend_tag': 'CHI_DEP',
-           'tftype_attr_itemno': 1,
-           'tftype_tag': 'CHI_TYPE',
-           'vector_attr_itemno': 3,
-           'vector_tag': 'CHI_OVEC'
+            'path': 'entry/sample/sample_chi/chi',
+            'angle_tag': 'CHI_ANGLE',
+            'depend_attr_itemno': 0,
+            'depend_tag': 'CHI_DEP',
+            'tftype_attr_itemno': 1,
+            'tftype_tag': 'CHI_TYPE',
+            'vector_attr_itemno': 3,
+            'vector_tag': 'CHI_OVEC'
         }
         self.items['omega_info'] = {
-           'path': 'entry/sample/sample_omega/omega',
-           'angle_tag': 'OMG_ANGLE',
-           'depend_attr_itemno': 0,
-           'depend_tag': 'OMG_DEP',
-           'tftype_attr_itemno': 1,
-           'tftype_tag': 'OMG_TYPE',
-           'vector_attr_itemno': 3,
-           'vector_tag': 'OMG_OVEC'
+            'path': 'entry/sample/sample_omega/omega',
+            'angle_tag': 'OMG_ANGLE',
+            'depend_attr_itemno': 0,
+            'depend_tag': 'OMG_DEP',
+            'tftype_attr_itemno': 1,
+            'tftype_tag': 'OMG_TYPE',
+            'vector_attr_itemno': 3,
+            'vector_tag': 'OMG_OVEC'
         }
         self.items['scan_info'] = {
-           'nframes_tag': 'N_FRAMES',
-           'nframes_value': 0,
-           'axisid_tag': 'SCAN_AXIS',
-           'axisid_name': '',
-           'axstart_tag': 'SCAN_START',
-           'axstart_value': '',
-           'axincr_tag': 'SCAN_INCR',
-           'axincr_value': '',
-           'axrange_tag': 'SCAN_RANGE',
-           'axrange_value': ''
+            'nframes_tag': 'N_FRAMES',
+            'nframes_value': 0,
+            'axisid_tag': 'SCAN_AXIS',
+            'axisid_name': '',
+            'axstart_tag': 'SCAN_START',
+            'axstart_value': '',
+            'axincr_tag': 'SCAN_INCR',
+            'axincr_value': '',
+            'axrange_tag': 'SCAN_RANGE',
+            'axrange_value': ''
         }
         self.items['fast_info'] = {
             'path': '/entry/instrument/detector/module/fast_pixel_direction',
@@ -244,12 +273,20 @@ class DLS_I04_MAP:
         }
 
 
-    def extract_from_hdf5(self, fn, fpath_stem, imgfiles):
+    def extract_from_hdf5(self, filename, fpath_stem, imgfiles):
+        """Extract information from hdf5.
+
+        Args:
+            filename (str): the filename from which to extract
+
+        Returns:
+            dict: a dictionary containing the tags
+        """
 
         tags_dict = {}
         # scan_axes = {'phi': False, 'chi': False, 'omega': False }
 
-        with h5.File(fn) as f:
+        with h5.File(filename) as f:
             for k in ['phi', 'chi', 'omega', 'fast', 'slow', 'trans']:
 
                 print('Collect INFO for', k)
@@ -304,29 +341,30 @@ class DLS_I04_MAP:
 
                 tags_dict[tag] = depends_on
 
-                '''
-                the orientation vector attribute is an array of floats that we convert to string
-                and concatenate
-                '''
+
+                # the orientation vector attribute is an array of floats that
+                # we convert to string and concatenate
                 tag = self.items[f'{k}_info']['vector_tag']
                 attr = self.items[f'{k}_info']['vector_attr_itemno']
                 separator = '  '
-                tags_dict[tag] = separator.join([str(s) for s in list(h5item.attrs.items())[attr][1]])
+                tags_dict[tag] = separator.join(
+                    [str(s) for s in list(h5item.attrs.items())[attr][1]])
                 # print(tags_dict[tag])
 
             print('Collect INFO for detector/frame/array')
             sdict = self.items['data_arr_info']
-            for tag, item in [(sdict['arrdim_tag'][0], f[sdict['dims_path']][()][0]),
-                              (sdict['arrdim_tag'][1], f[sdict['dims_path']][()][1]),
-                              (sdict['beamcent_tag'][0],
-                                f[sdict['xcent_path']][()] * f[sdict['xpxsz_path']][()]),
-                              (sdict['beamcent_tag'][1],
-                                f[sdict['ycent_path']][()] * f[sdict['ypxsz_path']][()]),
-                              (sdict['pixsize_tag'][0], f[sdict['xpxsz_path']][()]),
-                              (sdict['pixsize_tag'][1], f[sdict['ypxsz_path']][()]),
-                              (sdict['halfsize_tag'][0], f[sdict['xpxsz_path']][()]/2.0),
-                              (sdict['halfsize_tag'][1], f[sdict['ypxsz_path']][()]/2.0),
-                             ]:
+            for tag, item in [
+                    (sdict['arrdim_tag'][0], f[sdict['dims_path']][()][0]),
+                    (sdict['arrdim_tag'][1], f[sdict['dims_path']][()][1]),
+                    (sdict['beamcent_tag'][0],
+                     f[sdict['xcent_path']][()] * f[sdict['xpxsz_path']][()]),
+                    (sdict['beamcent_tag'][1],
+                     f[sdict['ycent_path']][()] * f[sdict['ypxsz_path']][()]),
+                    (sdict['pixsize_tag'][0], f[sdict['xpxsz_path']][()]),
+                    (sdict['pixsize_tag'][1], f[sdict['ypxsz_path']][()]),
+                    (sdict['halfsize_tag'][0], f[sdict['xpxsz_path']][()]/2.0),
+                    (sdict['halfsize_tag'][1], f[sdict['ypxsz_path']][()]/2.0),
+                ]:
                 tags_dict[tag] = item
 
             print('Collect INFO for instrument setup')
@@ -389,10 +427,8 @@ class DLS_I04_MAP:
                   ' N(scan frames) in master file differs from N(image files).\n'
                   ' Frame links will be truncated to available information.'
                   )
-        '''
-        Construct the required three loops related to scan frames,
-        data/image files and the binary IDs that map the frames to files.
-        '''
+        # Construct the required three loops related to scan frames,
+        # data/image files and the binary IDs that map the frames to files.
         tags_dict = {}
         tags_dict['ARRAY_COLUMNS_SPEC'] = '_array_data.external_path'
         frame_links = ''
@@ -401,7 +437,7 @@ class DLS_I04_MAP:
         for i, fnpath in enumerate(imgfiles):
             array_links += f'        {(i+1):<4} 1 ext{(i+1):<4}\n'
             frame_links += f'        ext{(i+1):<4} CBF file://{fnpath}\n'
-            frame_ids   += f'        {(i+1):<4}  {(i+1):<4} 1\n'
+            frame_ids += f'        {(i+1):<4}  {(i+1):<4} 1\n'
             scan_frames += f'        {(i+1):<4}  SCAN1 {(i+1):<4}\n'
         tags_dict['ARRAY_DATA_INFO'] = array_links
         tags_dict['DATA_EXT_LINKS'] = frame_links
@@ -411,6 +447,13 @@ class DLS_I04_MAP:
         return tags_dict
 
     def fill_frame_info_hdf5(self, rec_num, imgfiles, n_frames_per_file):
+        """Fill the frame info for the hdf5 file
+
+        Args:
+            rec_num (str): the record number
+            imgfiles (_type_): the HDF5 data files
+            n_frames_per_file (_type_): _description_
+        """
 
         tags_dict = {}
         tags_dict['ARRAY_COLUMNS_SPEC'] = \
@@ -429,7 +472,7 @@ class DLS_I04_MAP:
             for j in range(1, n_frames_per_file[i]+1):
                 array_links += f'        {k:<4} 1 ext{k:<4}\n'
                 frame_links += f'        ext{k:<4} HDF5 https://zenodo.org/record/{rec_num}/files/{fn} {dpath} {j}\n'
-                frame_ids   += f'        {k:<4}  {k:<4} 1\n'
+                frame_ids += f'        {k:<4}  {k:<4} 1\n'
                 scan_frames += f'        {k:<4}  SCAN1 {k:<4}\n'
                 k += 1
         tags_dict['ARRAY_DATA_INFO'] = array_links
@@ -668,13 +711,15 @@ def rotate_vector(vector, rotation_axis):
     else:
         rot = None
     # remove leading minus at zeros
-    rot[rot==0] = 0.0
+    rot[rot == 0] = 0.0
     rot = separator.join(str(x) for x in rot)
 
     return rot
 
 
 def main():
+    """The imgCIF mapping tool helps to convert from NeXus to HDF5
+    """
 
     print('imgCIF mapping tool')
 
@@ -685,7 +730,7 @@ def main():
     ap.add_argument('-a', '--archive', type=str, help='path and name stem of external image frames')
     args = ap.parse_args(sys.argv[1:])
 
-    print('record #:',args.record)
+    print('record #:', args.record)
 
     if args.input_file is None:
         # Default
@@ -740,7 +785,8 @@ def main():
     else:
         framelink_tags = metadata_map.fill_frame_info_cbf(len(imgfiles), imgfiles)
 
-    tags = {'RECORD': args.record, 'BYTE_INFO_BLOCK': byte_block_str, **metadata_tags, **framelink_tags}
+    tags = {'RECORD': args.record,
+            'BYTE_INFO_BLOCK': byte_block_str, **metadata_tags, **framelink_tags}
     template_filled = metadata_map.fill_template(tags)
 
 
@@ -750,4 +796,3 @@ def main():
 if __name__ == '__main__':
 
     main()
-
