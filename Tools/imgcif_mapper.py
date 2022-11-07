@@ -480,11 +480,12 @@ class DLS_I04_MAP:
 
         DLS_I04_TEMPLATE = f"""\
 data_{td['RECORD']}
-_database.dataset_doi       '10.5281/zenodo.5886687'
-_audit.block_code           Diamond_I04
-_diffrn_source.beamline     I04
-_diffrn_source.facility     Diamond
-_diffrn_radiation.type      '{td['RADN_TYPE']}'
+_database.dataset_doi        '10.5281/zenodo.5886687'
+_audit.block_code            Diamond_I04
+_diffrn_source.beamline      I04
+_diffrn_source.facility      Diamond
+_diffrn_radiation.type       '{td['RADN_TYPE']}'
+_array_intensities.overload  65535
 {td['BYTE_INFO_BLOCK']}
 loop_
     _diffrn_radiation_wavelength.id

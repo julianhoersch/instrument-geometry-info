@@ -1,9 +1,10 @@
 data_5886687
-_database.dataset_doi       '10.5281/zenodo.5886687'
-_audit.block_code           Diamond_I04
-_diffrn_source.beamline     I04
-_diffrn_source.facility     Diamond
-_diffrn_radiation.type      'Synchrotron X-ray Source'
+_database.dataset_doi        '10.5281/zenodo.5886687'
+_audit.block_code            Diamond_I04
+_diffrn_source.beamline      I04
+_diffrn_source.facility      Diamond
+_diffrn_radiation.type       'Synchrotron X-ray Source'
+_array_intensities.overload  65535
 
 loop_
     _diffrn_radiation_wavelength.id
