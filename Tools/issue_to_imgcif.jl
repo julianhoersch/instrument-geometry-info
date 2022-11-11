@@ -18,7 +18,7 @@ parse_issue(mdown_text) = begin
     result = Dict{String,Any}()
     for i in 1:2:length(sections)
         result[extract_info(sections[i])] = extract_info(sections[i+1])
-        #println("$(sections[i].text):$(sections[i+1])")
+        @debug "$(sections[i].text):$(sections[i+1])"
     end
     return result
 end
@@ -112,7 +112,8 @@ make_gonio_axes(raw_info) = begin
     
     axes,senses = raw_info["Goniometer axes"]
     n = length(axes)
-    axis_type = fill("rotation",n)
+    axis_type = Vector{Union{Nothing,String}}(undef,n)
+    fill!(axis_type, "rotation")
     equip = fill("goniometer",n)
     kappa_axis = split(get(raw_info,"kappa","- - -"),[' ',','])[1]
     chi_axis = split(get(raw_info,"chi","- -"),[' ',','])[1]
@@ -223,11 +224,10 @@ make_detector_axes(raw_info) = begin
 
     # Insert assumed axis names and orientations
     
-    axis_id = ["two_theta","trans","detx","dety"]
-    axis_type = fill("translation",4)
-    axis_type[1] = "rotation"
-    equip = fill("detector",4)
-    depends_on = [nothing,"two_theta","trans","detx"]
+    axis_id = ["source", "gravity", "two_theta","trans","detx","dety"]
+    axis_type = vcat([nothing, nothing, "rotation"], fill("translation",3))
+    equip = vcat(["source", "gravity"],fill("detector",4))
+    depends_on = [nothing, nothing, nothing,"two_theta","trans","detx"]
 
     # Read necessary information
     
@@ -237,8 +237,15 @@ make_detector_axes(raw_info) = begin
 
     # Adjust two theta direction
 
-    rotsense = raw_info["Two theta axis"] == principal_sense ? 1 : -1
-    vector = [[rotsense,0,0]]
+    if ismissing(raw_info["Two theta axis"])
+        rotsense = 1
+    else
+        rotsense = raw_info["Two theta axis"] == principal_sense ? 1 : -1
+    end
+    
+    gravity = determine_gravity(principal, principal_sense)
+    
+    vector = [[0, 0, 1], gravity, [rotsense,0,0]]
 
     # Detector translation always opposite to beam direction
     
@@ -246,32 +253,38 @@ make_detector_axes(raw_info) = begin
 
     # Work out det_x and det_y
 
-    x_d,y_d = determine_detx_dety(principal,principal_sense,corner)
+    beam_x, beam_y = calculate_beam_centre(raw_info)
+
+    x_d, y_d, x_c, y_c = determine_detx_dety(principal,principal_sense,corner, beam_x, beam_y)
     push!(vector,x_d)
     push!(vector,y_d)
     
-    # Beam centre is unknown for now
-
-    offset = [[0,0,0],[0,0,0],[missing,missing,0],[0,0,0]]
+    offset = [[0,0,0],[0,0,0], [0,0,0], [0,0,0], [x_c, y_c, 0], [0,0,0]]
     return axis_id,axis_type,equip,depends_on,vector,offset
 end
 
 # Determine direction of detx (horizontal) and dety (vertical) in
 # imgCIF coordinates.
 
-determine_detx_dety(principal_angle,principal_sense,corner) = begin
+determine_detx_dety(principal_angle,principal_sense,corner, beam_x, beam_y) = begin
     
     # Start with basic value and then flip as necessary
 
     x_direction = [-1,0,0]        # spindle rotates anticlockwise at 0, top_left origin
     y_direction = [0,1,0]       #
+    x_centre = beam_x
+    y_centre = -1 * beam_y
     if corner == "top right"
         x_direction *= -1
+        x_centre -1 * beam_x
     elseif corner == "bottom right"
         x_direction *= -1
         y_direction *= -1
+        x_centre *= -1
+        y_centre *= -1
     elseif corner == "bottom left"
         y_direction *= -1
+        y_centre *= -1
     end
 
     @debug "Before pa adjustment" x_direction y_direction
@@ -286,20 +299,46 @@ determine_detx_dety(principal_angle,principal_sense,corner) = begin
     
     if pa == 90
         temp = x_direction
+        temp_centre = x_centre
         x_direction = y_direction
+        x_centre = y_centre
         y_direction = -1*temp
+        y_centre = temp_centre
     elseif pa == 180
         x_direction *= -1
         y_direction *= -1
+        x_centre *= -1
+        y_centre *= -1
     elseif pa == 270
         temp = x_direction
+        temp_centre = x_centre
         x_direction = -1*y_direction
+        x_centre = -1*y_centre
         y_direction = temp
+        y_centre = temp_centre
     end
 
-    @debug "After pa adjustment" x_direction y_direction
+    @debug "After pa adjustment" x_direction y_direction x_centre y_centre
     
-    return x_direction,y_direction
+    return x_direction, y_direction, x_centre, y_centre
+end
+
+determine_gravity(principal_angle, sense) = begin
+    
+    pa = sense == "a" ? parse(Int64,principal_angle) : parse(Int64,principal_angle) + 180
+    if pa >= 360 pa = pa - 360 end
+
+    if pa == 0
+        gravity = [0, 1, 0]  #spindle at 3 o'clock, rotating anticlockwise
+    elseif pa == 90
+        gravity = [1, 0, 0]
+    elseif pa == 180
+        gravity = [0, -1, 0]
+    else
+        gravity = [-1, 0, 0]
+    end
+    return gravity
+
 end
 
 """
@@ -354,6 +393,18 @@ get_pixel_sizes(raw_info) = begin
     both = parse.(Float64,split(raw_info["Pixel size"],","))
     if length(both) == 1 push!(both,both[1]) end
     return both
+end
+
+"""
+    The default beam centre is at the centre of the detector. We must indicate
+    this position in mm with the correct signs.
+"""
+calculate_beam_centre(raw_info) = begin
+
+    nx, ny = parse.(Int64,split(raw_info["Number of pixels"],","))
+    pix_x, pix_y = get_pixel_sizes(raw_info)
+    return pix_x * nx/2, pix_y * nx/2
+    
 end
 
 """
