@@ -12,15 +12,17 @@ using ArgParse
 
 # Configuration information
 
-const rot_axes = ("chi", "phi", "detector_2theta", "two_theta", "omega")
+const rot_axes = ("chi", "phi", "detector_2theta", "two_theta", "omega",
+                  "angle", "start_angle", "kappa")
 const trans_axes = ("detector_distance", "dx", "trans", "distance")
+const always_axes = ("distance", "two_theta", "detector_2theta")
 
 is_trans_axis(axis) = axis in trans_axes
 is_rot_axis(axis) = axis in rot_axes
 
-get_scan_info(frame_dir; stem = Regex(".*_")) = begin
+get_scan_info(frame_dir; stem = Regex(".*?_")) = begin
 
-    frame_catcher, all_names = get_scan_frame_fmt(frame_dir, stem = stem)
+    frame_catcher, all_names, first_scan = get_scan_frame_fmt(frame_dir, stem = stem)
 
     # index them all for speed
 
@@ -55,6 +57,7 @@ get_scan_info(frame_dir; stem = Regex(".*_")) = begin
         # Get information for first and last frame
 
         fname = joinpath( frame_dir, all_frames[(s, 1)])
+
         vals, scan_ax, scan_incr, et, wl = get_frame_info(frame_type, fname, axes)
         start = vals[scan_ax]
 
@@ -79,12 +82,16 @@ get_scan_info(frame_dir; stem = Regex(".*_")) = begin
         scan_info[s] = (vals, details)
     end
 
+    prune_scan_info!(scan_info)
+    
     return scan_info, all_frames
     
 end
 
 # Deduce scan/frame naming convention
-get_scan_frame_fmt(frame_dir; stem = Regex(".*_")) = begin
+get_scan_frame_fmt(frame_dir; stem = Regex(".*?_")) = begin
+
+    first_scan = 1
     
     all_names = readdir(frame_dir)
     filter!(x-> x[end-3:end] in (".cbf",".img"), all_names)
@@ -103,21 +110,35 @@ get_scan_frame_fmt(frame_dir; stem = Regex(".*_")) = begin
     @debug "Num digits for $test_name" num_digits
 
     if num_digits > 4
-        rr = stem * r"(?<scan>[0-9]+1)(?<sep>0|_)(?<frame>[0-9]+1)\.(cbf|img)"
+
+        fr_sc_regex = missing
         
-        m = match(rr,all_names[1])
+        # Allow first scan to not be scan 1
 
-        s_pos = m.offsets[1]
-        s_len = length(m["scan"])
-        f_len = length(m["frame"])
-        if m["sep"] == "0"
-            f_pos = m.offsets[2]
-            f_len = f_len + 1
-        else
-            f_pos = m.offsets[3]
+        for t in 1:9
+            rr = stem * Regex("(?<scan>[0-9]*$t)(?<sep>0|_)(?<frame>[0-9]+1)\\.(cbf|img)")
+            m = match(rr,all_names[1])
+            if !isnothing(m)
+                
+                s_pos = m.offsets[1]
+                s_len = length(m["scan"])
+                f_len = length(m["frame"])
+                if m["sep"] == "0"
+                    f_pos = m.offsets[2]
+                    f_len = f_len + 1
+                else
+                    f_pos = m.offsets[3]
+                end
+
+                fr_sc_regex = stem * Regex("(?<scan>[0-9]{$s_len})_?(?<frame>[0-9]{$f_len})")
+
+                first_scan = t
+
+                @debug "Found naming scheme for first scan $first_scan" s_len f_len
+
+                break
+            end
         end
-
-        fr_sc_regex = stem * Regex("(?<scan>[0-9]{$s_len})_?(?<frame>[0-9]{$f_len})")
 
     else
         
@@ -125,9 +146,14 @@ get_scan_frame_fmt(frame_dir; stem = Regex(".*_")) = begin
 
     end
 
+    if ismissing(fr_sc_regex)
+        @error("Cannot find scan/frame naming pattern for $test_name. Try using the -s option")
+        exit()
+    end
+    
     @assert !isnothing(match(fr_sc_regex, all_names[end]))
     
-    return fr_sc_regex, all_names
+    return fr_sc_regex, all_names, first_scan
 end
 
 """
@@ -139,12 +165,13 @@ determine_frame_type(filename) = begin
 
     header = read(filename, 512)
     if 0x0c in header return Val(:SMV) end
-    if occursin("_array_data", header) return Val(:CBF) end
+    if occursin("_array_data", String(header)) return Val(:CBF) end
     return missing
 end
 
 """
-Return any values found for provided axes. All axes converted to lowercase.
+Return any values found for provided axes. All axes converted to lowercase. This routine
+tries to adapt to all of the crazy stuff stashed in miniCBF headers.
 """
 get_frame_info(t::Val{:CBF}, fname, axes) = begin
     
@@ -163,8 +190,37 @@ get_frame_info(t::Val{:CBF}, fname, axes) = begin
     wl, _ = get_header_value(t, lines, "wavelength")
 
     scan_ax = findfirst( x -> !isapprox(x[2], 0, atol = 1e-6), ax_incr)
+
+    scan_ax_name = indexin([ax_incr[scan_ax][1]], [x[1] for x in ax_vals])
+
+    if scan_ax_name == []
+        @error "Could not match scanned axis $(ax_incr[scan_ax][1]) with an axis name"
+    else
+        scan_ax_name = ax_vals[scan_ax_name[]][1]
+    end
+
+    # Get rid of duplicate names
+
+    ax_vals = Dict(ax_vals)
+    println("$ax_vals")
+
+    if haskey(ax_vals, "distance") && haskey(ax_vals, "detector_distance")
+        delete!(ax_vals, "detector_distance")
+    end
+
+    # Some Pilatus headers do not mention omega, just "start_angle"
+    # and "angle_increment".
     
-    return Dict(ax_vals), ax_incr[scan_ax][1], ax_incr[scan_ax][2], et, wl
+    if haskey(ax_vals, "start_angle") && haskey(ax_vals, "angle")
+        delete!(ax_vals, "start_angle")
+        if scan_ax_name != "angle"   #we have an actual one
+            delete!(ax_vals, "angle")
+        end
+    end
+    
+    @debug "Extracted info" ax_vals ax_incr scan_ax_name et wl
+    
+    return Dict(ax_vals), scan_ax_name, ax_incr[scan_ax][2], et, wl
     
 end
 
@@ -265,6 +321,38 @@ rename_axes!(scan_info, axis_dict) = begin
             dets["axis"] = axis_dict[dets["axis"]]
         end
     end
+    
+end
+
+"""
+    Remove reference to any axes that do not change position and are
+    essentially zero, but are not in `always_axes`.
+"""
+prune_scan_info!(scan_info) = begin
+
+    initial_vals, deets = first(scan_info).second
+    scan_axis = deets["axis"]
+    keep_this = [scan_axis]
+    for (name, ini_val) in initial_vals
+        for (s,(v,d)) in scan_info
+            if v[name] != ini_val
+                push!(keep_this, name)
+                break
+            end
+        end
+    end
+
+    @debug "Changing axes: " keep_this
+
+    for (name, ini_val) in initial_vals
+        if !(name in always_axes) && !(name in keep_this) && isapprox(ini_val, 0, atol=0.001)
+            @debug "Axis $name left off as unchanging and zero"
+            for s in keys(scan_info)
+                delete!(scan_info[s][1], name)
+            end
+        end
+    end
+    
     
 end
 
@@ -550,7 +638,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     frame_dir = parsed_args["directory"]
     do_output = parsed_args["output"] != nothing
     prepend_dir = parsed_args["include"] ? splitpath(frame_dir)[end] : ""
-    file_stem = parsed_args["stem"][] == "" ? Regex(".*_") : Regex(parsed_args["stem"][])
+    file_stem = parsed_args["stem"][] == "" ? Regex(".*?_") : Regex(parsed_args["stem"][])
     
     # Analyse CBF files
     
