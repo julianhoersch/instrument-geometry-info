@@ -135,7 +135,16 @@ body:
       label: Pixel size
       description: >
          The size of pixels in mm in order horizontal, vertical (eg '0.12, 0.15'). If identical sizes, a single number is sufficient. 
-         Pixels are assumed to have no space between them, if this is not the case please write in the comments section below.
+         Pixels are assumed to have no space between them, if this is not the case please write in the comments section below. This
+         information can usually be found in the header of any image frame. Frames with text headers (e.g. CBF, ADSC) can be examined
+         in a text editor.
+  - type: input
+    id: pixnum
+    attributes:
+      label: Number of pixels
+      description: >
+          The number of pixels in a rectangular detector in order horizontal, vertical (eg '2357, 2123'). This information can usually be 
+          found in the header of any image frame. Frames with text headers (eg CBF, ADSC) can be examined in a text editor.
   - type: textarea
     id: det_axis_stack
     attributes:
