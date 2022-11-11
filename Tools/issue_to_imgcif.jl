@@ -395,15 +395,17 @@ get_pixel_sizes(raw_info) = begin
     return both
 end
 
+get_no_pixels(raw_info) = parse.(Int64,split(raw_info["Number of pixels"],","))
+
 """
     The default beam centre is at the centre of the detector. We must indicate
     this position in mm with the correct signs.
 """
 calculate_beam_centre(raw_info) = begin
 
-    nx, ny = parse.(Int64,split(raw_info["Number of pixels"],","))
+    nx, ny = get_no_pixels(raw_info)
     pix_x, pix_y = get_pixel_sizes(raw_info)
-    return pix_x * nx/2, pix_y * nx/2
+    return pix_x * nx/2, pix_y * ny/2
     
 end
 
@@ -411,7 +413,7 @@ end
     describe_detector(raw_info)
 
 Produce the information required for array_structure_list. Here
-we assume a rectangular detector with x horizontal, y vertical
+we assume a rectangular detector with x horizontal, y vertical.
 """
 describe_array(raw_info,imgblock) = begin
     hor,vert = get_pixel_sizes(raw_info)
@@ -429,7 +431,7 @@ describe_array(raw_info,imgblock) = begin
     imgblock[base*"array_id"] = ["1","1"]
     imgblock[base*"index"] = [1,2]
     imgblock[base*"axis_set_id"] = ["1","2"]
-    imgblock[base*"dimension"] = [missing,missing]   #number of elements in each direction
+    imgblock[base*"dimension"] = get_no_pixels(raw_info)   #number of elements in each direction
     imgblock[base*"direction"] = ["increasing","increasing"]
     if raw_info["Fast direction"] == "horizontal"
         precedence = [1,2]
