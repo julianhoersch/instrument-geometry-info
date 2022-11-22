@@ -637,7 +637,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     parsed_args = parse_cmdline("Extract scan information from minicbf files")
     frame_dir = parsed_args["directory"]
     do_output = parsed_args["output"] != nothing
-    prepend_dir = parsed_args["include"] ? splitpath(frame_dir)[end] : ""
+    prepend_dir = parsed_args["include"] ? frame_dir : ""
     file_stem = parsed_args["stem"][] == "" ? Regex(".*?_") : Regex(parsed_args["stem"][])
     
     # Analyse CBF files
