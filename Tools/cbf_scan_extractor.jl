@@ -14,11 +14,12 @@ using ArgParse
 
 const rot_axes = ("chi", "phi", "detector_2theta", "two_theta", "omega",
                   "angle", "start_angle", "kappa")
-const trans_axes = ("detector_distance", "dx", "trans", "distance")
+const trans_axes = ("detector_distance", "dx", "trans", "distance", "detector_x", "detector_y",
+                    "detector_z")
 const always_axes = ("distance", "two_theta", "detector_2theta")
 
-is_trans_axis(axis) = axis in trans_axes
-is_rot_axis(axis) = axis in rot_axes
+is_trans_axis(axis) = lowercase(axis) in trans_axes
+is_rot_axis(axis) = lowercase(axis) in rot_axes
 
 get_scan_info(frame_dir; stem = Regex(".*?_")) = begin
 
@@ -193,8 +194,18 @@ get_frame_info(t::Val{:CBF}, fname, axes) = begin
 
     scan_ax_name = indexin([ax_incr[scan_ax][1]], [x[1] for x in ax_vals])
 
-    if scan_ax_name == []
-        @error "Could not match scanned axis $(ax_incr[scan_ax][1]) with an axis name"
+    if scan_ax_name == [nothing]
+
+        # Maybe we have the convention that Oscillation axis gives the name?
+
+        an = get_header_value(t, lines, "oscillation_axis")
+        if an != nothing && any(x -> x[1] == an, ax_vals)
+            scan_ax_name = an
+            filter!(x -> x[1] != "start_angle", ax_vals)
+            @debug ax_vals
+        else
+            @error "Could not match scanned axis $(ax_incr[scan_ax][1]) with an axis name"
+        end
     else
         scan_ax_name = ax_vals[scan_ax_name[]][1]
     end
@@ -210,12 +221,13 @@ get_frame_info(t::Val{:CBF}, fname, axes) = begin
 
     # Some Pilatus headers do not mention omega, just "start_angle"
     # and "angle_increment".
+
+    if scan_ax_name != "angle"
+        delete!(ax_vals, "angle")
+    end
     
-    if haskey(ax_vals, "start_angle") && haskey(ax_vals, "angle")
+    if haskey(ax_vals, "start_angle") && haskey(ax_vals, "angle") || scan_ax_name != "angle"
         delete!(ax_vals, "start_angle")
-        if scan_ax_name != "angle"   #we have an actual one
-            delete!(ax_vals, "angle")
-        end
     end
     
     @debug "Extracted info" ax_vals ax_incr scan_ax_name et wl
@@ -246,9 +258,10 @@ end
 """
 get_header_value(::Val{:CBF}, lines, matcher) = begin
 
-    rr = Regex("$matcher[ =]+")
+    rr = Regex("# $matcher[ =]+")
     one_line = filter( x-> !isnothing(match(rr, x)), lines)
     if length(one_line) != 1
+        @debug "Matched lines:" one_line
         return nothing
     end
 
@@ -258,10 +271,13 @@ get_header_value(::Val{:CBF}, lines, matcher) = begin
     m = match(Regex("$matcher[ =]+(?<val>[A-Za-z0-9+-.]+) +(?<units>[A-Za-z.]+)"), one_line)
     val = strip(m["val"])
     units = strip(m["units"])
-
     #@debug "To get value" val
 
-    return parse(Float64, val), units
+    try
+        return parse(Float64, val), units
+    catch
+        return lowercase(val), units
+    end
 end
 
 """
@@ -508,7 +524,7 @@ _array_data_external_data.archive_path"""
         for i in 1:f
             ctr += 1
             fname = all_frames[(s,i)]
-            print(op, "  $ctr $fmt $fulluri")
+            print(op, "  $ctr $fmt $outuri")
 
             # A too-clever-by-half way of optionally live constructing a URL
             
@@ -576,6 +592,19 @@ _diffrn_data_frame.binary_id"""
             println(op, "frm$ctr  ELEMENT  IMAGE $(ctr)")
         end
     end
+end
+
+"""
+Replace the final `nn...` sequence in `template` with a zero-padded
+integer `scan_no`
+"""
+insert_scan(template, scan_no) = begin
+    m = collect(eachmatch(r"n{2,}", template))[end]
+    n = length(m.match)
+    start = m.offset
+    scan_str = "$scan_no"
+    zeros = "0"^(n-length(scan_str))
+    return template[1:start-1]*zeros*scan_str*template[start+n:end]
 end
 
 determine_archive(location) = begin
@@ -650,6 +679,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     do_output = parsed_args["output"] != nothing
     prepend_dir = parsed_args["include"] ? frame_dir : ""
     file_stem = parsed_args["stem"][] == "" ? Regex(".*?_") : Regex(parsed_args["stem"][])
+    @debug parsed_args
     
     # Analyse CBF files
     
@@ -670,6 +700,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     
     out_file = parsed_args["output"] != [] ? parsed_args["output"][] : nothing
     if do_output
+
         output_scan_info(scan_info, all_frames, out_file, location,
                          prepend_dir = prepend_dir,
                          arch = arch,
