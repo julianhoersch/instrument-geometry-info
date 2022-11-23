@@ -363,7 +363,7 @@ We identify each frame by its sequence number overall (not just within
 its own scan.)
 """
 
-output_scan_info(scan_info, all_frames, output_file, new_url; prepend_dir = "", arch = nothing) = begin
+output_scan_info(scan_info, all_frames, output_file, new_url; prepend_dir = "", arch = nothing, separate = false) = begin
 
     sl = create_scan_list(scan_info)
     exp_info = Dict([s=>scan_info[s][2]["time"] for s in keys(scan_info)])
@@ -376,7 +376,7 @@ output_scan_info(scan_info, all_frames, output_file, new_url; prepend_dir = "", 
     generate_step_info(op, sl, exp_info)
     generate_array_info(op, sl)
     generate_ids(op, sl)
-    generate_external_ids(op, new_url, all_frames, sl, prepend_dir, comp=arch)
+    generate_external_ids(op, new_url, all_frames, sl, prepend_dir, comp=arch, separate = separate)
     
 end
 
@@ -481,7 +481,7 @@ end
 on the local storage are assumed to be at the same locations relative to
 this top-level directory.
 """
-generate_external_ids(op, fulluri, all_frames, scan_list, prepend_dir; comp="TBZ",fmt="CBF") = begin
+generate_external_ids(op, fulluri, all_frames, scan_list, prepend_dir; comp="TBZ",fmt="CBF", separate=false) = begin
     header = """loop_
 _array_data_external_data.id
 _array_data_external_data.format
@@ -498,7 +498,13 @@ _array_data_external_data.archive_path"""
     # separately.
     println(op, header)
     ctr = 0
+    sctr = 0
     for (s,f) in scan_list
+        sctr += 1
+        outuri = fulluri
+        if separate
+            outuri = insert_scan(fulluri, sctr)
+        end
         for i in 1:f
             ctr += 1
             fname = all_frames[(s,i)]
@@ -588,6 +594,8 @@ determine_archive(location) = begin
             arch = "TGZ"
         elseif short_end == "tbz" || long_end == "tar.bz2"
             arch = "TBZ"
+        elseif short_end == "txz" || long_end == ".tar.xz"
+            arch = "TXZ"
         elseif short_end == "zip"
             arch = "ZIP"
         end
@@ -604,7 +612,7 @@ parse_cmdline(d) = begin
 
     @add_arg_table! s begin
         "-l", "--location"
-        help = "Final URL of files in output."
+        help = "Final URL of files in output. Final 'nn' in name will be replaced by scan number if -n option is used"
         nargs = 1
         "-s", "--stem"
         help = "Constant portion of frame file name. This can help determine the scan/frame file naming convention"
@@ -612,6 +620,9 @@ parse_cmdline(d) = begin
         default = [""]
         "-i", "--include"
         help = "Include directory name as part of frame location info in output"
+        nargs = 0
+        "-n", "--separate"
+        help = "Separate scans are in separate archives. Use 'nn' in the -l option to indicate naming."
         nargs = 0
         "-o", "--output"
         help = "Output file to write to, if missing stdout"
@@ -661,6 +672,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     if do_output
         output_scan_info(scan_info, all_frames, out_file, location,
                          prepend_dir = prepend_dir,
-                         arch = arch)
+                         arch = arch,
+                         separate = parsed_args["separate"])
     end
 end
