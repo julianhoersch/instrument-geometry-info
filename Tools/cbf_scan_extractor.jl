@@ -177,62 +177,63 @@ tries to adapt to all of the crazy stuff stashed in miniCBF headers.
 get_frame_info(t::Val{:CBF}, fname, axes) = begin
     
     header = readuntil(fname, "--CIF-BINARY-FORMAT-SECTION--")
-    lines = lowercase.(split(header, "\n"))
+    info = parse_header(header)
 
-    ax_vals = map(ax -> (lowercase(ax), (get_header_value(t,lines, ax))), axes)
-    filter!( x-> x[2] != nothing, ax_vals)
-    ax_vals = convert_units.(ax_vals)
-
-    ax_incr = map(ax -> (lowercase(ax), get_header_value(t,lines, ax*"_increment")), axes)
-    filter!( x-> x[2] != nothing, ax_incr)
-    ax_incr = convert_units.(ax_incr)
+    @debug "Header contents" info
     
-    et, _ = get_header_value(t, lines, "exposure_time")
-    wl, _ = get_header_value(t, lines, "wavelength")
+    ax_vals = filter(x -> lowercase(x.first) in axes, info)
+    ax_incr = filter(x -> lowercase(x.first) in map(x -> x*"_increment", axes), info)
+    ax_vals = convert_units(ax_vals)
+    ax_incr = convert_units(ax_incr)
+    
+    et = parse(Float64, info["exposure_time"][1])
+    wl = parse(Float64, info["wavelength"][1])
 
-    scan_ax = findfirst( x -> !isapprox(x[2], 0, atol = 1e-6), ax_incr)
+    # Determine scan axis
+    # Avoid using "oscillation axis" as not always reliable
 
-    scan_ax_name = indexin([ax_incr[scan_ax][1]], [x[1] for x in ax_vals])
+    scan_ax = filter( x -> !isapprox(x.second, 0, atol = 1e-6), ax_incr)
 
-    if scan_ax_name == [nothing]
+    scan_ax_name = nothing
+    an = get(info,"oscillation_axis", nothing)
 
-        # Maybe we have the convention that Oscillation axis gives the name?
-
-        an = get_header_value(t, lines, "oscillation_axis")
-        if an != nothing && any(x -> x[1] == an, ax_vals)
+    if length(scan_ax) >= 2 && "angle_increment" in keys(ax_incr)
+        delete!(scan_ax, "angle_increment")
+    end
+    
+    if length(scan_ax) == 1
+        ax_incr = first(scan_ax).second
+        scan_ax_name = first(scan_ax).first[1:end-10]
+        if !haskey(ax_vals, scan_ax_name)
+            if scan_ax_name == "angle" && haskey(ax_vals, "start_angle")
+                ax_vals["angle"] = ax_vals["start_angle"]
+            elseif !isnothing(an) && !(',' in an)  #ALBA-specific check
+                ax_vals[an] = ax_vals["start_angle"]
+            end
+        end
+                
+    elseif an != nothing
+        if an in keys(ax_vals) && an*"_increment" in keys(ax_incr)
             scan_ax_name = an
-            filter!(x -> x[1] != "start_angle", ax_vals)
-            @debug ax_vals
-        else
-            @error "Could not match scanned axis $(ax_incr[scan_ax][1]) with an axis name"
+            ax_incr = ax_incr[an*"_increment"]
         end
     else
-        scan_ax_name = ax_vals[scan_ax_name[]][1]
+        @error "Unable to determine scan axis"
     end
 
     # Get rid of duplicate names
 
-    ax_vals = Dict(ax_vals)
+    delete!(ax_vals, "start_angle")
+
     println("$ax_vals")
 
     if haskey(ax_vals, "distance") && haskey(ax_vals, "detector_distance")
         delete!(ax_vals, "detector_distance")
     end
-
-    # Some Pilatus headers do not mention omega, just "start_angle"
-    # and "angle_increment".
-
-    if scan_ax_name != "angle"
-        delete!(ax_vals, "angle")
-    end
-    
-    if haskey(ax_vals, "start_angle") && haskey(ax_vals, "angle") || scan_ax_name != "angle"
-        delete!(ax_vals, "start_angle")
-    end
     
     @debug "Extracted info" ax_vals ax_incr scan_ax_name et wl
     
-    return Dict(ax_vals), scan_ax_name, ax_incr[scan_ax][2], et, wl
+    return ax_vals, scan_ax_name, ax_incr, et, wl
     
 end
 
@@ -254,30 +255,18 @@ get_frame_info(t::Val{:SMV}, fname, _) = begin
 end
 
 """
-    Get the value following the string given in matcher and units if present
+    Parse a header into a structure for later use
 """
-get_header_value(::Val{:CBF}, lines, matcher) = begin
+parse_header(header) = begin
 
-    rr = Regex("# $matcher[ =]+")
-    one_line = filter( x-> !isnothing(match(rr, x)), lines)
-    if length(one_line) != 1
-        @debug "Matched lines:" one_line
-        return nothing
+    lines = lowercase.(split(header,"\n"))
+    filter!( x-> length(x) > 0 && x[1] == '#', lines)
+    info = map(lines) do l
+        words = split(l)
+        words[2] => words[3:end]
     end
 
-    one_line = one_line[]
-    #@debug "Extracting from" one_line
-
-    m = match(Regex("$matcher[ =]+(?<val>[A-Za-z0-9+-.]+) +(?<units>[A-Za-z.]+)"), one_line)
-    val = strip(m["val"])
-    units = strip(m["units"])
-    #@debug "To get value" val
-
-    try
-        return parse(Float64, val), units
-    catch
-        return lowercase(val), units
-    end
+    Dict(info)
 end
 
 """
@@ -306,13 +295,20 @@ end
    Detect any non-mm translations and convert
 """
 convert_units(ax_val) = begin
-        name, (val, units) = ax_val
-        if units == "m"
-            val = val * 1000
-        elseif units == "cm"
-            val = val * 10
+
+    @debug "Converting units" ax_val
+
+    d = Dict{String,Float64}()
+    for (name,(v,u)) in ax_val
+        v = parse(Float64, v)
+        if u == "m"
+            v = v * 1000
+        elseif u == "cm"
+            v = v * 10
         end
-        name, val
+        d[name] = v
+    end
+    return d
 end
 
 """
