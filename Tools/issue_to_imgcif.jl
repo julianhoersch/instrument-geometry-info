@@ -18,7 +18,7 @@ parse_issue(mdown_text) = begin
     result = Dict{String,Any}()
     for i in 1:2:length(sections)
         result[extract_info(sections[i])] = extract_info(sections[i+1])
-        @debug "$(sections[i].text):$(sections[i+1])"
+        #println("$(sections[i].text):$(sections[i+1])")
     end
     return result
 end
@@ -109,11 +109,13 @@ below, so the sense of rotation is reversed.
 
 """
 make_gonio_axes(raw_info) = begin
-    
+
+    print("\n myaxes \n")
+    print(raw_info["Goniometer axes"])
+    print("\n myaxes done \n")
     axes,senses = raw_info["Goniometer axes"]
     n = length(axes)
-    axis_type = Vector{Union{Nothing,String}}(undef,n)
-    fill!(axis_type, "rotation")
+    axis_type = fill("rotation",n)
     equip = fill("goniometer",n)
     kappa_axis = split(get(raw_info,"kappa","- - -"),[' ',','])[1]
     chi_axis = split(get(raw_info,"chi","- -"),[' ',','])[1]
@@ -129,7 +131,7 @@ make_gonio_axes(raw_info) = begin
     principal = senses[end]
 
     # Create direction vectors
-    
+
     vector = Vector{Union{Missing,Real}}[]
     for (a,d) in zip(axes,senses)
         rotfac = d == principal ? 1 : -1
@@ -144,6 +146,9 @@ make_gonio_axes(raw_info) = begin
         end
     end
     offset = fill(Union{Missing,Real}[0,0,0],n)
+    print("myvec \n")
+    print(vector)
+    print("end \n")
     return raw_info["Goniometer axes"][1], axis_type, equip, depends_on, vector, offset
 end
 
@@ -160,7 +165,7 @@ get_kappa_info(raw_info) = begin
     end
     kapang = parse(Float64,kinfo[2])
     kappoise = parse(Float64,kinfo[3])
-    
+
     # Now calculate direction of axis in X-Z plane assuming
     # rotation of kappa is same as principal axis. There is no
     # Y component as home position is always under
@@ -218,77 +223,66 @@ end
     4. vector -> worked out from user-provided info
     5. offset -> beam centre
 
-    
+
 """
 make_detector_axes(raw_info) = begin
 
     # Insert assumed axis names and orientations
-    
-    axis_id = ["source", "gravity", "two_theta","trans","detx","dety"]
-    axis_type = vcat([nothing, nothing, "rotation"], fill("translation",3))
-    equip = vcat(["source", "gravity"],fill("detector",4))
-    depends_on = [nothing, nothing, nothing,"two_theta","trans","detx"]
+
+    axis_id = ["two_theta","trans","detx","dety"]
+    axis_type = fill("translation",4)
+    axis_type[1] = "rotation"
+    equip = fill("detector",4)
+    depends_on = [nothing,"two_theta","trans","detx"]
 
     # Read necessary information
-    
+
+    # print("prinsens", raw_info["Goniometer axes"])
     principal_sense = raw_info["Goniometer axes"][2][end]
     principal = raw_info["Principal axis orientation"]
     corner = raw_info["Image orientation"]
 
     # Adjust two theta direction
 
-    if ismissing(raw_info["Two theta axis"])
-        rotsense = 1
-    else
-        rotsense = raw_info["Two theta axis"] == principal_sense ? 1 : -1
-    end
-    
-    gravity = determine_gravity(principal, principal_sense)
-    
-    vector = [[0, 0, 1], gravity, [rotsense,0,0]]
+    rotsense = raw_info["Two theta axis"] == principal_sense ? 1 : -1
+    vector = [[rotsense,0,0]]
 
     # Detector translation always opposite to beam direction
-    
+
     push!(vector,[0,0,-1])
 
     # Work out det_x and det_y
 
-    beam_x, beam_y = calculate_beam_centre(raw_info)
-
-    x_d, y_d, x_c, y_c = determine_detx_dety(principal,principal_sense,corner, beam_x, beam_y)
+    x_d,y_d = determine_detx_dety(principal,principal_sense,corner)
     push!(vector,x_d)
     push!(vector,y_d)
-    
-    offset = [[0,0,0],[0,0,0], [0,0,0], [0,0,0], [x_c, y_c, 0], [0,0,0]]
+
+    # Beam centre is unknown for now
+
+    offset = [[0,0,0],[0,0,0],[missing,missing,0],[0,0,0]]
     return axis_id,axis_type,equip,depends_on,vector,offset
 end
 
 # Determine direction of detx (horizontal) and dety (vertical) in
 # imgCIF coordinates.
 
-determine_detx_dety(principal_angle,principal_sense,corner, beam_x, beam_y) = begin
-    
+determine_detx_dety(principal_angle,principal_sense,corner) = begin
+
     # Start with basic value and then flip as necessary
 
     x_direction = [-1,0,0]        # spindle rotates anticlockwise at 0, top_left origin
     y_direction = [0,1,0]       #
-    x_centre = beam_x
-    y_centre = -1 * beam_y
     if corner == "top right"
         x_direction *= -1
-        x_centre -1 * beam_x
     elseif corner == "bottom right"
         x_direction *= -1
         y_direction *= -1
-        x_centre *= -1
-        y_centre *= -1
     elseif corner == "bottom left"
         y_direction *= -1
-        y_centre *= -1
     end
 
     @debug "Before pa adjustment" x_direction y_direction
-    
+
     # The direction of the principal axis flips by 180 if the sense
     # changes
 
@@ -296,49 +290,23 @@ determine_detx_dety(principal_angle,principal_sense,corner, beam_x, beam_y) = be
     if pa >= 360 pa = pa - 360 end
 
     @debug "Principal axis direction" pa
-    
+
     if pa == 90
         temp = x_direction
-        temp_centre = x_centre
         x_direction = y_direction
-        x_centre = y_centre
         y_direction = -1*temp
-        y_centre = temp_centre
     elseif pa == 180
         x_direction *= -1
         y_direction *= -1
-        x_centre *= -1
-        y_centre *= -1
     elseif pa == 270
         temp = x_direction
-        temp_centre = x_centre
         x_direction = -1*y_direction
-        x_centre = -1*y_centre
         y_direction = temp
-        y_centre = temp_centre
     end
 
-    @debug "After pa adjustment" x_direction y_direction x_centre y_centre
-    
-    return x_direction, y_direction, x_centre, y_centre
-end
+    @debug "After pa adjustment" x_direction y_direction
 
-determine_gravity(principal_angle, sense) = begin
-    
-    pa = sense == "a" ? parse(Int64,principal_angle) : parse(Int64,principal_angle) + 180
-    if pa >= 360 pa = pa - 360 end
-
-    if pa == 0
-        gravity = [0, 1, 0]  #spindle at 3 o'clock, rotating anticlockwise
-    elseif pa == 90
-        gravity = [1, 0, 0]
-    elseif pa == 180
-        gravity = [0, -1, 0]
-    else
-        gravity = [-1, 0, 0]
-    end
-    return gravity
-
+    return x_direction,y_direction
 end
 
 """
@@ -348,6 +316,9 @@ Distribute the vectors in `vector` over CIF data names,
 formatting as integers if they are exact.
 """
 split_vector(vector::Vector,basename,imgblock) = begin
+    print("myimgblovck\n")
+    print(imgblock)
+    println("vecci", vector)
     for i in 1:3
         imgblock[basename*"[$i]"] = map(vector) do x
             if ismissing(x[i]) x[i]
@@ -360,6 +331,9 @@ split_vector(vector::Vector,basename,imgblock) = begin
             end
         end
     end
+
+    print("myimgblovck 2\n")
+    print(imgblock)
 end
 
 """
@@ -369,13 +343,23 @@ Create the goniometer axes corresponding to the data in `raw_info`,
 placing the result in CIF block `imgblock`.
 """
 describe_axes(raw_info,imgblock) = begin
-       
+
+    # print('\n')
+    # print(raw_info)
+    # print('\n')
+
     gon_axes = make_gonio_axes(raw_info)
+    print("gonaxes \n")
+    print(gon_axes)
+    print("gonaxes end \n")
     det_axes = make_detector_axes(raw_info)
     for i in 1:length(gon_axes)
         @debug "$(gon_axes[i]) -- $(det_axes[i])"
+        print("appending", det_axes[i], "to", gon_axes[i], '\n')
         append!(gon_axes[i],det_axes[i])
     end
+
+    println("gonaxes2", gon_axes, '\n')
     base = "_axis."
     imgblock[base*"id"] = gon_axes[1]
     imgblock[base*"type"] = gon_axes[2]
@@ -387,33 +371,24 @@ describe_axes(raw_info,imgblock) = begin
                           base*"depends_on",
                           base*"vector[1]",base*"vector[2]",base*"vector[3]",
                           base*"offset[1]",base*"offset[2]",base*"offset[3]"])
+    print("nnt")
+    print(imgblock)
 end
 
 get_pixel_sizes(raw_info) = begin
+    println("pxssa", raw_info["Pixel size"])
     both = parse.(Float64,split(raw_info["Pixel size"],","))
+    println("both", both)
     if length(both) == 1 push!(both,both[1]) end
+    println("both", both)
     return both
-end
-
-get_no_pixels(raw_info) = parse.(Int64,split(raw_info["Number of pixels"],","))
-
-"""
-    The default beam centre is at the centre of the detector. We must indicate
-    this position in mm with the correct signs.
-"""
-calculate_beam_centre(raw_info) = begin
-
-    nx, ny = get_no_pixels(raw_info)
-    pix_x, pix_y = get_pixel_sizes(raw_info)
-    return pix_x * nx/2, pix_y * ny/2
-    
 end
 
 """
     describe_detector(raw_info)
 
 Produce the information required for array_structure_list. Here
-we assume a rectangular detector with x horizontal, y vertical.
+we assume a rectangular detector with x horizontal, y vertical
 """
 describe_array(raw_info,imgblock) = begin
     hor,vert = get_pixel_sizes(raw_info)
@@ -425,13 +400,13 @@ describe_array(raw_info,imgblock) = begin
     imgblock[base*"displacement_increment"] = [hor,vert]
     create_loop!(imgblock,[base*"axis_id",base*"axis_set_id",
                       base*"displacement",base*"displacement_increment"])
-    
+
     # array structure list
     base = "_array_structure_list."
     imgblock[base*"array_id"] = ["1","1"]
     imgblock[base*"index"] = [1,2]
     imgblock[base*"axis_set_id"] = ["1","2"]
-    imgblock[base*"dimension"] = get_no_pixels(raw_info)   #number of elements in each direction
+    imgblock[base*"dimension"] = [missing,missing]   #number of elements in each direction
     imgblock[base*"direction"] = ["increasing","increasing"]
     if raw_info["Fast direction"] == "horizontal"
         precedence = [1,2]
@@ -543,5 +518,30 @@ repository that has been created by the automatic submission tool.
         issue_number = ARGS[1]
         final_block = issue_number |> get_issue |> parse_issue |> post_process |> create_cif_block
         show(stdout,MIME("text/cif"),final_block,ordering=output_order)
+        print("ttr")
+        print(final_block)
+        # print("holla \n" * get_loop_names(final_block))
+        # print("\n")
+        # print("\n")
+        # for key in final_block
+        #     print(key, "\n")
+        # end
+
+        # print("loopnames \n")
+        # for loop in final_block.loop_names
+        #     print(loop)
+        #     print("\n")
+        # end
+        # print("data \n")
+        # for loop in final_block.data_values
+        #     print(loop)
+        #     print("\n")
+        # end
+        # print("org \n")
+        # for loop in final_block.original_file
+        #     print(loop)
+        #     print("\n")
+        # end
+        # print(final_block.loop_names)
     end
 end
