@@ -17,5 +17,6 @@ setup(
             "creator.py=imgCIF_Creator.creator:main",
         ],
     },
+    include_package_data=True,
 
 )
