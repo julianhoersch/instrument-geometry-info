@@ -2,8 +2,8 @@ import os
 import click
 import re
 import numpy as np
-import imgCIF_Creator.information_extractors.user_input_extractor as user_input_extractor
-import imgCIF_Creator.assembler.imgCIF_assembler as imgCIF_assembler
+from imgCIF_Creator.information_extractors import user_input
+from imgCIF_Creator.output_assembler import imgCIF_assembler
 
 
 # Configuration information
@@ -68,8 +68,8 @@ def extract_cbf_scan(cif_block, directory, output=None, include_archive_director
         prepend_dir = ""
 
     # if output is not N:
-    imgCIF_assembler.add_scan_info_to_block(scan_info, all_frames, cif_block, new_url, prepend_dir,
-                     directory)
+    imgCIF_assembler.add_scan_info_to_block(
+        scan_info, all_frames, cif_block, new_url, prepend_dir, directory, 'CBF')
 
 
 
@@ -115,7 +115,10 @@ def get_scan_info(frame_dir, stem=r".*?_"):
 
 
         # Get information for first
-        file_name = os.path.join(frame_dir, all_frames[(scan, 1)][0])
+        # print('frdir', frame_dir)
+        # print('allfrs', all_frames[(scan, 1)])
+        file_name = os.path.join(frame_dir, all_frames[(scan, 1)])
+        print('myfilename', file_name)
         # axes_single_frame are the axis settings for the individual frame a in scan
         # b
         axes_single_frame, scan_ax, scan_incr, exposure, wl = \
@@ -125,7 +128,7 @@ def get_scan_info(frame_dir, stem=r".*?_"):
         start = axes_single_frame[scan_ax]
 
         # Get information and last frame
-        file_name = os.path.join(frame_dir, all_frames[(scan, len(frames))][0])
+        file_name = os.path.join(frame_dir, all_frames[(scan, len(frames))])
         axes_single_frame, _, _, _, _ = get_frame_info(frame_type, file_name, axes)
         finish = axes_single_frame[scan_ax]
 
@@ -284,6 +287,7 @@ def get_frame_info_CBF(fname, axes):
     tries to adapt to all of the crazy stuff stashed in miniCBF headers.
     """
 
+    print('fname', fname)
     with open(fname, 'rb') as file:
         # lines = file.readlines()
         lines = []

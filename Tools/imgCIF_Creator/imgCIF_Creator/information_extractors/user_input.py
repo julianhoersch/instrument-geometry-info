@@ -1,7 +1,5 @@
 import re
 import numpy as np
-import CifFile as cf
-
 
 
 OUTPUT_ORDER = (
@@ -39,7 +37,7 @@ def convert_user_input_to_imgcif(user_input, cif_block):
     describe_detector(user_input, cif_block)
 
 
-    print('citems', cif_block.items())
+    # print('citems', cif_block.items())
 
     # for idx, item in enumerate(OUTPUT_ORDER):
     #     try:
@@ -126,8 +124,8 @@ def describe_axes(raw_info, imgblock):
     placing the result in CIF block `imgblock`.
     """
 
-    if 'gonio_axes_nxsmx' in raw_info:
-        gon_axes = make_detector_axes_nxmx(raw_info)
+    if 'gonio_axes_nxmx' in raw_info:
+        gon_axes = make_axes_nxmx(raw_info)
         print('gonaxes2', gon_axes, type(gon_axes))
     else:
         gon_axes = make_gonio_axes(raw_info)
@@ -228,7 +226,7 @@ def make_gonio_axes(raw_info):
     return [raw_info["Goniometer axes"][0], axis_type, equip, depends_on, vector, offset]
 
 
-def make_detector_axes_nxmx(raw_info):
+def make_axes_nxmx(raw_info):
 
     axes = []
     axis_type = []
@@ -238,6 +236,7 @@ def make_detector_axes_nxmx(raw_info):
     offset = []
 
     print('raw egg', raw_info['gonio_axes_nxmx'])
+    # add two theta somewhered
 
     for axis in raw_info['gonio_axes_nxmx']:
         axes.append(axis)
@@ -253,6 +252,10 @@ def make_detector_axes_nxmx(raw_info):
         depends_on.append(raw_info['gonio_axes_nxmx'][axis]['dep'])
         vector.append(list(raw_info['gonio_axes_nxmx'][axis]['vec']))
         offset.append(list(raw_info['offsets_nxmx'][axis]['vec']))
+
+
+
+    print('offs', offset)
 
     return [axes, axis_type, equip, depends_on, vector, offset]
 
@@ -286,7 +289,7 @@ def make_detector_axes(raw_info):
     principal = raw_info["Principal axis orientation"]
     corner = raw_info["Image orientation"]
 
-    # Adjust two theta direction
+    # Adjust two theta direction #TODO ensure twotheta exists
     rotsense = 1 if raw_info["Two theta axis"] == principal_sense else -1
     vector = [[rotsense, 0, 0]]
 
@@ -330,8 +333,10 @@ def split_vector(vector, basename, imgblock):
             return 'none'#pass #TODO x[i] don't get the julia code
         else:
             if round(x[i - 1]) == x[i - 1]:
+                # display numbers without trailing zero? 1.0 -> 1?
                 # print('balla')
-                return f"{x[i - 1]:d}" # x[i]
+                # print('thixxx', x[i - 1])
+                return f"{round(x[i - 1]):d}" # x[i]
 
             else:
                 # print('yalla')
@@ -460,7 +465,7 @@ def determine_detx_dety(principal_angle, principal_sense, corner):
 def describe_facility(raw_info, imgblock):
 
     base = "_diffrn_source."
-    if "Beamline name" in raw_info:
+    if "Beamline name" in raw_info or "Facility name" in raw_info:
         imgblock[base + "beamline"] = [raw_info["Beamline name"]]
         imgblock[base + "facility"] = [raw_info["Facility name"]]
     else:
@@ -481,6 +486,7 @@ def describe_array(raw_info,imgblock):
     hor, vert = get_pixel_sizes(raw_info)
     # array structure list axis
     base = "_array_structure_list_axis."
+    # TODO always detx dety?
     imgblock[base + "axis_id"] = ["detx","dety"]
     imgblock[base + "axis_set_id"] = ["1","2"]
     imgblock[base + "displacement"] = [hor/2,vert/2]   #half pixel size
@@ -494,10 +500,10 @@ def describe_array(raw_info,imgblock):
     # array structure list
     base = "_array_structure_list."
     imgblock[base + "array_id"] = ["1","1"]
-    imgblock[base + "index"] = [1,2]
+    imgblock[base + "index"] = [1, 2]
     imgblock[base + "axis_set_id"] = ["1","2"]
-    imgblock[base + "dimension"] = ['none', 'none']   #number of elements in each direction
-    imgblock[base + "direction"] = ["increasing","increasing"]
+    imgblock[base + "dimension"] = raw_info['Array dimension']# ['none', 'none']   #number of elements in each direction
+    imgblock[base + "direction"] = ["increasing", "increasing"]
 
     if raw_info["Fast direction"] == "horizontal":
         precedence = [1, 2]
@@ -517,18 +523,28 @@ def describe_detector(raw_info, imgblock):
 
     base = "_diffrn_detector."
     imgblock[base + "id"]=["1"]
-    imgblock[base + "number_of_axes"]=[2]
+    imgblock[base + "number_of_axes"] = raw_info.get('detector_axes', [2])
     imgblock.CreateLoop([base + "id", base + "number_of_axes"])
     #
     base = "_diffrn_detector_axis."
-    imgblock[base + "axis_id"] = ["detx","dety"]
-    imgblock[base + "detector_id"] = ["1","1"]
+    # print('olla', imgblock["_diffrn_detector.number_of_axes"])
+    if imgblock["_diffrn_detector.number_of_axes"][0] == 2:
+        imgblock[base + "axis_id"] = ["detx", "dety"]
+        imgblock[base + "detector_id"] = ["1", "1"]
+    elif imgblock["_diffrn_detector.number_of_axes"][0] == 1:
+        imgblock[base + "axis_id"] = ["trans"]
+        imgblock[base + "detector_id"] = ["1"]
+
     imgblock.CreateLoop([base + "axis_id", base + "detector_id"])
 
 
 def get_pixel_sizes(raw_info):
     # both = parse.(Float64,split(raw_info["Pixel size"],","))
-    both = [float(pxsize) for pxsize in (raw_info["Pixel size"].split(","))]
+    if type(raw_info["Pixel size"]) == str:
+        both = [float(pxsize) for pxsize in (raw_info["Pixel size"].split(","))]
+    else:
+        both = list(raw_info['Pixel size'])
+
     if len(both) == 1:
         both.append(both[0])
 

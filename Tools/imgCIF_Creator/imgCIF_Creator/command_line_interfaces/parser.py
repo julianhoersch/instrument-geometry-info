@@ -5,7 +5,7 @@ import os
 import yaml
 import re
 from inspect import getsourcefile
-from imgCIF_Creator.information_extractors import user_input_extractor
+from imgCIF_Creator.information_extractors import user_input
 
 
 class CommandLineParser():
@@ -38,6 +38,7 @@ class CommandLineParser():
             'xds.inp': None, # no effect
             'Data DOI': None, # no effect?
             'Comments': None, # no effect?
+            'Filename' : r'.*((\.h5)\Z|(\.cbf)\Z|(\.smv)\Z)',
         }
 
         self.required_information = {
@@ -73,11 +74,11 @@ class CommandLineParser():
 
     def retrieve_user_information(self):
 
-        print('\n--------------------------- imgCIF Creator ---------------------------\n' )
-        print("""This is an interactive command line interface to collect the necessary \
-information to create an imgCIF file out of HDF5, full CBF and some common subset \
-of miniCBF. You can skip parameters that are not required with an empty input,\
-if you however provide an input that will be checked against the required format.""")
+#         print('\n--------------------------- imgCIF Creator ---------------------------\n' )
+#         print("""This is an interactive command line interface to collect the necessary \
+# information to create an imgCIF file out of HDF5, full CBF and some common subset \
+# of miniCBF. You can skip parameters that are not required with an empty input,\
+# if you however provide an input that will be checked against the required format.""")
 
         while self.parsed.get('layout') not in ['beamline', 'laboratory']:
             print('\nDo you want to create an imgCIF for beamline or laboratory data (choices: beamline or laboratory)?')
@@ -130,7 +131,7 @@ if you however provide an input that will be checked against the required format
 
         # special cases
         if input_label == 'Rotation axis name' and user_input != '':
-            axes, _ = user_input_extractor.parse_axis_string(self.parsed['Goniometer axes'])
+            axes, _ = user_input.parse_axis_string(self.parsed['Goniometer axes'])
             parsed_input = parsed_input if parsed_input in axes else None
 
         # required parameter, but either regex failed or no input was made if no regex

@@ -1,6 +1,7 @@
 import re
 
 # Configuration information
+#TODO always?
 ROT_AXES = ("chi", "phi", "detector_2theta", "two_theta", "omega",
             "angle", "start_angle", "kappa")
 TRANS_AXES = ("detector_distance", "dx", "trans", "distance")
@@ -65,9 +66,11 @@ def create_scan_list(scan_info):
 
 
 
-def generate_wavelength(cifblock, scan_info, rad_type="xray"):
+def generate_wavelength(cifblock, scan_info):
 
     # print('scaninf', scan_info)
+    rad_type = scan_info[list(scan_info.keys())[0]][1].get("rad_type")
+    rad_type = "x-ray" if rad_type is None else rad_type
     wl = scan_info[list(scan_info.keys())[0]][1]["wavelength"]
     cifblock["_diffrn_radiation_wavelength.id"] = 1
     cifblock["_diffrn_radiation_wavelength.value"] = wl
@@ -108,6 +111,7 @@ def generate_scan_settings(cif_block, scan_info):
 
         axes, dets = scan_info[scan]
         # print("keylen", len(axes.keys()))
+        #TODO do this for all axes or only the one that changes?
         for axis, val in axes.items():
             step, range = 0, 0
             if axis == dets["axis"]:
@@ -165,9 +169,9 @@ def generate_ids(cif_block, scan_list):
     for _, frames in scan_list:
         for _ in range(1, frames + 1):
             counter += 1
-            entries[base + ".id"].append("IMAGE")
+            entries[base + ".id"].append("IMAGE") #TODO is that always IMAGE?
             entries[base + ".binary_id"].append(counter)
-            entries[base + ".external_data_id"].append(counter)
+            entries[base + ".external_data_id"].append(f'ext{counter}') # TODO put ext here?
             # println(op, "   IMAGE $ctr $ctr")
 
     for name, value in entries.items():
@@ -206,9 +210,9 @@ def generate_external_ids(cif_block, fulluri, all_frames, scan_list,
         for frame in range(1, frames + 1):
             counter += 1
             frame_name = f"/{all_frames[(scan, frame)][0]}"
-            entries[base + ".id"].append(counter)
+            entries[base + ".id"].append(f"ext{counter}")
             entries[base + ".format"].append(file_format)
-            entries[base + ".uri"].append(fulluri)
+            entries[base + ".uri"].append(fulluri) #TODO zenodo uri here?
             entries[base + ".path"].append(all_frames[(scan, frame)][1])
             entries[base + ".frame"].append(all_frames[(scan, frame)][2])
             # println(op, "frm$ctr  ELEMENT  IMAGE $(ctr)")
@@ -309,7 +313,8 @@ def generate_array_info(cif_block, scan_list):
             counter += 1
             entries[base + ".id"].append(f"frm{counter}")
             entries[base + ".detector_element_id"].append(f"ELEMENT")
-            entries[base + ".array_id"].append("IMAGE")
+            #TODO element or 1? not present in hdf5 mapper
+            entries[base + ".array_id"].append("IMAGE") # is 1 in hdf5 mapper
             entries[base + ".binary_id"].append(counter)
             # println(op, "frm$ctr  ELEMENT  IMAGE $(ctr)")
 
