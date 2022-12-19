@@ -41,7 +41,7 @@ def extract_hdf5_NxMx_scan(
             # "Image orientation" : "top left",
             "Pixel size" : setup_info["Pixel size"],
             "Facility name" : setup_info['Facility name'],
-            "Beamline name" : 'boilerplate',
+            "Beamline name" : setup_info['Beamline name'],
             "gonio_axes_nxmx" : goniometer_axes,
             "offsets_nxmx" : offsets,
             "Array dimension" : setup_info['Array dimension'],
@@ -64,6 +64,7 @@ def get_scan_info(master_file):
     print('master', master_file)
     frame_files = scan_frames_from_master(master_file)
 
+    #TODO is input?
     goniometer_rot_direction = 'clockwise'
     print(f'Goniometer rotation direction set to: {goniometer_rot_direction}')
 
@@ -72,16 +73,18 @@ def get_scan_info(master_file):
     with h5.File(master_file, 'r') as h5_master:
         for scan_no, scan in frame_files.keys():
             for axis in ['phi', 'chi', 'omega', 'fast', 'slow', 'trans']:
-
+                scan_axis_found = False
                 path = f'{scan}/sample/sample_{axis}/{axis}'
                 print('hdff5 path', path)
                 h5item = h5_master.get(path)
                 if h5item is not None:
                     print('Collect INFO for', axis)
+                    scan_axis_found = True
                     try:
                         print('thisitem', axis, h5item[()])
                         if len(h5item[()]) > 1:
                             print(' ... identified as scan axis')
+                            scan_axis_found = True
                             scan_axis = axis
                             n_frames = len(h5item[()])
                             scan_start = h5item[()][0]
@@ -99,6 +102,9 @@ def get_scan_info(master_file):
                     except TypeError:
                         # for fast and slow this is a scalar and no list
                         pass
+                if not scan_axis_found:
+                    print('No scan axis found! Aborting!')
+                    break #TODO sys exit
 
             # return 0, 0
             # # if mode == 'hdf5':
@@ -123,7 +129,9 @@ def get_scan_info(master_file):
 
                 # we take the last as this was done in the julia cbf code also
                 # TODO convert units if neccessary
+                # this are the settings of the axes, hence the value in the hdf5 file
                 axes_single_frame[axis] =  h5_master[path][()][0]
+                # print('thats what i want', h5_master[path][()][0])
 
             # Check increment and range match
             if not np.isclose(scan_start + scan_incr * (n_frames - 1), scan_stop, atol=1e-6):
@@ -200,7 +208,7 @@ def get_setup_info(master_file):#, filename, fpath_stem, imgfiles):
     axes = imgCIF_assembler.ROT_AXES + imgCIF_assembler.TRANS_AXES
     frame_files = scan_frames_from_master(master_file)
 
-    print('ff', frame_files)
+    # print('ff', frame_files)
 
 
     goniometer_axes = {}
@@ -208,14 +216,21 @@ def get_setup_info(master_file):#, filename, fpath_stem, imgfiles):
         # TODO right now this does not work for multiple scans in a file
         for scan_no, scan in frame_files.keys():
             setup_info['Facility name'] = \
-                h5_master[f'{scan}/instrument/source/name'].attrs['short_name'].decode('utf-8')
-            setup_info['Start date'] = \
-                h5_master[f'{scan}/start_time']
+                h5_master[f'{scan}/instrument/source/name'][()].decode('utf-8')
+
+            path = f'{scan}/instrument/source/name'
+            setup_info['Facility name'] = get_item_hdf5(h5_master, path, True, 'facility name')
+
+            path = f'{scan}/instrument/source/beamline' #TODO can this path in theory exist?
+            setup_info['Beamline name'] = get_item_hdf5(h5_master, path, True, 'beamline name')
+
+            # setup_info['Start date'] = \
+            #     h5_master[f'{scan}/start_time']
             # TODO check if this always works
             fast_direction = h5_master[
                 f'{scan}/instrument/detector/module/fast_pixel_direction'].attrs['vector']
             if fast_direction[0] !=0 and fast_direction[1]==fast_direction[2]==0:
-                print('is hor ')
+                # print('is hor ')
                 setup_info['Fast direction'] = 'horizontal'
             elif fast_direction[1] !=0 and fast_direction[0]==fast_direction[2]==0:
                 setup_info['Fast direction'] = 'vertical'
@@ -231,7 +246,7 @@ def get_setup_info(master_file):#, filename, fpath_stem, imgfiles):
 
                 path = f'{scan}/sample/transformations/{axis}' #sample_{axis}/{axis}'
                 axis = axis.lower()
-                print('hdff5 path', path)
+                # print('hdff5 path', path)
                 h5item = h5_master.get(path)
                 # print('hdf5', list(h5item.keys()))
                 if h5item is None or len(h5item.attrs) == 0:
@@ -276,7 +291,7 @@ def get_setup_info(master_file):#, filename, fpath_stem, imgfiles):
                 goniometer_axes[axis] = \
                     {'dep': depends_on, 'vec': vector, 'trafo': trafo}
 
-                print('myaxt', axis)
+                # print('myaxt', axis)
 
                 # sortorder = {"sun":0, "mon":1, "tue":2, "wed":3, "thu":4, "fri":5, "sat":6}
 
@@ -291,10 +306,10 @@ def get_setup_info(master_file):#, filename, fpath_stem, imgfiles):
             print('goooni', goniometer_axes)
             base = f'{scan}/instrument/detector/'
 
-            beam_center = (h5_master[f'{base}beam_center_x'][()] *
-                        h5_master[f'{base}x_pixel_size'][()],
-                        h5_master[f'{base}beam_center_y'][()] *
-                        h5_master[f'{base}y_pixel_size'][()])
+            # beam_center = (h5_master[f'{base}beam_center_x'][()] *
+            #             h5_master[f'{base}x_pixel_size'][()],
+            #             h5_master[f'{base}beam_center_y'][()] *
+            #             h5_master[f'{base}y_pixel_size'][()])
 
             setup_info['Pixel size'] = (h5_master[f'{base}x_pixel_size'][()],
                         h5_master[f'{base}y_pixel_size'][()])
@@ -410,3 +425,65 @@ def rotate_vector(vector, rotation_axis):
 
 
             #         return recursive_sort(dependent_axis)
+
+
+def get_item_hdf5(h5_master, path, required=False, message=''):
+
+    found = False
+    if required:
+        # while not found:
+        h5item = h5_master.get(path)
+        if h5item is None:
+            # found = False
+            print(f"Could not find item at {path}, but is required.")
+            print(f"Please enter the value for {message}:")
+            value = input(' >> ')
+        # else:
+        #     found = True
+    else:
+        h5item = h5_master.get(path)
+        if h5item is None:
+            print(f"Could not find item at {path}, skipping.")
+            value = None
+
+    if h5item is not None:
+        value = h5item[()].decode('utf-8')
+
+    return value
+
+
+def get_attribute_hdf5(h5_master, path, attr, required=False, message=''):
+
+    found = False
+    if required:
+        while not found:
+            h5item = h5_master.get(path)
+
+        if h5item is None:
+            found = False
+        else:
+            if attr is not None:
+                try:
+                    attribute = h5_master[path].attrs[attr]
+                    found = True
+                except KeyError:
+                    if required:
+                        print(f"Could not find attribute {attr} in {path}, but is required.")
+                        print(f"Please enter the right location for {message}:")
+                        path = input(' >> ')
+            else:
+                return None
+    else:
+        pass # TODO
+
+    return attribute
+
+
+
+
+
+    # try
+
+
+
+    return location

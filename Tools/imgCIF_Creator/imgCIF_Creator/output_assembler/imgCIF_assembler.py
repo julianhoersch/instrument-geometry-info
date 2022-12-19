@@ -1,4 +1,5 @@
 import re
+from imgCIF_Creator.information_extractors import cbf_smv
 
 # Configuration information
 #TODO always?
@@ -8,6 +9,16 @@ TRANS_AXES = ("detector_distance", "dx", "trans", "distance")
 ALWAYS_AXES = ("distance", "two_theta", "detector_2theta")
 
 # #============= Output routines ========================#
+
+
+def create_imgCIF(filename):
+
+    extractor = cbf_smv.extractor(filename)
+
+    # extractor.get()...
+    # generate()...
+
+    pass
 
 
 def add_scan_info_to_block(scan_info, all_frames, cif_block, new_url,
@@ -29,28 +40,92 @@ def add_scan_info_to_block(scan_info, all_frames, cif_block, new_url,
 
 
     scan_list = create_scan_list(scan_info)
-    print('scl', scan_list)
-    print('repl', scan_info)
+    # print('scl', scan_list)
+    # print('repl', scan_info)
     exposure_time = {s : scan_info[s][1]["time"] for s in scan_info.keys()}
     # print("expin", exp_info)
 
     # op = isnothing( output_file ) ? stdout : open(output_file, "w")
 
+
+
+
+    # # _diffrn_source block
+    # get_facility_info()
+    # # describe _axis block
+    # get_axes_info()
+    # # describe _array_structure_list_axis and _array_structure_list
+    # gat_array_info()
+    # # describe _diffrn_detector and _diffrn_detector_axis
+    # get_detector_info()
+    # # generate _diffrn_wavelength block
+    # get_wavelength_info()
+    # # generate _diffrn_scan_axis block
+    # get_scan_settings_info()
+    # # generate _diffrn_scan block
+    # get_scan_info()
+    # # generate _diffrn_scan_frame block
+    # get_step_info()
+    # # generate _diffrn_data_frame block
+    # get_array_info()
+    # # generate _array_data block
+    # get_ids_info()
+    # # generate _array_data_external_data
+    # get_external_ids_info()
+
+
+
+
+    # # _diffrn_source block
+    # # needs beamline name, facility or manufacturer, model opt location
+    # generate_facility(user_input, cif_block)
+
+    # # describe _axis block
+    # # needs goniometer axes
+    # generate_axes(user_input, cif_block)
+
+    # # describe _array_structure_list_axis and _array_structure_list
+    # # needs pixel size, array dimension, fast direction
+    # generate_array(user_input, cif_block)
+
+    # # describe _diffrn_detector and _diffrn_detector_axis
+    # # needs detector axes,
+    # generate_detector(user_input, cif_block)
+
     # generate _diffrn_wavelength block
+    # needs rad_type, wavelength
     generate_wavelength(cif_block, scan_info)
+
     # generate _diffrn_scan_axis block
+    # needs scan info
     generate_scan_settings(cif_block, scan_info)
+
     # generate _diffrn_scan block
+    # needs scan list
     generate_scan_info(cif_block, scan_list)
+
     # generate _diffrn_scan_frame block
+    # needs scan_list, integration time
     generate_step_info(cif_block, scan_list, exposure_time)
+
     # generate _diffrn_data_frame block
+    # needs scan list
     generate_array_info(cif_block, scan_list)
+
     # generate _array_data block
+    # needs scan list
     generate_ids(cif_block, scan_list)
+
     # generate _array_data_external_data
+    # needs uri/zenod?, all frames, scan list, arch, prepend dir, file format
     generate_external_ids(
         cif_block, new_url, all_frames, scan_list, arch, prepend_dir, file_format)
+
+
+
+
+
+
 
 
 
@@ -344,3 +419,120 @@ def get_archive_type(new_url, frame_dir):
                 return archive, new_url
 
     return archive, new_url
+
+
+def generate_facility(raw_info, imgblock):
+
+    base = "_diffrn_source."
+    if "Beamline name" in raw_info or "Facility name" in raw_info:
+        imgblock[base + "beamline"] = [raw_info["Beamline name"]]
+        imgblock[base + "facility"] = [raw_info["Facility name"]]
+    else:
+        imgblock[base + "make"] = [raw_info["Name of manufacturer"] + "-" + \
+            raw_info["Model"]]
+        if "Location" in raw_info:
+            imgblock[base + "details"] = [f"Located at {raw_info['Location']}"]
+
+def generate_array(raw_info,imgblock):
+
+    """
+    describe_detector(raw_info)
+
+    Produce the information required for array_structure_list. Here
+    we assume a rectangular detector with x horizontal, y vertical
+    """
+
+    hor, vert = get_pixel_sizes(raw_info)
+    # array structure list axis
+    base = "_array_structure_list_axis."
+    # TODO always detx dety?
+    imgblock[base + "axis_id"] = ["detx","dety"]
+    imgblock[base + "axis_set_id"] = ["1","2"]
+    imgblock[base + "displacement"] = [hor/2,vert/2]   #half pixel size
+    imgblock[base + "displacement_increment"] = [hor,vert]
+    imgblock.CreateLoop([
+        base + "axis_id",
+        base + "axis_set_id",
+        base + "displacement",
+        base + "displacement_increment"])
+
+    # array structure list
+    base = "_array_structure_list."
+    imgblock[base + "array_id"] = ["1","1"]
+    imgblock[base + "index"] = [1, 2]
+    imgblock[base + "axis_set_id"] = ["1","2"]
+    imgblock[base + "dimension"] = raw_info['Array dimension']# ['none', 'none']   #number of elements in each direction
+    imgblock[base + "direction"] = ["increasing", "increasing"]
+
+    if raw_info["Fast direction"] == "horizontal":
+        precedence = [1, 2]
+    else:
+        precedence = [2, 1]
+
+    imgblock[base + "precedence"] = precedence
+    imgblock.CreateLoop([
+        base + "array_id",
+        base + "index",
+        base + "axis_set_id",
+        base + "dimension",
+        base + "direction",
+        base + "precedence"])
+
+def generate_detector(raw_info, imgblock):
+
+    base = "_diffrn_detector."
+    imgblock[base + "id"]=["1"]
+    imgblock[base + "number_of_axes"] = raw_info.get('detector_axes', [2])
+    imgblock.CreateLoop([base + "id", base + "number_of_axes"])
+    #
+    base = "_diffrn_detector_axis."
+    # print('olla', imgblock["_diffrn_detector.number_of_axes"])
+    if imgblock["_diffrn_detector.number_of_axes"][0] == 2:
+        imgblock[base + "axis_id"] = ["detx", "dety"]
+        imgblock[base + "detector_id"] = ["1", "1"]
+    elif imgblock["_diffrn_detector.number_of_axes"][0] == 1:
+        imgblock[base + "axis_id"] = ["trans"]
+        imgblock[base + "detector_id"] = ["1"]
+
+    imgblock.CreateLoop([base + "axis_id", base + "detector_id"])
+
+
+def generate_axes(raw_info, imgblock):
+    """
+    describe_axes(raw_info,imgblock)
+
+    Create the goniometer axes corresponding to the data in `raw_info`,
+    placing the result in CIF block `imgblock`.
+    """
+
+    if 'gonio_axes_nxmx' in raw_info:
+        gon_axes = make_axes_nxmx(raw_info)
+        print('gonaxes2', gon_axes, type(gon_axes))
+    else:
+        gon_axes = make_gonio_axes(raw_info)
+        print('gonaxes', gon_axes, type(gon_axes))
+        det_axes = make_detector_axes(raw_info)
+        print('detax', det_axes)
+        # structure:  [['Phi', 'Chi', 'Omega'], ['rotation', 'rotation', 'rotation']]
+        # adds the detector axes
+        for i, _ in enumerate(gon_axes):
+            gon_axes[i] += det_axes[i]
+
+    print("gonaxes2", gon_axes)
+    base = "_axis."
+    imgblock[base + "id"] = gon_axes[0]
+    imgblock[base + "type"] = gon_axes[1]
+    imgblock[base + "equipment"] = gon_axes[2]
+    imgblock[base + "depends_on"] = gon_axes[3]
+    split_vector(gon_axes[4], base + "vector", imgblock)
+    split_vector(gon_axes[-1], base + "offset", imgblock)
+    imgblock.CreateLoop([base + "id", base + "type", base + "equipment",
+                         base + "depends_on",
+                         base + "vector[1]", base + "vector[2]", base + "vector[3]",
+                         base + "offset[1]", base + "offset[2]", base + "offset[3]"])
+    print("nnt")
+    # print(imgblock.items())
+
+
+    # [[1, 0, 0], [-1, 0, 0], [1, 0, 0], [[-1, 0, 0], [0, 0, -1], [0, -1, 0], [-1, 0, 0]]], [[0, 0, 0], [0, 0, 0], [0, 0, 0], [[0, 0, 0], [0, 0, 0], [None, None, 0], [0, 0, 0]]])
+    # [[1, 0, 0], [-1, 0, 0], [1, 0, 0], [1, 0, 0], [0, 0, -1], [0, -1, 0], [-1, 0, 0]], [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [missing, missing, 0], [0, 0, 0]])

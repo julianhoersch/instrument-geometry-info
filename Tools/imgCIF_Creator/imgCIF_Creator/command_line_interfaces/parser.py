@@ -65,6 +65,7 @@ class CommandLineParser():
             'xds.inp': False, # no effect
             'Data DOI': False, # no effect
             'Comments': False, # no effect
+            'Filename' : True,
         }
 
         self.parsed = {}

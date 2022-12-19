@@ -11,6 +11,7 @@ setup(
         'click',
         'PyCifRW',
         'h5py',
+        'cbf',
     ],
     entry_points={
         "console_scripts": [
