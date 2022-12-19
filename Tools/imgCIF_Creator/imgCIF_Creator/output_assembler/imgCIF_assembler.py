@@ -15,7 +15,8 @@ def create_imgCIF(filename):
 
     extractor = cbf_smv.extractor(filename)
 
-    # extractor.get()...
+    source_info = extractor.get_source_info()
+
     # generate()...
 
     pass
