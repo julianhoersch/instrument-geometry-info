@@ -14,20 +14,34 @@ class extractor(extractor_interface.ExtractorInterface):
     def __init__(self, directory) -> None:
 
         stem = '010_Ni_dppe_Cl_2_150K'
-        unique_scans, all_frames = get_scans_and_frames(directory, stem=stem)
+        self._unique_scans, self._all_frames = get_scans_and_frames(directory, stem=stem)
 
         # retrieve mini header info
         # only mini header info contains scan details regarding increment etc
         # otherwise it would be duploicated
         # extract_cbf_scan(directory, file_stem='010_Ni_dppe_Cl_2_150K')
-        scan_info_mini_header = \
-            get_scan_info_mini_header(directory, unique_scans, all_frames)
+        self._scan_info_mini_header = \
+            get_scan_info_mini_header(directory, self._unique_scans, self._all_frames)
         # print()
         # TODO axis renaming
+        print('mini info:', self._scan_info_mini_header)
 
         # retrieve full header info
-        scan_info_full_header = \
-            get_scan_info_full_header(directory, unique_scans, all_frames)
+        self._scan_info_full_header = \
+            get_scan_info_full_header(directory, self._unique_scans, self._all_frames)
+        printin = \
+            self._scan_info_full_header[list(self._scan_info_full_header.keys())[0]]
+        print('full info:', printin)
+
+        self._first_scan = list(self._scan_info_full_header.keys())[0]
+        self._data_name = list(self._scan_info_full_header[self._first_scan].keys())[0]
+        self._full_header_dict = self._scan_info_full_header[self._first_scan][self._data_name]
+
+
+
+
+        source_info = self.get_source_info()
+        print('sinf', source_info)
 
 
 
@@ -41,6 +55,58 @@ class extractor(extractor_interface.ExtractorInterface):
 
         # print(full_cbf_info)
         # print(full_cbf_info['010_Ni_dppe_Cl_2_150K01_00150'].keys())
+
+
+
+
+    def get_source_info(self):
+
+        facility = None
+        beamline = None
+
+        # TODO can it appear in the mini header
+        print(self._scan_info_full_header[self._first_scan][self._data_name].keys())
+        block_ids = ['_diffrn_source.diffrn_id', '_diffrn.id']
+        for b_id in block_ids:
+            block_id = self._full_header_dict.get(b_id)[0]
+            if block_id is not None:
+                facility_short, beamline = block_id.split('_')
+        # check beamline is the same?
+
+        source_string = self._full_header_dict.get('_diffrn_source.type')[0]
+        if source_string is not None:
+            if 'beamline' in source_string:
+                splitter = 'beamline'
+            elif 'Beamline' in source_string:
+                splitter = 'Beamline'
+            facility, beamline_source = source_string.split(splitter)
+            if beamline is None:
+                beamline = beamline_source
+
+            print('fac', facility, 'bl', beamline)
+
+        # TODO match facility and manufacturer
+        manufacturer = None
+        model = None
+        location = None
+
+        make_string = self._full_header_dict.get('_diffrn_source.make')[0]
+        if make_string is not None:
+            manufacturer, model = make_string.split('-')
+
+        # is this meant like general details?
+        location_string = self._full_header_dict.get('_diffrn_source.details')[0]
+        if location_string is not None:
+            location = location_string
+
+        source_info = {'beamline' : beamline,
+                       'facility' : facility,
+                       'manufacturer' : manufacturer,
+                       'model' : model,
+                       'location' : location}
+
+        return source_info
+
 
 
     def get_full_cbf_header():
@@ -207,7 +273,7 @@ def get_scan_info_full_header(frame_dir, unique_scans, all_frames):
         file_name = os.path.join(frame_dir, all_frames[(scan, 1)])
         full_header = full_cbf.extract_full_cbf_header_information(file_name)
 
-        scan_info[scan] = full_header
+        scan_info[scan] = full_header#[list(full_header.keys())[0]]
 
     return scan_info
 
@@ -250,6 +316,7 @@ def get_scan_info_mini_header(frame_dir, unique_scans, all_frames):
         # Get information and last frame
         file_name = os.path.join(frame_dir, all_frames[(scan, len(frames))])
         mini_header = get_mini_header(file_name, frame_type)
+        print('mini headi', mini_header)
         axes_single_frame, _, _, _, _ = get_frame_info(mini_header, frame_type, axes)
         finish = axes_single_frame[scan_ax]
 
@@ -267,7 +334,9 @@ def get_scan_info_mini_header(frame_dir, unique_scans, all_frames):
                         "range" : scan_incr * len(frames),
                         "wavelength" : wl,
                         "x_pixel_size" : x_pixel_size,
-                        "y_pixel_size" : y_pixel_size}
+                        "y_pixel_size" : y_pixel_size,
+                        "mini_header" : mini_header
+                        }
 
         scan_info[scan] = (axes_single_frame, scan_details)
 
@@ -436,7 +505,7 @@ def get_CBF_header(fname):
                 break
 
             if found_header and within_section and line.startswith(b'#'):
-                cbf_header.append(line.decode('utf-8').lower())
+                cbf_header.append(line.decode('utf-8').lower().strip('\n').strip('\r'))
 
     # print('lns', cbf_header)
     return cbf_header
