@@ -73,6 +73,20 @@ class CommandLineParser():
             'command_line_interfaces/parser.py', 'resources/')
 
 
+    def get_beamline_lab_choice(self):
+
+        while self.parsed.get('layout') not in ['beamline', 'laboratory']:
+            print('\nDo you want to create an imgCIF for beamline or laboratory data (choices: beamline or laboratory)?')
+            self.parsed['layout'] = self.validated_user_input('layout')
+
+        # choice = {'beamline' : 'beamline-layout.yaml',
+        #         'laboratory' : 'lab-layout.yaml',
+        #         }
+
+
+        # return choice
+
+
     def retrieve_user_information(self):
 
 #         print('\n--------------------------- imgCIF Creator ---------------------------\n' )
