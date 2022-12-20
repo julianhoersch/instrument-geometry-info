@@ -16,6 +16,9 @@ class extractor(extractor_interface.ExtractorInterface):
         stem = '010_Ni_dppe_Cl_2_150K'
         self._unique_scans, self._all_frames = get_scans_and_frames(directory, stem=stem)
 
+
+        print('u sca', self._unique_scans)
+        # print('all fr', self._alfl_frames)
         # retrieve mini header info
         # only mini header info contains scan details regarding increment etc
         # otherwise it would be duploicated
@@ -33,10 +36,19 @@ class extractor(extractor_interface.ExtractorInterface):
             self._scan_info_full_header[list(self._scan_info_full_header.keys())[0]]
         print('full info:', printin)
 
+
+        scan_list = create_scan_list(self._scan_info_mini_header)
+        print('scan_list', scan_list)
+
         self._first_scan = list(self._scan_info_full_header.keys())[0]
         self._data_name = list(self._scan_info_full_header[self._first_scan].keys())[0]
         self._full_header_dict = self._scan_info_full_header[self._first_scan][self._data_name]
 
+
+
+        #~~~{.python}
+        #    my_data = cf.first_block()
+        #~~~
 
 
 
@@ -68,12 +80,19 @@ class extractor(extractor_interface.ExtractorInterface):
         print(self._scan_info_full_header[self._first_scan][self._data_name].keys())
         block_ids = ['_diffrn_source.diffrn_id', '_diffrn.id']
         for b_id in block_ids:
-            block_id = self._full_header_dict.get(b_id)[0]
+            #print('bid', b_id)
+            block_id = self._full_header_dict.get(b_id)
+            if type(block_id) == list:
+                block_id = block_id[0]
+            #print('blockz', block_id)
             if block_id is not None:
                 facility_short, beamline = block_id.split('_')
+
         # check beamline is the same?
 
-        source_string = self._full_header_dict.get('_diffrn_source.type')[0]
+        source_string = self._full_header_dict.get('_diffrn_source.type')
+        if type(source_string) == list:
+                source_string = source_string[0]
         if source_string is not None:
             if 'beamline' in source_string:
                 splitter = 'beamline'
@@ -90,12 +109,17 @@ class extractor(extractor_interface.ExtractorInterface):
         model = None
         location = None
 
-        make_string = self._full_header_dict.get('_diffrn_source.make')[0]
+        make_string = self._full_header_dict.get('_diffrn_source.make')
+        if type(make_string) == list:
+                make_string = make_string[0]
         if make_string is not None:
             manufacturer, model = make_string.split('-')
 
         # is this meant like general details?
-        location_string = self._full_header_dict.get('_diffrn_source.details')[0]
+        location_string = self._full_header_dict.get('_diffrn_source.details')
+        if type(location_string) == list:
+            location_string = location_string[0]
+
         if location_string is not None:
             location = location_string
 
@@ -108,22 +132,47 @@ class extractor(extractor_interface.ExtractorInterface):
         return source_info
 
 
+    def get_axes_info(self):
 
-    def get_full_cbf_header():
+        axes = self._full_header_dict.get('_axis.id')
+        # print('axe', axes)
+        axis_type = self._full_header_dict.get('_axis.type')
+        equip = self._full_header_dict.get('_axis.equipment')
+        depends_on = self._full_header_dict.get('_axis.depends_on')
 
-        pass
+        vector = []
+        offset = []
 
-    def get_facility_info():
+        for idx, _ in enumerate(axes):
+            sub_vector = []
+            sub_offset = []
 
-        raise NotImplementedError
+            # possible with pycifrw but uninituitive
+            # vector = self._full_header_dict.GetLoop('_axis.vector[1]')
+            # print('wegtor', vector.GetKeyedPacket(axes[0], '_axis.vector[1]'))
 
-    def get_axes_info():
+            for i in [1, 2, 3]:
+                entry = self._full_header_dict.get(f'_axis.vector[{i}]')
+                entry = entry if entry is None else entry[idx]
+                sub_vector.append(entry)
+                entry = self._full_header_dict.get(f'_axis.offset[{i}]')
+                entry = entry if entry is None else entry[idx]
+                sub_offset.append(entry)
 
-        raise NotImplementedError
+            vector.append(sub_vector)
+            offset.append(sub_offset)
+            # offset = self._full_header_dict.get(f'_axis.offset[{i}]')
 
-    def get_array_info():
+        # print('vec', vector)
+        # print('off', offset)
 
-        raise NotImplementedError
+
+        return [axes, axis_type, equip, depends_on, vector, offset]
+
+
+    # def get_array_info():
+
+    #     raise NotImplementedError
 
     def get_detector_info():
 
@@ -137,9 +186,9 @@ class extractor(extractor_interface.ExtractorInterface):
 
         raise NotImplementedError
 
-    def get_scan_info():
+    # def get_scan_info():
 
-        raise NotImplementedError
+    #     raise NotImplementedError
 
     def get_step_info():
 
@@ -162,7 +211,17 @@ class extractor(extractor_interface.ExtractorInterface):
 
 
 
+def get_scan_list(scan_info):
 
+    # something like scan_list [('01', 325)]
+
+    # Create scan list of (scanid, frame_no) where
+    # frame_no is just the number of frames
+
+    scans = sorted(scan_info)
+    slist = [(s, scan_info[s][1]["frames"]) for s in scans]
+
+    return slist
 
 
 
