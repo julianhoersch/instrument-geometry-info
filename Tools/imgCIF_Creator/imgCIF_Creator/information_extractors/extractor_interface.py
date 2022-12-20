@@ -15,12 +15,12 @@ class ExtractorInterface(metaclass=abc.ABCMeta):
                 callable(subclass.get_wavelength_info) and
                 hasattr(subclass, 'get_scan_setting_info') and
                 callable(subclass.get_scan_setting_info) and
-                hasattr(subclass, 'get_scan_info') and
-                callable(subclass.get_scan_info) and
+                # hasattr(subclass, 'get_scan_info') and
+                # callable(subclass.get_scan_info) and
                 hasattr(subclass, 'get_step_info') and
                 callable(subclass.get_step_info) and
-                hasattr(subclass, 'get_array_info') and
-                callable(subclass.get_array_info) and
+                # hasattr(subclass, 'get_array_info') and
+                # callable(subclass.get_array_info) and
                 hasattr(subclass, 'get_ids_info') and
                 callable(subclass.get_ids_info) and
                 hasattr(subclass, 'get_external_ids_info') and

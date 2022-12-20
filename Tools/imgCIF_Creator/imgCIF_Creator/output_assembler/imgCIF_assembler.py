@@ -16,10 +16,19 @@ def create_imgCIF(filename):
     extractor = cbf_smv.extractor(filename)
 
     source_info = extractor.get_source_info()
+    #check_completeness(source_info, 'source_info')
 
+    axes = extractor.get_axes_info()
     # generate()...
 
     pass
+
+
+def check_completeness(info_block, info_block_name):
+
+    return info_block
+
+
 
 
 def add_scan_info_to_block(scan_info, all_frames, cif_block, new_url,
