@@ -1,5 +1,6 @@
 import re
 from imgCIF_Creator.information_extractors import cbf_smv
+from imgCIF_Creator.command_line_interfaces import parser
 
 # Configuration information
 #TODO always?
@@ -10,18 +11,119 @@ ALWAYS_AXES = ("distance", "two_theta", "detector_2theta")
 
 # #============= Output routines ========================#
 
-
-def create_imgCIF(filename):
+# TODO add doi somewhere
+def create_imgCIF(filename, cif_block):
 
     extractor = cbf_smv.extractor(filename)
+    cmd_parser = parser.CommandLineParser()
 
+
+    # # _diffrn_source block
+    # # needs beamline name, facility or manufacturer, model opt location
     source_info = extractor.get_source_info()
-    #check_completeness(source_info, 'source_info')
+    check_source_completeness(source_info)
+    # generate_facility(user_input, cif_block)
+    generate_facility() #source
 
-    axes = extractor.get_axes_info()
+
+    # # describe _axis block
+    # # needs goniometer axes
+    axes_info = extractor.get_axes_info()
     # generate()...
+    # generate_axes(user_input, cif_block)
+    generate_axes()
+
+
+    # # describe _array_structure_list_axis and _array_structure_list
+    # # needs pixel size, array dimension, fast direction
+    # generate_array(user_input, cif_block)
+
+    # # describe _diffrn_detector and _diffrn_detector_axis
+    # # needs detector axes,
+    detector_info = extractor.get_detector_info()
+    generate_detector()
+    # generate_detector(user_input, cif_block)
+
+
+
+
+    # generate _diffrn_wavelength block
+    # needs rad_type, wavelength
+
+    wavelength_info = extractor.get_wavelength_info()
+    # generate_wavelength(cif_block, scan_info)
+    generate_wavelength()
+
+    scan_setting_info = extractor.get_scan_settings_info()
+    scan_list = get_scan_list(scan_setting_info)
+
+
+    # generate _diffrn_scan_axis block
+    # needs scan info
+    generate_scan_settings(cif_block, scan_info)
+
+    # generate _diffrn_scan block
+    # needs scan list
+    generate_scan_info(cif_block, scan_list)
+
+    # generate _diffrn_scan_frame block
+    # needs scan_list, integration time
+    generate_step_info(cif_block, scan_list, exposure_time)
+
+    # generate _diffrn_data_frame block
+    # needs scan list
+    generate_array_info(cif_block, scan_list)
+
+    # generate _array_data block
+    # needs scan list
+    generate_ids(cif_block, scan_list)
+
+    # generate _array_data_external_data
+    # needs uri/zenod?, all frames, scan list, arch, prepend dir, file format
+    generate_external_ids(
+        cif_block, new_url, all_frames, scan_list, arch, prepend_dir, file_format)
+
+
 
     pass
+
+
+def get_scan_list(scan_info):
+
+    # move to assebler
+
+    # something like scan_list [('01', 325)]
+
+    # Create scan list of (scanid, frame_no) where
+    # frame_no is just the number of frames
+
+    scans = sorted(scan_info)
+    slist = [(s, scan_info[s][1]["frames"]) for s in scans]
+
+    return slist
+
+
+
+def check_source_completeness(source_info):
+
+    if not any(source_info.values()):
+
+
+
+
+
+    base = "_diffrn_source."
+    if "Beamline name" in raw_info or "Facility name" in raw_info:
+        imgblock[base + "beamline"] = [raw_info["Beamline name"]]
+        imgblock[base + "facility"] = [raw_info["Facility name"]]
+    else:
+        imgblock[base + "make"] = [raw_info["Name of manufacturer"] + "-" + \
+            raw_info["Model"]]
+        if "Location" in raw_info:
+            imgblock[base + "details"] = [f"Located at {raw_info['Location']}"]
+
+
+
 
 
 def check_completeness(info_block, info_block_name):
@@ -196,7 +298,7 @@ def generate_scan_settings(cif_block, scan_info):
 
         axes, dets = scan_info[scan]
         # print("keylen", len(axes.keys()))
-        #TODO do this for all axes or only the one that changes?
+        #TODO do this for all axes or only the one that changes? >> all
         for axis, val in axes.items():
             step, range = 0, 0
             if axis == dets["axis"]:
@@ -266,10 +368,12 @@ def generate_ids(cif_block, scan_list):
 
 
 
-def generate_external_ids(cif_block, fulluri, all_frames, scan_list,
+# new url from get arch typem all frames from get all frames, scan linst same
+# prepend dir from creator call, file format from creator
+def generate_external_ids(cif_block, new_url, all_frames, scan_list,
                           arch, prepend_dir, file_format):
     """
-    `fulluri` is the location of a single archive file. The individual files
+    `new_url` is the location of a single archive file. The individual files
     on the local storage are assumed to be at the same locations relative to
     this top-level directory.
     """
@@ -297,7 +401,7 @@ def generate_external_ids(cif_block, fulluri, all_frames, scan_list,
             frame_name = f"/{all_frames[(scan, frame)][0]}"
             entries[base + ".id"].append(f"ext{counter}")
             entries[base + ".format"].append(file_format)
-            entries[base + ".uri"].append(fulluri) #TODO zenodo uri here?
+            entries[base + ".uri"].append(new_url) #TODO zenodo uri here?
             entries[base + ".path"].append(all_frames[(scan, frame)][1])
             entries[base + ".frame"].append(all_frames[(scan, frame)][2])
             # println(op, "frm$ctr  ELEMENT  IMAGE $(ctr)")
@@ -391,7 +495,9 @@ def generate_array_info(cif_block, scan_list):
         base + ".binary_id" : [],
         }
 
-    # println(op, header)
+    # TODO how to include the counter into element and image? where is the information
+    # this probably needs the get_array_info method then
+    # println(op, header) for now hardcoded
     counter = 0
     for _, frames in scan_list:
         for _ in range(1, frames + 1):
@@ -443,6 +549,8 @@ def generate_facility(raw_info, imgblock):
         if "Location" in raw_info:
             imgblock[base + "details"] = [f"Located at {raw_info['Location']}"]
 
+
+
 def generate_array(raw_info,imgblock):
 
     """
@@ -490,6 +598,9 @@ def generate_array(raw_info,imgblock):
 
 def generate_detector(raw_info, imgblock):
 
+    # len detector axes
+    # detector axes
+    # rename to det1 etc
     base = "_diffrn_detector."
     imgblock[base + "id"]=["1"]
     imgblock[base + "number_of_axes"] = raw_info.get('detector_axes', [2])

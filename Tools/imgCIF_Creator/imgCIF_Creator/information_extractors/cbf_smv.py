@@ -14,7 +14,8 @@ class extractor(extractor_interface.ExtractorInterface):
     def __init__(self, directory) -> None:
 
         stem = '010_Ni_dppe_Cl_2_150K'
-        self._unique_scans, self._all_frames = get_scans_and_frames(directory, stem=stem)
+        self._unique_scans, self._all_frames = \
+            get_scans_and_frames(directory, stem=stem)
 
 
         print('u sca', self._unique_scans)
@@ -37,6 +38,7 @@ class extractor(extractor_interface.ExtractorInterface):
         print('full info:', printin)
 
 
+        # moved to get_scan_list
         scan_list = create_scan_list(self._scan_info_mini_header)
         print('scan_list', scan_list)
 
@@ -69,6 +71,10 @@ class extractor(extractor_interface.ExtractorInterface):
         # print(full_cbf_info['010_Ni_dppe_Cl_2_150K01_00150'].keys())
 
 
+    def get_all_frames(self):
+
+        # all frames format?
+        return self._all_frames
 
 
     def get_source_info(self):
@@ -129,7 +135,9 @@ class extractor(extractor_interface.ExtractorInterface):
                        'model' : model,
                        'location' : location}
 
+        # return beamline, facility, manufacturer, model, location
         return source_info
+
 
 
     def get_axes_info(self):
@@ -166,45 +174,102 @@ class extractor(extractor_interface.ExtractorInterface):
         # print('vec', vector)
         # print('off', offset)
 
+        axes_info = {'axes' : axes,
+                     'axis_type' : axis_type,
+                     'equip' : equip,
+                     'depends_on' : depends_on,
+                     'vector' : vector,
+                     'offset' : offset}
 
-        return [axes, axis_type, equip, depends_on, vector, offset]
+        # return [axes, axis_type, equip, depends_on, vector, offset]
+        return axes_info
 
 
     # def get_array_info():
 
     #     raise NotImplementedError
 
-    def get_detector_info():
+    def get_detector_info(self):
 
-        raise NotImplementedError
+        #TODO what is detector axes? can I extract it from the hdf5 with
+        # the number of nxpositioners? >> should be the number of detector axes
+        # in the gonio settings, is hardcoded...
 
-    def get_wavelength_info():
+        #TODO multiple detectors are not supportet (yet?)
 
-        raise NotImplementedError
+        detector_axes = \
+            self._full_header_dict.get('_diffrn_detector_axis.axis_id')
 
-    def get_scan_settings_info():
 
-        raise NotImplementedError
+        return {'detector_axes' : detector_axes}
+
+
+    def get_wavelength_info(self):
+
+        # TODO what do we actually do with additional information??
+        # TODO not creating a list of wl id's here (yet)
+        # TODO could infer rad type from wl...
+
+        rad_type = \
+            self._full_header_dict.get('_diffrn_radiation.type')
+
+        #TODO units correct?
+        # get from full header
+        wavelength = None
+        base = '_diffrn_radiation_wavelength.'
+        for identifier in ['wavelength', 'value']:
+            if wavelength is None:
+                wavelength = self._full_header_dict.get(base + identifier)
+
+        # get from mini header
+        # TODO can this differe from scan to scan? it better shouldnt...\
+        # assert that it is the same wl?
+        if wavelength is None:
+            wavelength = self._scan_info_mini_header[self._first_scan].get('wavelength')
+
+        return {'rad_type' : rad_type, 'wavelength' : wavelength}
+
+
+    def get_scan_settings_info(self):
+
+        # is already in a dict format
+
+        return self._scan_info_mini_header
+
+
 
     # def get_scan_info():
 
     #     raise NotImplementedError
 
-    def get_step_info():
 
-        raise NotImplementedError
 
-    def get_array_info():
+    # def get_step_info(self):
 
-        raise NotImplementedError
+    #     raise NotImplementedError
 
-    def get_ids_info():
 
-        raise NotImplementedError
 
-    def get_external_ids_info():
+    # def get_array_info(self):
 
-        raise NotImplementedError
+    #     self._full_header_dict.get('_diffrn_data_frame.detector_element_id')
+
+    #     detector_elements = []
+
+    #     return
+
+
+
+    # def get_ids_info():
+    # might go together with array info
+
+    #     raise NotImplementedError
+
+
+
+    # def get_external_ids_info():
+
+    #     raise NotImplementedError
 
 
 
@@ -212,6 +277,8 @@ class extractor(extractor_interface.ExtractorInterface):
 
 
 def get_scan_list(scan_info):
+
+    # move to assebler
 
     # something like scan_list [('01', 325)]
 
@@ -732,6 +799,7 @@ def get_CBF_header_values(lines, matcher):
 
 
 def get_pixel_sizes(lines):
+    #TODO extend this to the full header
     matcher = 'pixel_size'
 
     pattern = re.compile(re.escape(matcher) + r"[ =]+")
