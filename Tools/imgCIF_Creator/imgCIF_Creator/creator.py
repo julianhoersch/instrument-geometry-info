@@ -11,6 +11,8 @@ from imgCIF_Creator.information_extractors import full_cbf
 from imgCIF_Creator.information_extractors import hdf5_NxMx
 from imgCIF_Creator.output_assembler import imgCIF_assembler
 
+import yaml
+
 # how generic can it be? catch errors if entries are not found or provide different
 # ways for different facilities etc?
 
@@ -71,6 +73,42 @@ def validate_filename(filename):
     return filename, filetype
 
 
+    # "-l", "--location"
+    # help = "Final URL of files in output."
+    # nargs = 1
+    # # this changes the uri, which is the file location before into the value
+    # # specified here
+    # # e.g. file://cbf_cyclohexane_crystal2/CBF_crystal_2/ciclohexano3_010001.cbf -->
+    # # my_new_name/ciclohexano3_010001.cbf
+
+    # "-s", "--stem"
+    # help = "Constant portion of frame file name. This can help determine the scan/frame file naming convention"
+    # nargs = 1
+    # default = [""]
+
+    # "-i", "--include"
+    # help = "Include directory name as part of frame location info in output"
+    # nargs = 0
+    # # this only has an effect if the location is set and has a archive archive_path
+    # # as tgz then _array_data_external_data.archive_path is filled and if i is
+    # # selected the folder name is prepended to that name
+
+    # "-o", "--output"
+    # help = "Output file to write to, if missing stdout"
+    # nargs = 1
+
+    # "-a", "--axis"
+    # nargs = 2
+    # metavar = ["cbf", "new"]
+    # action = "append_arg"
+    # help = "Change axis name from <cbf> to <new> in output file to match goniometer axis definitions. May be used multiple times for multiple axis renaming"
+    # # this changes an axis name and should be done according to the header info
+
+    # "directory"
+    # help = "Directory containing scan frames in minicbf format"
+    # required = true
+
+
 
 @click.command()
 @click.option(
@@ -82,6 +120,32 @@ def validate_filename(filename):
     help="Start the imgCIF_creator with a graphical user interface.",
 )
 
+@click.option(
+    "--external_url",
+    "-u",
+    type=str,
+    default='',
+    help='Final URL of files in output.'
+)
+
+@click.option(
+    "--include",
+    "-i",
+    type=bool,
+    default=False,
+    is_flag=True,
+    help="Include the directory name as part of the archive path name."
+)
+
+@click.option(
+    "--stem",
+    "-s",
+    type=str,
+    default=r".*?_",
+    help="Constant portion of frame file name. This can help determine the \
+scan/frame file naming convention",
+)
+
 @click.argument(
     "filename",
     type=str,
@@ -89,7 +153,7 @@ def validate_filename(filename):
     # callback=validate_filename,
 )
 
-def main(filename, gui):
+def main(filename, gui, external_url, include, stem):
     """A tool to do things with a FILENAME
 
     Args:
@@ -104,48 +168,54 @@ of miniCBF. You can skip parameters that are not required with an empty input,\
 if you however provide an input that will be checked against the required format.""")
 
     filename, filetype = validate_filename(filename)
+    print(f'Working with {filename}, identified as {filetype}')
 
+    if include:
+        prepend_dir = os.path.split(filename)[-1]
+    else:
+        prepend_dir = ""
 
     if gui:
         graphical_user_interface()
     else:
-        command_line_interface(filename, filetype)
+        command_line_interface(filename, filetype, external_url, prepend_dir, stem)
 
 
 
-def command_line_interface(filename, filetype):
-
-
-    print(f'working on {filename}')
-
-    # return
-
-    # cmd_parser = parser.CommandLineParser()
-
-    # filename
-    # cmd_sparser.validated_user_input('Filename')
+def command_line_interface(filename, filetype, external_url, prepend_dir, stem):
 
 
     cif_file = CifFile.CifFile()
     cif_block = CifFile.CifBlock()
     cif_file['imgCIF'] = cif_block
 
-
     # filetype = 'cbf'
+     ## mini CBF
 
-
-    ## mini CBF
-    if filetype in ['smv', 'cbf']:
+    # if filetype in ['smv', 'cbf']:
         # filename = '/gpfs/exfel/data/scratch/jhoersch/instrument-geometry-info/Tools/cbf_cyclohexane_crystal2/CBF_crystal_2'
-
         # filename = '/gpfs/exfel/data/scratch/jhoersch/instrument-geometry-info/Tools/010_Ni_dppe_Cl_2_150K01'
         # cif_file = full_cbf.extract_full_cbf_header_information(filename)
 
 
-        imgCIF_assembler.create_imgCIF(filename)
+    # imgCIF_assembler.create_imgCIF(filename)
+    assembler = imgCIF_assembler.imgCIFAssembler(filename, filetype, stem)
+    assembler.create_imgCIF(
+        cif_block, external_url, prepend_dir, filename, filetype)
 
-        sys.exit()
+    # elif filetype == 'h5':
+    #     assi
 
+
+
+    fname = os.getcwd() + os.sep + "imgCIF_test.cif"
+    with open(fname, 'w') as file:
+        file.write(cif_file.WriteOut())
+        print(f'File saved to: {fname}')
+
+    sys.exit()
+
+    if True:
         parsed_input = {
         "Data DOI" : "10.5281/zenodo.7155191",
         "Comments" : "No response",

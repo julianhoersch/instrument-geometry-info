@@ -11,42 +11,56 @@ from . import full_cbf
 
 class extractor(extractor_interface.ExtractorInterface):
 
-    def __init__(self, directory) -> None:
+    def __init__(self, directory, stem) -> None:
+        super().__init__()
 
-        stem = '010_Ni_dppe_Cl_2_150K'
-        self._unique_scans, self._all_frames = \
+        # stem = '010_Ni_dppe_Cl_2_150K'
+        # stem = r".*?_"
+        self._unique_scans, self.all_frames = \
             get_scans_and_frames(directory, stem=stem)
 
 
         print('u sca', self._unique_scans)
-        # print('all fr', self._alfl_frames)
+        print('all fr', self.all_frames)
         # retrieve mini header info
         # only mini header info contains scan details regarding increment etc
         # otherwise it would be duploicated
         # extract_cbf_scan(directory, file_stem='010_Ni_dppe_Cl_2_150K')
         self._scan_info_mini_header = \
-            get_scan_info_mini_header(directory, self._unique_scans, self._all_frames)
+            get_scan_info_mini_header(directory, self._unique_scans, self.all_frames)
         # print()
         # TODO axis renaming
         print('mini info:', self._scan_info_mini_header)
 
         # retrieve full header info
         self._scan_info_full_header = \
-            get_scan_info_full_header(directory, self._unique_scans, self._all_frames)
+            get_scan_info_full_header(directory, self._unique_scans, self.all_frames)
+        print('full info', self._scan_info_full_header)
         printin = \
-            self._scan_info_full_header[list(self._scan_info_full_header.keys())[0]]
-        print('full info:', printin)
+            self._scan_info_full_header[list(self._scan_info_full_header.keys())[0]].keys()
+        print('full info first:', printin)
 
 
         # moved to get_scan_list
-        scan_list = create_scan_list(self._scan_info_mini_header)
+        scan_list = self.get_scan_list(self._scan_info_mini_header)
         print('scan_list', scan_list)
 
-        self._first_scan = list(self._scan_info_full_header.keys())[0]
-        self._data_name = list(self._scan_info_full_header[self._first_scan].keys())[0]
-        self._full_header_dict = self._scan_info_full_header[self._first_scan][self._data_name]
+        self._first_scan = sorted(self._scan_info_mini_header.keys())[0]
+        print('frst sc', self._first_scan)
 
+        self.first_mini_header = \
+            self._scan_info_mini_header[self._first_scan][1]['mini_header']
 
+        full_header_empty = self._scan_info_full_header[self._first_scan].keys() == []
+
+        if full_header_empty:
+            self._data_name = None
+            self._full_header_dict = {}
+        else:
+            self._data_name = list(self._scan_info_full_header[self._first_scan].keys())[0]
+            self._full_header_dict = self._scan_info_full_header[self._first_scan][self._data_name]
+
+        print('full header dict', self._full_header_dict)
 
         #~~~{.python}
         #    my_data = cf.first_block()
@@ -74,7 +88,21 @@ class extractor(extractor_interface.ExtractorInterface):
     def get_all_frames(self):
 
         # all frames format?
-        return self._all_frames
+        return self.all_frames
+
+
+    def get_miscellaneous_info(self):
+
+        doi = self._full_header_dict.get('_database.dataset_doi')
+        overload = self._full_header_dict.get('_array_intensities.overload')
+
+        # get doi also from mini header?
+        # if doi is None:
+        #     self._scan_info_mini_header[self._first_scan][1]['x_pixel_size']
+
+        return {'doi' : doi,
+                'overload' : overload,
+                }
 
 
     def get_source_info(self):
@@ -83,7 +111,7 @@ class extractor(extractor_interface.ExtractorInterface):
         beamline = None
 
         # TODO can it appear in the mini header
-        print(self._scan_info_full_header[self._first_scan][self._data_name].keys())
+        # print(self._scan_info_full_header[self._first_scan][self._data_name].keys())
         block_ids = ['_diffrn_source.diffrn_id', '_diffrn.id']
         for b_id in block_ids:
             #print('bid', b_id)
@@ -151,25 +179,26 @@ class extractor(extractor_interface.ExtractorInterface):
         vector = []
         offset = []
 
-        for idx, _ in enumerate(axes):
-            sub_vector = []
-            sub_offset = []
+        if axes is not None:
+            for idx, _ in enumerate(axes):
+                sub_vector = []
+                sub_offset = []
 
-            # possible with pycifrw but uninituitive
-            # vector = self._full_header_dict.GetLoop('_axis.vector[1]')
-            # print('wegtor', vector.GetKeyedPacket(axes[0], '_axis.vector[1]'))
+                # possible with pycifrw but uninituitive
+                # vector = self._full_header_dict.GetLoop('_axis.vector[1]')
+                # print('wegtor', vector.GetKeyedPacket(axes[0], '_axis.vector[1]'))
 
-            for i in [1, 2, 3]:
-                entry = self._full_header_dict.get(f'_axis.vector[{i}]')
-                entry = entry if entry is None else entry[idx]
-                sub_vector.append(entry)
-                entry = self._full_header_dict.get(f'_axis.offset[{i}]')
-                entry = entry if entry is None else entry[idx]
-                sub_offset.append(entry)
+                for i in [1, 2, 3]:
+                    entry = self._full_header_dict.get(f'_axis.vector[{i}]')
+                    entry = entry if entry is None else entry[idx]
+                    sub_vector.append(entry)
+                    entry = self._full_header_dict.get(f'_axis.offset[{i}]')
+                    entry = entry if entry is None else entry[idx]
+                    sub_offset.append(entry)
 
-            vector.append(sub_vector)
-            offset.append(sub_offset)
-            # offset = self._full_header_dict.get(f'_axis.offset[{i}]')
+                vector.append(sub_vector)
+                offset.append(sub_offset)
+                # offset = self._full_header_dict.get(f'_axis.offset[{i}]')
 
         # print('vec', vector)
         # print('off', offset)
@@ -185,9 +214,51 @@ class extractor(extractor_interface.ExtractorInterface):
         return axes_info
 
 
-    # def get_array_info():
+    def get_array_info(self):
 
-    #     raise NotImplementedError
+        #TODO what about the mini header information??
+
+        # get pixel size, array dimension and fast direction
+        # array structure list axis
+        base = "_array_structure_list_axis."
+        # TODO always detx dety?
+        axis_id = self._full_header_dict.get(base + "axis_id")
+        # TODO is the axis_set_id the same for structure list and list_axis?
+        axis_set_id = self._full_header_dict.get(base + "axis_set_id")
+        pixel_size = self._full_header_dict.get(base + "displacement_increment")
+        # imgblock[base + "displacement_increment"] = [hor,vert]
+
+        if pixel_size is None:
+            x_px = self._scan_info_mini_header[self._first_scan][1]['x_pixel_size']
+            y_px = self._scan_info_mini_header[self._first_scan][1]['y_pixel_size']
+            pixel_size = [x_px, y_px]
+
+
+        # array structure list
+        base = "_array_structure_list."
+        array_id = self._full_header_dict.get(base + "array_id")
+        array_index = self._full_header_dict.get(base + "index")
+        array_dimension = self._full_header_dict.get(base + "dimension")
+        # ['none', 'none']   #number of elements in each direction
+        array_direction = self._full_header_dict.get(base + "direction")
+        array_precedence = self._full_header_dict.get(base + "precedence")
+
+        array_info = {
+            'axis_id' : axis_id,
+            'axis_set_id': axis_set_id,
+            'pixel_size' : pixel_size,
+            'array_id' : array_id,
+            'array_index' : array_index,
+            'array_dimension' : array_dimension,
+            'array_direction' : array_direction,
+            'array_precedence' : array_precedence,
+
+        }
+
+
+
+        return array_info
+
 
     def get_detector_info(self):
 
@@ -197,11 +268,25 @@ class extractor(extractor_interface.ExtractorInterface):
 
         #TODO multiple detectors are not supportet (yet?)
 
-        detector_axes = \
-            self._full_header_dict.get('_diffrn_detector_axis.axis_id')
+        detector_id = \
+            self._full_header_dict.get('_diffrn_detector.id')
+        number_of_axes = \
+            self._full_header_dict.get('_diffrn_detector_axis.number_of_axes')
+
+        axis_id = self._full_header_dict.get('_diffrn_detector_axis.axis_id')
+        detector_axis_id = self._full_header_dict.get('_diffrn_detector_axis.detector_id')
 
 
-        return {'detector_axes' : detector_axes}
+        detector_info = {
+            'detector_id' : detector_id,
+            'number_of_axes' : number_of_axes,
+            'axis_id' : axis_id,
+            'detector_axis_id' : detector_axis_id
+
+        }
+
+
+        return detector_info
 
 
     def get_wavelength_info(self):
@@ -225,9 +310,10 @@ class extractor(extractor_interface.ExtractorInterface):
         # TODO can this differe from scan to scan? it better shouldnt...\
         # assert that it is the same wl?
         if wavelength is None:
-            wavelength = self._scan_info_mini_header[self._first_scan].get('wavelength')
+            wavelength = self._scan_info_mini_header[self._first_scan][1].get('wavelength')
 
-        return {'rad_type' : rad_type, 'wavelength' : wavelength}
+        return {'rad_type' : rad_type,
+                'wavelength' : wavelength}
 
 
     def get_scan_settings_info(self):
@@ -276,19 +362,19 @@ class extractor(extractor_interface.ExtractorInterface):
 
 
 
-def get_scan_list(scan_info):
+    def get_scan_list(self, scan_info):
 
-    # move to assebler
+        # move to assebler
 
-    # something like scan_list [('01', 325)]
+        # something like scan_list [('01', 325)]
 
-    # Create scan list of (scanid, frame_no) where
-    # frame_no is just the number of frames
+        # Create scan list of (scanid, frame_no) where
+        # frame_no is just the number of frames
 
-    scans = sorted(scan_info)
-    slist = [(s, scan_info[s][1]["frames"]) for s in scans]
+        scans = sorted(scan_info)
+        slist = [(s, scan_info[s][1]["frames"]) for s in scans]
 
-    return slist
+        return slist
 
 
 
@@ -376,9 +462,10 @@ def get_scans_and_frames(frame_dir, stem=r".*?_"):
     for name in all_names:
         matched = pattern.match(name)
         if matched.groupdict().get("scan"):
-            all_frames[(matched["scan"], int(matched["frame"]))] = (name)
+            all_frames[(matched["scan"], int(matched["frame"]))] = \
+                {'filename' : name}
         else:
-            all_frames[("01", int(matched["frame"]))] = (name)
+            all_frames[("01", int(matched["frame"]))] = {'filename' : name}
 
 
     # find the unique scans
@@ -396,7 +483,7 @@ def get_scan_info_full_header(frame_dir, unique_scans, all_frames):
 
         scan_names = list(filter(lambda x : x[0] == scan, all_frames.keys()))
         # Get information for first
-        file_name = os.path.join(frame_dir, all_frames[(scan, 1)])
+        file_name = os.path.join(frame_dir, all_frames[(scan, 1)]['filename'])
         full_header = full_cbf.extract_full_cbf_header_information(file_name)
 
         scan_info[scan] = full_header#[list(full_header.keys())[0]]
@@ -409,7 +496,8 @@ def get_scan_info_mini_header(frame_dir, unique_scans, all_frames):
 
     scan_info = {}
     axes = imgCIF_assembler.ROT_AXES + imgCIF_assembler.TRANS_AXES
-    frame_type = determine_frame_type(os.path.join(frame_dir, all_frames[list(all_frames)[0]]))
+    frame_type = determine_frame_type(
+        os.path.join(frame_dir, all_frames[list(all_frames)[0]]['filename']))
 
     print(f"Discovered {frame_type} files")
 
@@ -424,7 +512,7 @@ def get_scan_info_mini_header(frame_dir, unique_scans, all_frames):
         # Get information for first
         # print('frdir', frame_dir)
         # print('allfrs', all_frames[(scan, 1)])
-        file_name = os.path.join(frame_dir, all_frames[(scan, 1)])
+        file_name = os.path.join(frame_dir, all_frames[(scan, 1)]['filename'])
         # print('myfilename', file_name)
         # axes_single_frame are the axis settings for the individual frame a in scan
         # b
@@ -440,7 +528,8 @@ def get_scan_info_mini_header(frame_dir, unique_scans, all_frames):
         start = axes_single_frame[scan_ax]
 
         # Get information and last frame
-        file_name = os.path.join(frame_dir, all_frames[(scan, len(frames))])
+        file_name = \
+            os.path.join(frame_dir, all_frames[(scan, len(frames))]['filename'])
         mini_header = get_mini_header(file_name, frame_type)
         print('mini headi', mini_header)
         axes_single_frame, _, _, _, _ = get_frame_info(mini_header, frame_type, axes)

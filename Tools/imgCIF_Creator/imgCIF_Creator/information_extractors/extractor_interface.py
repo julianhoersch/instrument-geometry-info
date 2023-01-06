@@ -7,25 +7,25 @@ class ExtractorInterface(metaclass=abc.ABCMeta):
                 callable(subclass.get_facility_info) and
                 hasattr(subclass, 'get_axes_info') and
                 callable(subclass.get_axes_info) and
-                hasattr(subclass, 'get_array_info') and
-                callable(subclass.get_array_info) and
+                # hasattr(subclass, 'get_array_info') and
+                # callable(subclass.get_array_info) and
                 hasattr(subclass, 'get_detector_info') and
                 callable(subclass.get_detector_info) and
                 hasattr(subclass, 'get_wavelength_info') and
                 callable(subclass.get_wavelength_info) and
                 hasattr(subclass, 'get_scan_setting_info') and
-                callable(subclass.get_scan_setting_info) and
+                callable(subclass.get_scan_setting_info) #and
                 # hasattr(subclass, 'get_scan_info') and
                 # callable(subclass.get_scan_info) and
-                hasattr(subclass, 'get_step_info') and
-                callable(subclass.get_step_info) and
+                # hasattr(subclass, 'get_step_info') and
+                # callable(subclass.get_step_info) and
                 # hasattr(subclass, 'get_array_info') and
                 # callable(subclass.get_array_info) and
-                hasattr(subclass, 'get_ids_info') and
-                callable(subclass.get_ids_info) and
-                hasattr(subclass, 'get_external_ids_info') and
-                callable(subclass.get_external_ids_info) or
-                NotImplemented)
+                # hasattr(subclass, 'get_ids_info') and
+                # callable(subclass.get_ids_info) and
+                # hasattr(subclass, 'get_external_ids_info') and
+                # callable(subclass.get_external_ids_info)
+                or NotImplemented)
 
 
     @abc.abstractmethod
@@ -38,10 +38,10 @@ class ExtractorInterface(metaclass=abc.ABCMeta):
 
         raise NotImplementedError
 
-    @abc.abstractmethod
-    def get_array_info():
+    # @abc.abstractmethod
+    # def get_array_info():
 
-        raise NotImplementedError
+    #     raise NotImplementedError
 
     @abc.abstractmethod
     def get_detector_info():
@@ -58,30 +58,30 @@ class ExtractorInterface(metaclass=abc.ABCMeta):
 
         raise NotImplementedError
 
-    @abc.abstractmethod
-    def get_scan_info():
+    # @abc.abstractmethod
+    # def get_scan_info():
 
-        raise NotImplementedError
+    #     raise NotImplementedError
 
-    @abc.abstractmethod
-    def get_step_info():
+    # @abc.abstractmethod
+    # def get_step_info():
 
-        raise NotImplementedError
+    #     raise NotImplementedError
 
-    @abc.abstractmethod
-    def get_array_info():
+    # @abc.abstractmethod
+    # def get_array_info():
 
-        raise NotImplementedError
+    #     raise NotImplementedError
 
-    @abc.abstractmethod
-    def get_ids_info():
+    # @abc.abstractmethod
+    # def get_ids_info():
 
-        raise NotImplementedError
+    #     raise NotImplementedError
 
-    @abc.abstractmethod
-    def get_external_ids_info():
+    # @abc.abstractmethod
+    # def get_external_ids_info():
 
-        raise NotImplementedError
+    #     raise NotImplementedError
 
 
     # @abc.abstractmethod
