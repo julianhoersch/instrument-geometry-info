@@ -1,6 +1,8 @@
 import re
 import numpy as np
 
+# TODO this file is depreceated and will be removed in the future. It's only kept
+# to avaoid possible information loss byt deletion of old functions
 
 OUTPUT_ORDER = (
     "_audit.block_id",
