@@ -51,7 +51,6 @@ def convert_user_input_to_imgcif(user_input, cif_block):
     #     file.write(cif_file.WriteOut())
 
 
-
 def post_process(user_input):
     """
     Convert contents where necessary. Might be a good idea to introduce simplified
@@ -157,7 +156,7 @@ def describe_axes(raw_info, imgblock):
     # [[1, 0, 0], [-1, 0, 0], [1, 0, 0], [1, 0, 0], [0, 0, -1], [0, -1, 0], [-1, 0, 0]], [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [missing, missing, 0], [0, 0, 0]])
 
 
-def make_gonio_axes(raw_info):
+def make_goniometer_axes(goniometer_axes, kappa_axis, chi_axis):
 
     """
     make_gonio_axes(raw_info)
@@ -176,22 +175,19 @@ def make_gonio_axes(raw_info):
     below, so the sense of rotation is reversed.
 
     """
+    print('gonx', goniometer_axes)
 
-    axes, senses = raw_info["Goniometer axes"]
+    axes, senses = goniometer_axes
     # n = len(axes)
     axis_type = ["rotation" for _ in axes]
     equip = ["goniometer" for _ in axes]
 
-    if raw_info.get("kappa") == None:
+    if kappa_axis is None:
         kappa_axis = "- - -"
-    else:
-        kappa_axis = raw_info["kappa"]
     kappa_axis = re.split(r',| ', kappa_axis)[0]
 
-    if raw_info.get("chi") == None:
+    if chi_axis is None:
         chi_axis = "- - -"
-    else:
-        chi_axis = raw_info["chi"]
     chi_axis = re.split(r',| ', chi_axis)[0]
 
     # kappa_axis = split(get(raw_info, "kappa","- - -"),[' ',','])[1]
@@ -212,18 +208,96 @@ def make_gonio_axes(raw_info):
         print(a, d)
         rotfac = 1 if d == principal else -1
         if a.lower() == kappa_axis.lower():
-            kv = get_kappa_info(raw_info)
+            kv = get_kappa_info(goniometer_axes, kappa_axis)
             kv[1] *= rotfac
             vector.append(kv)
         elif a.lower() == chi_axis.lower():
-            vector.append(get_chi_info(raw_info))
+            vector.append(get_chi_info(goniometer_axes, chi_axis))
         else:
             vector.append([i * rotfac for i in [1, 0, 0]])
         print('vec', vector)
         offset.append([0, 0, 0])
 
     # offset = fill([0,0,0],n)
-    return [raw_info["Goniometer axes"][0], axis_type, equip, depends_on, vector, offset]
+    axes_dict = {
+        'axes' : goniometer_axes[0],
+        'axis_type' : axis_type,
+        'equip' : equip,
+        'depends_on' : depends_on,
+        'vector' : vector,
+        'offset' : offset,
+    }
+    return axes_dict
+
+
+
+# def make_gonio_axes(raw_info):
+
+#     """
+#     make_gonio_axes(raw_info)
+
+#     Given a list of gonio axes, create their representation in imgCIF. The list
+#     of gonio axes goes in order from top to bottom, meaning that the first
+#     "depends on" the second and so forth. We assume a two theta axis.
+#     The items we have to fill in are:
+#     1. type -> rotation
+#     2. depends_on -> next in list
+#     3. equipment -> goniometer
+#     4. vector -> almost always 1 0 0 (rotation about principal axis)
+#     5. offset -> always [0 0 0] but needed for loop integrity
+
+#     Note that our questions assume looking from above whereas imgCIF is looking from
+#     below, so the sense of rotation is reversed.
+
+#     """
+
+#     axes, senses = raw_info["Goniometer axes"]
+#     # n = len(axes)
+#     axis_type = ["rotation" for _ in axes]
+#     equip = ["goniometer" for _ in axes]
+
+#     if raw_info.get("kappa") == None:
+#         kappa_axis = "- - -"
+#     else:
+#         kappa_axis = raw_info["kappa"]
+#     kappa_axis = re.split(r',| ', kappa_axis)[0]
+
+#     if raw_info.get("chi") == None:
+#         chi_axis = "- - -"
+#     else:
+#         chi_axis = raw_info["chi"]
+#     chi_axis = re.split(r',| ', chi_axis)[0]
+
+#     # kappa_axis = split(get(raw_info, "kappa","- - -"),[' ',','])[1]
+#     # chi_axis = split(get(raw_info,"chi","- -"),[' ',','])[1]
+
+#     # Construct axis dependency chain
+#     depends_on = []
+#     depends_on += axes[1:]
+#     depends_on.append('none')
+
+#     # Remember the principal axis direction
+#     principal = senses[-1]
+
+#     # Create direction vectors
+#     vector = []
+#     offset = []
+#     for (a, d) in zip(axes, senses):
+#         print(a, d)
+#         rotfac = 1 if d == principal else -1
+#         if a.lower() == kappa_axis.lower():
+#             kv = get_kappa_info(raw_info)
+#             kv[1] *= rotfac
+#             vector.append(kv)
+#         elif a.lower() == chi_axis.lower():
+#             vector.append(get_chi_info(raw_info))
+#         else:
+#             vector.append([i * rotfac for i in [1, 0, 0]])
+#         print('vec', vector)
+#         offset.append([0, 0, 0])
+
+#     # offset = fill([0,0,0],n)
+#     return [raw_info["Goniometer axes"][0], axis_type, equip, depends_on, vector, offset]
 
 
 def make_axes_nxmx(raw_info):
@@ -260,8 +334,8 @@ def make_axes_nxmx(raw_info):
     return [axes, axis_type, equip, depends_on, vector, offset]
 
 
-
-def make_detector_axes(raw_info):
+def make_detector_axes(
+    goniometer_axes, principal_orientation, image_orientation, two_theta_axis):
     """
         make_detector_axes(raw_info)
 
@@ -284,13 +358,13 @@ def make_detector_axes(raw_info):
     depends_on = ['none', "two_theta", "trans", "detx"]
 
     # Read necessary information
-    print('prinsens', raw_info["Goniometer axes"])
-    principal_sense = raw_info["Goniometer axes"][1][-1]
-    principal = raw_info["Principal axis orientation"]
-    corner = raw_info["Image orientation"]
+    print('prinsens', goniometer_axes)
+    principal_sense = goniometer_axes[1][-1]
+    principal = principal_orientation
+    corner = image_orientation
 
     # Adjust two theta direction #TODO ensure twotheta exists
-    rotsense = 1 if raw_info["Two theta axis"] == principal_sense else -1
+    rotsense = 1 if two_theta_axis == principal_sense else -1
     vector = [[rotsense, 0, 0]]
 
     # Detector translation always opposite to beam direction
@@ -305,7 +379,62 @@ def make_detector_axes(raw_info):
     # offset = [[0, 0, 0], [0, 0, 0], [np.nan, np.nan, 0], [0, 0, 0]]
     offset = [[0, 0, 0], [0, 0, 0], ['none', 'none', 0], [0, 0, 0]]
 
-    return [axis_id, axis_type, equip, depends_on, vector, offset]
+    axes_dict = {
+        'axes' : axis_id,
+        'axis_type' : axis_type,
+        'equip' : equip,
+        'depends_on' : depends_on,
+        'vector' : vector,
+        'offset' : offset,
+    }
+    return axes_dict
+
+
+# def make_detector_axes(raw_info):
+#     """
+#         make_detector_axes(raw_info)
+
+#     Add information concerning the detector axes. We define our own axis names,
+#     with the detector distance being inserted when the data file is read. We
+#     choose det_x to be in the horizontal direction, and det_y to be vertical.
+#     We need to add:
+#     1. type -> translation
+#     2. depends_on -> x,y depend on translation
+#     3. equipment -> detector
+#     4. vector -> worked out from user-provided info
+#     5. offset -> beam centre
+#     """
+
+#     # Insert assumed axis names and orientations
+#     axis_id = ["two_theta", "trans", "detx", "dety"]
+#     axis_type = ["translation" for _ in axis_id]
+#     axis_type[1] = "rotation"
+#     equip = ["detector" for _ in axis_id]
+#     depends_on = ['none', "two_theta", "trans", "detx"]
+
+#     # Read necessary information
+#     print('prinsens', raw_info["Goniometer axes"])
+#     principal_sense = raw_info["Goniometer axes"][1][-1]
+#     principal = raw_info["Principal axis orientation"]
+#     corner = raw_info["Image orientation"]
+
+#     # Adjust two theta direction #TODO ensure twotheta exists
+#     rotsense = 1 if raw_info["Two theta axis"] == principal_sense else -1
+#     vector = [[rotsense, 0, 0]]
+
+#     # Detector translation always opposite to beam direction
+#     vector.append([0, 0, -1])
+
+#     # Work out det_x and det_y
+#     x_d, y_d = determine_detx_dety(principal, principal_sense, corner)
+#     vector.append(x_d)
+#     vector.append(y_d)
+
+#     # Beam centre is unknown for now
+#     # offset = [[0, 0, 0], [0, 0, 0], [np.nan, np.nan, 0], [0, 0, 0]]
+#     offset = [[0, 0, 0], [0, 0, 0], ['none', 'none', 0], [0, 0, 0]]
+
+#     return [axis_id, axis_type, equip, depends_on, vector, offset]
 
 
 def list_depth(list_of_lists):
@@ -323,15 +452,20 @@ def split_vector(vector, basename, imgblock):
     """
 
     print('veccoi', vector)
+    # for idx_1, sub_vector in enumerate(vector):
+    #     for idx_2, element in enumerate(sub_vector):
+    #         vector[idx_1][idx_2] = float(element)
+
 
     # TODO is the index correct? julia indexes different than python
     def mapping_func(x):
         # print('mpd',x)
         # print('i', i)
         # print('val', x[i - 1])
-        if x[i - 1] == 'none':
-            return 'none'#pass #TODO x[i] don't get the julia code
-        else:
+        # i is local from the scope of the loop
+
+        try:
+            x[i - 1] = float(x[i - 1])
             if round(x[i - 1]) == x[i - 1]:
                 # display numbers without trailing zero? 1.0 -> 1?
                 # print('balla')
@@ -342,7 +476,27 @@ def split_vector(vector, basename, imgblock):
                 # print('yalla')
                 return f"{x[i - 1]:1.5f}" # x[i] @sprintf "%1.5f" x[i]
 
+        except:
+            return x[i - 1]
+
+        # if x[i - 1] == 'none' or x[i - 1] == '.':
+        #     return x[i - 1] #pass #TODO x[i] don't get the julia code
+        # else:
+
+        #     if round(x[i - 1]) == x[i - 1]:
+        #         # display numbers without trailing zero? 1.0 -> 1?
+        #         # print('balla')
+        #         # print('thixxx', x[i - 1])
+        #         return f"{round(x[i - 1]):d}" # x[i]
+
+        #     else:
+        #         # print('yalla')
+        #         return f"{x[i - 1]:1.5f}" # x[i] @sprintf "%1.5f" x[i]
+
     for i in range(1, 4):
+        # print('vcodor', vector)
+        mppd = map(mapping_func, vector)
+        # print('mppd', i, list(mppd))
         imgblock[basename + f"[{i}]"] = map(mapping_func, vector)
 
         #  do x
@@ -354,12 +508,12 @@ def split_vector(vector, basename, imgblock):
         #             @sprintf "%1.5f" x[i]
 
 
-def get_kappa_info(raw_info):
+def get_kappa_info(goinometer_axes, kappa_axis):
 
     # extract kappa information
-    axes, senses = raw_info["Goniometer axes"]
+    axes, senses = goinometer_axes
     # TODO keepempty=false is ok with python?
-    kinfo = raw_info["kappa"].split([' ',','])
+    kinfo = kappa_axis.split([' ',','])
 
     if len(kinfo) == 2:
          kinfo.append("0")
@@ -388,12 +542,12 @@ def get_kappa_info(raw_info):
     return [up_comp, 0.0, z_comp]
 
 
-def get_chi_info(raw_info):
+def get_chi_info(goniometer_axes, chi_axis):
 
     # Extract chi information
-    axes, senses = raw_info["Goniometer axes"]
+    axes, senses = goniometer_axes
     # TODO keepempty?
-    cinfo = raw_info["chi"].split([' ',',']) #,keepempty=false)
+    cinfo = chi_axis.split([' ',',']) #,keepempty=false)
     axname = cinfo[0].lower() #lowercase( first( cinfo ) )
     if not axname in axes.lower():
         raise Exception("Chi axis name $axname not listed as a goniometer axis")
@@ -418,6 +572,74 @@ def get_chi_info(raw_info):
     ]
 
     return np.array(chi_rot) * np.array(chi_beam_dir)
+
+
+# def get_kappa_info(raw_info):
+
+#     # extract kappa information
+#     axes, senses = raw_info["Goniometer axes"]
+#     # TODO keepempty=false is ok with python?
+#     kinfo = raw_info["kappa"].split([' ',','])
+
+#     if len(kinfo) == 2:
+#          kinfo.append("0")
+
+#     axname = kinfo[0]
+#     if not axname in axes:
+#         # throw(error("Kappa axis $axname not listed as a goniometer axis"))
+#         # TODO reaise correct here
+#         raise Exception("Kappa axis $axname not listed as a goniometer axis")
+
+#     kapang = float(kinfo[1])
+#     kappoise = float(kinfo[2])
+
+#     # Now calculate direction of axis in X-Z plane assuming
+#     # rotation of kappa is same as principal axis. There is no
+#     # Y component as home position is always under
+#     # beam path.
+#     up_comp = np.cos(kapang)
+#     across_comp = np.sin(kapang)
+#     if kappoise == 0:
+#         #is under incident beam collimator in X-Z plane
+#         z_comp = -1 * across_comp
+#     elif kappoise == 180:
+#         z_comp = across_comp
+
+#     return [up_comp, 0.0, z_comp]
+
+
+
+
+# def get_chi_info(raw_info):
+
+#     # Extract chi information
+#     axes, senses = raw_info["Goniometer axes"]
+#     # TODO keepempty?
+#     cinfo = raw_info["chi"].split([' ',',']) #,keepempty=false)
+#     axname = cinfo[0].lower() #lowercase( first( cinfo ) )
+#     if not axname in axes.lower():
+#         raise Exception("Chi axis name $axname not listed as a goniometer axis")
+#     r = -1 * float(cinfo[2])
+
+#     # Now turn this into an axis direction
+#     # At the provided rotation, the chi axis is parallel to z. It is rotated
+#     # by -chi_rot about omega to bring it to the start position. The sense
+#     # of omega rotation is always about 1 0 0 by definition
+#     # chi_sense = indexin([axname], lowercase.(axes))[]
+#     #TODO correct?
+#     axes_lower = axes.lower()
+#     chi_sense = [axes_lower.index(val) for val in [axname]]
+#     chi_sense = senses[chi_sense]
+
+#     # TODO arrays?
+#     chi_beam_dir = [0, 0, 1] if chi_sense == "a" else [0, 0, -1]
+#     chi_rot = [
+#         [1, 0, 0],
+#         [0, np.cos(r), -np.sin(r)],
+#         [0, np.sin(r), np.cos(r)]
+#     ]
+
+#     return np.array(chi_rot) * np.array(chi_beam_dir)
 
 
 
