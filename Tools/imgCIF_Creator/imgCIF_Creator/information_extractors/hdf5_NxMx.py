@@ -144,8 +144,8 @@ class extractor(extractor_interface.ExtractorInterface):
                 start_axes_settings = {}
 
                 h5item = h5_master.get(f'{scan}/sample')
-                print('kkeys', [grp.name for grp in h5item.values()])
-                print('kkeys', h5item.keys())
+                # print('kkeys', [grp.name for grp in h5item.values()])
+                # print('kkeys', h5item.keys())
 
                 sample = h5_master.get(f'{scan}/sample')
                 for path in [grp.name for grp in sample.values()]:
@@ -157,10 +157,10 @@ class extractor(extractor_interface.ExtractorInterface):
                     axis = self._replace_names(axis)
                     # take only first
                     dataset = [ds for ds in h5item.values()][0]
-                    print('Collect INFO for', axis)
+                    # print('Collect INFO for', axis)
                     try:
                         if len(dataset) > 1:
-                            print(' ... identified as scan axis')
+                            print(f'\nIdentified {axis} as scan axis')
                             scan_axis_found = True
                             scan_axis = axis
                             n_frames = len(dataset)
@@ -248,13 +248,13 @@ class extractor(extractor_interface.ExtractorInterface):
             list: a list of tuples containing the frame files
         """
 
-        print('myfname', file_name)
+        # print('myfname', file_name)
         scan_frame_files = defaultdict(list)
         with h5.File(file_name, 'r') as h5_master:
             for scan_no, scan in enumerate(h5_master.keys(), 1):
-                print(scan_no, scan)
+                # print(scan_no, scan)
                 group = h5_master[f'{scan}/data']
-                print('grp', group)
+                # print('grp', group)
                 for key in group:
                     link = group.get(key, getlink=True)
                     if isinstance(link, h5.ExternalLink):
@@ -272,7 +272,7 @@ class extractor(extractor_interface.ExtractorInterface):
         n_files = len(scan_frame_files[first_key])
         frame_numbers = []
         while len(frame_numbers) != n_files:
-            print(f'\nFound {n_frames} frames in {n_files} files in the hdf5 master.',
+            print(f'\nFound {n_files} files with {n_frames} frames in total.\n',
                 end='')
             frame_numbers = parser.CommandLineParser().request_input('frame_numbers')
             frame_numbers = frame_numbers.replace(' ', '').split(',')
@@ -281,6 +281,9 @@ class extractor(extractor_interface.ExtractorInterface):
                 print(f'The sum of the frames per file is not matching the sum in \
 the master file ({sum(frame_numbers)} != {n_frames}), please try again.')
                 frame_numbers = []
+            elif len(frame_numbers) != n_files:
+                print('The numbers of frames per file does not match the number \
+of files. Please try again!')
             # print('frame nums', frame_numbers)
 
         return frame_numbers
@@ -353,8 +356,8 @@ the master file ({sum(frame_numbers)} != {n_frames}), please try again.')
                     # print('hdf5', list(h5item.keys()))
                     if h5item is None or len(h5item.attrs) == 0:
                         continue
-                    else:
-                        print('Collect INFO for', axis)
+                    # else:
+                    #     print('Collect INFO for', axis)
 
                     axis_type = h5item.attrs['transformation_type'].decode('utf-8')
                     depends_on = h5item.attrs['depends_on'].decode('utf-8').split('/')[-1]
@@ -432,7 +435,7 @@ the master file ({sum(frame_numbers)} != {n_frames}), please try again.')
             else:
                 goniometer_pos = 'undefined'
 
-            print(f'Identified goiniometer position (from source): {goniometer_pos}')
+            print(f'\nIdentified goiniometer position (from source): {goniometer_pos}')
 
             offsets = {}
             for axis in goniometer_axes:
