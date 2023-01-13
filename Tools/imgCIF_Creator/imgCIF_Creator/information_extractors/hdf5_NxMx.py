@@ -11,19 +11,19 @@ class extractor(extractor_interface.ExtractorInterface):
     def __init__(self, filename, _) -> None:
         super().__init__()
 
-        # TODO design choice: put scan info into the class? if we want to check
-        # later that the number ov frames in all files from the user input is
-        # correct this makes it easier re request the input
-        frame_files, frames_per_file = self._scan_frames_from_master(filename)
+        frame_files = self._scan_frames_from_master(filename)
         self.scan_info = self.get_scan_info(filename, frame_files)
+        self._first_scan = sorted(self.scan_info.keys())[0]
+        # print('frst sc', self._first_scan)
+        n_frames_first_scan = self.scan_info[self._first_scan][1]['frames']
+        frames_per_file = self._get_frames_per_file(
+            frame_files, n_frames_first_scan)
         self.all_frames = self.get_all_frames(frame_files, frames_per_file)
         # print('all frames', self.all_frames)
 
         self.goniometer_axes, self.offsets, self.setup_info = \
             self._get_setup_info(filename, frame_files)
 
-        self._first_scan = sorted(self.scan_info.keys())[0]
-        # print('frst sc', self._first_scan)
 
 
     def get_uncategorized_info(self):
@@ -111,7 +111,7 @@ class extractor(extractor_interface.ExtractorInterface):
         return detector_info
 
 
-    def get_wavelength_info(self):
+    def get_radiation_info(self):
 
         # TODO what do we actually do with additional information??
         # TODO not creating a list of wl id's here (yet)
@@ -141,50 +141,56 @@ class extractor(extractor_interface.ExtractorInterface):
         with h5.File(master_file, 'r') as h5_master:
             for scan_no, scan in frame_files.keys():
                 scan_axis_found = False
-                for axis in ['phi', 'chi', 'omega', 'fast', 'slow', 'trans']:
-                    path = f'{scan}/sample/sample_{axis}/{axis}'
-                    print('hdff5 path', path)
+                start_axes_settings = {}
+
+                h5item = h5_master.get(f'{scan}/sample')
+                print('kkeys', [grp.name for grp in h5item.values()])
+                print('kkeys', h5item.keys())
+
+                sample = h5_master.get(f'{scan}/sample')
+                for path in [grp.name for grp in sample.values()]:
+
                     h5item = h5_master.get(path)
-                    if h5item is not None:
-                        print('Collect INFO for', axis)
-                        scan_axis_found = True
-                        try:
-                            print('thisitem', axis, h5item[()])
-                            if len(h5item[()]) > 1:
-                                print(' ... identified as scan axis')
-                                scan_axis_found = True
-                                scan_axis = axis
-                                n_frames = len(h5item[()])
-                                scan_start = h5item[()][0]
-                                scan_stop = h5item[()][-1]
-                                print('thisitem', h5item[()])
-                                scan_incr = h5_master[
-                                    f'{scan}/sample/transformations/{scan_axis}_increment_set'
-                                    ][()][0]
-                                # if the rotation direction is the other way round,
-                                # chage inrement
-                                if goniometer_rot_direction == 'counter_clockwise':
-                                    scan_incr = scan_incr * -1
-                                # total range
-                                scan_range = n_frames * scan_incr
-                        except TypeError:
-                            # for fast and slow this is a scalar and no list
-                            pass
+                    if type(h5item) is not h5.Group or len(h5item.keys()) > 1:
+                        continue
+                    axis = list(h5item.keys())[0]
+                    axis = self._replace_names(axis)
+                    # take only first
+                    dataset = [ds for ds in h5item.values()][0]
+                    print('Collect INFO for', axis)
+                    try:
+                        if len(dataset) > 1:
+                            print(' ... identified as scan axis')
+                            scan_axis_found = True
+                            scan_axis = axis
+                            n_frames = len(dataset)
+                            scan_start = dataset[0]
+                            scan_stop = dataset[-1]
+                            scan_incr = h5_master[
+                                f'{scan}/sample/transformations/{scan_axis}_increment_set'
+                                ][()][0]
+                            # if the rotation direction is the other way round,
+                            # chage inrement
+                            if goniometer_rot_direction == 'counter_clockwise':
+                                scan_incr = scan_incr * -1
+                            # total range
+                            scan_range = n_frames * scan_incr
+                    except TypeError:
+                        # for fast and slow this is a scalar and no list
+                        pass
+
+                    # TODO convert units if neccessary?
+                    start_axes_settings[axis] =  dataset[0]
+                    # print('thats what i want', h5_master[path][()][0])
+
+                # add trans axis - always named like this?
+                path = f'{scan}/instrument/detector_z/det_z'
+                h5item = h5_master.get(path)
+                start_axes_settings['trans'] = h5_master[path][()][0]
+
                 if not scan_axis_found:
                     print('No scan axis found! Aborting!')
                     sys.exit() #TODO sys exit
-
-                axes_single_frame = {}
-                for axis in ['phi', 'chi', 'omega', 'trans']:
-                    path = f'{scan}/sample/sample_{axis}/{axis}'
-                    if axis == 'trans':
-                        path = f'{scan}/instrument/detector_z/det_z'
-
-                    # we take the last as this was done in the julia cbf code also
-                    # TODO convert units if neccessary
-                    # this are the settings of the axes, hence the value in the hdf5 file
-                    axes_single_frame[axis] =  h5_master[path][()][0]
-                    # print('thats what i want', h5_master[path][()][0])
 
                 # Check increment and range match
                 if not np.isclose(scan_start + scan_incr * (n_frames - 1), scan_stop, atol=1e-6):
@@ -204,8 +210,8 @@ class extractor(extractor_interface.ExtractorInterface):
                                 "wavelength" : wl,
                                 "rad_type" : rad_type,
                                 }
-
-                scan_info[scan_no] = (axes_single_frame, scan_details)
+                # print('start_axes_settings', start_axes_settings)
+                scan_info[scan_no] = (start_axes_settings, scan_details)
 
         return scan_info
 
@@ -252,21 +258,34 @@ class extractor(extractor_interface.ExtractorInterface):
                 for key in group:
                     link = group.get(key, getlink=True)
                     if isinstance(link, h5.ExternalLink):
-                        print(f'  {key} -> {link.filename}/{link.path}')
-                        scan_frame_files[(scan_no, scan)].append((link.filename, link.path))
+                        # print(f'  {key} -> {link.filename}/{link.path}')
+                        scan_frame_files[(scan_no, scan)].append(
+                            (link.filename, link.path))
 
-            # print('sccfr', scan_frame_files)
-            first_key = list(scan_frame_files.keys())[0]
-            n_files = len(scan_frame_files[first_key])
-            frame_numbers = []
-            while len(frame_numbers) != n_files:
-                print(f'\nFound {n_files} files in the hdf5 master file.', end='')
-                frame_numbers = parser.CommandLineParser().request_input('frame_numbers')
-                frame_numbers = frame_numbers.replace(' ', '').split(',')
-                frame_numbers = [int(number) for number in frame_numbers]
-                print('frame nums', frame_numbers)
+        return scan_frame_files
 
-        return scan_frame_files, frame_numbers
+
+    def _get_frames_per_file(self, scan_frame_files, n_frames):
+
+        # print('sccfr', scan_frame_files)
+        first_key = list(scan_frame_files.keys())[0]
+        n_files = len(scan_frame_files[first_key])
+        frame_numbers = []
+        while len(frame_numbers) != n_files:
+            print(f'\nFound {n_frames} frames in {n_files} files in the hdf5 master.',
+                end='')
+            frame_numbers = parser.CommandLineParser().request_input('frame_numbers')
+            frame_numbers = frame_numbers.replace(' ', '').split(',')
+            frame_numbers = [int(number) for number in frame_numbers]
+            if sum(frame_numbers) != n_frames:
+                print(f'The sum of the frames per file is not matching the sum in \
+the master file ({sum(frame_numbers)} != {n_frames}), please try again.')
+                frame_numbers = []
+            # print('frame nums', frame_numbers)
+
+        return frame_numbers
+
+
 
 
     def _get_setup_info(self, master_file, frame_files):#, filename, fpath_stem, imgfiles):
@@ -325,6 +344,8 @@ class extractor(extractor_interface.ExtractorInterface):
                 h5item = h5_master.get(path)
 
                 for axis in list(h5item.keys()):
+                    # TODO for sam_x (detx) and sam_y (dety) the vectors are actually
+                    # different than those in fast_pixel_direction etc
                     path = f'{scan}/sample/transformations/{axis}' #sample_{axis}/{axis}'
                     axis = axis.lower()
                     # print('hdff5 path', path)
@@ -350,22 +371,9 @@ class extractor(extractor_interface.ExtractorInterface):
 
                     # the dependecy chain starts with detx for chi
                     # rename det_z to trans
-                    if depends_on == 'sam_z':
-                        depends_on = 'trans'
-                    elif depends_on == 'sam_x':
-                        depends_on = 'detx'
-                    elif depends_on == 'sam_y':
-                        depends_on = 'dety'
-
-                    # some manual changes in the depends_on fields
-                    if axis == 'sam_x': #'slow':
-                        axis = 'detx'
-                        # depends_on = 'detx'
-                    elif axis == 'sam_y':
-                        axis = 'dety'
-                    elif axis == 'sam_z':
-                        axis = 'trans'
-                        # depends_on = 'two_theta'
+                    #TODO this is hardcoded and may not match with user input
+                    depends_on = self._replace_names(depends_on)
+                    axis = self._replace_names(axis)
 
                     vector = h5item.attrs['vector']#.items())[3][1]
 
@@ -416,10 +424,13 @@ class extractor(extractor_interface.ExtractorInterface):
             # on the position and rotation direction of the goniometer (seen from
             # the source)
             # TODO is this correct?
+            # TODO hardcoded
             if goniometer_axes['omega']['vector'].all() == np.array([-1, 0, 0]).all():
                 goniometer_pos = 'right'
             elif goniometer_axes['omega']['vector'].all() == np.array([1, 0, 0]).all():
-                goniometer_pos = 'right'
+                goniometer_pos = 'left'
+            else:
+                goniometer_pos = 'undefined'
 
             print(f'Identified goiniometer position (from source): {goniometer_pos}')
 
@@ -441,11 +452,29 @@ class extractor(extractor_interface.ExtractorInterface):
         for axis, content in goniometer_axes.items():
             goniometer_axes[axis]['vector'] = \
                 self._rotate_from_nexus_to_cbf(content['vector'], goniometer_pos)
+            # print('rotated', axis, 'from', content['vector'], 'to ==>', offsets[axis]['vector'])
         for axis, content in offsets.items():
             offsets[axis]['vector'] = \
                 self._rotate_from_nexus_to_cbf(content['vector'], goniometer_pos)
+            # print('rotated', axis, 'from', content['vector'], 'to ==>', offsets[axis]['vector'])
 
         return goniometer_axes, offsets, setup_info
+
+
+    def _replace_names(self, name):
+
+        # the dependecy chain starts with detx for chi
+        # rename det_z to trans
+        #TODO this is hardcoded and may not match with user input
+
+        if name == 'sam_x':
+            return 'detx'
+        elif name == 'sam_y':
+            return 'dety'
+        elif name == 'sam_z':
+            return 'trans'
+        else:
+            return name
 
 
     def _rotate_from_nexus_to_cbf(self, vector, goniometer_pos):

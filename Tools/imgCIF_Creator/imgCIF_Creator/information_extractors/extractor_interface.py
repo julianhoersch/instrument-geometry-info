@@ -11,8 +11,8 @@ class ExtractorInterface(metaclass=abc.ABCMeta):
                 callable(subclass.get_array_info) and
                 hasattr(subclass, 'get_detector_info') and
                 callable(subclass.get_detector_info) and
-                hasattr(subclass, 'get_wavelength_info') and
-                callable(subclass.get_wavelength_info) and
+                hasattr(subclass, 'get_radiation_info') and
+                callable(subclass.get_radiation_info) and
                 hasattr(subclass, 'get_scan_setting_info') and
                 callable(subclass.get_scan_setting_info) and
                 hasattr(subclass, 'get_scan_settings_info') and
@@ -45,7 +45,7 @@ class ExtractorInterface(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_wavelength_info():
+    def get_radiation_info():
 
         raise NotImplementedError
 

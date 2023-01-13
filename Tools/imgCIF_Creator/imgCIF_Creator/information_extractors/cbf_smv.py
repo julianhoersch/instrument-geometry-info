@@ -2,7 +2,7 @@ import os
 import re
 import sys
 import numpy as np
-from imgCIF_Creator.output_assembler import imgCIF_assembler
+from imgCIF_Creator.output_creator import imgCIF_creator
 from . import extractor_interface
 from . import full_cbf
 
@@ -230,7 +230,7 @@ class extractor(extractor_interface.ExtractorInterface):
         return detector_info
 
 
-    def get_wavelength_info(self):
+    def get_radiation_info(self):
 
         # TODO not creating a list of wl id's here (yet)
         # TODO could infer rad type from wl...
@@ -316,11 +316,12 @@ class extractor(extractor_interface.ExtractorInterface):
 
 
         scan_info = {}
-        axes = imgCIF_assembler.ROT_AXES + imgCIF_assembler.TRANS_AXES
+        axes = imgCIF_creator.ROT_AXES + imgCIF_creator.TRANS_AXES
         frame_type = self._determine_frame_type(
             os.path.join(frame_dir, all_frames[list(all_frames)[0]]['filename']))
 
         print(f"Discovered {frame_type} files")
+        print('Retrieving scan information...')
 
         for scan in unique_scans:
 
@@ -334,26 +335,26 @@ class extractor(extractor_interface.ExtractorInterface):
             # print('allfrs', all_frames[(scan, 1)])
             file_name = os.path.join(frame_dir, all_frames[(scan, 1)]['filename'])
             # print('myfilename', file_name)
-            # axes_single_frame are the axis settings for the individual frame a in scan
+            # start_axes_settings are the axis settings for the individual frame a in scan
             # b
             mini_header = self._get_mini_header(file_name, frame_type)
-            axes_single_frame, scan_ax, scan_incr, exposure, wl,  = \
+            start_axes_settings, scan_ax, scan_incr, exposure, wl,  = \
                 self._get_frame_info(mini_header, frame_type, axes)
             #TODO units?
-            x_pixel_size, _, y_pixel_size, _ = self._get_pixel_sizes(mini_header)
+            x_pixel_size, y_pixel_size, = self._get_pixel_sizes(mini_header)
             # print('pxsz', x_pixel_size, y_pixel_size)
 
             # self._get_frame_info(frame_type, file_name, axes)
-            # print("axes_single_frame ", axes_single_frame, "scanax ", scan_ax, "scaninc ", scan_incr, "exposure ", exposure, "wl ", wl)
-            start = axes_single_frame[scan_ax]
+            # print("start_axes_settings ", start_axes_settings, "scanax ", scan_ax, "scaninc ", scan_incr, "exposure ", exposure, "wl ", wl)
+            start = start_axes_settings[scan_ax]
 
             # Get information and last frame
             file_name = \
                 os.path.join(frame_dir, all_frames[(scan, len(frames))]['filename'])
             mini_header = self._get_mini_header(file_name, frame_type)
             # print('mini headi', mini_header)
-            axes_single_frame, _, _, _, _ = self._get_frame_info(mini_header, frame_type, axes)
-            finish = axes_single_frame[scan_ax]
+            start_axes_settings, _, _, _, _ = self._get_frame_info(mini_header, frame_type, axes)
+            finish = start_axes_settings[scan_ax]
 
             # Check increment and range match
             if not np.isclose(start + scan_incr * (len(frames)-1), finish, atol=1e-6):
@@ -372,8 +373,8 @@ class extractor(extractor_interface.ExtractorInterface):
                             "y_pixel_size" : y_pixel_size,
                             "mini_header" : mini_header
                             }
-
-            scan_info[scan] = (axes_single_frame, scan_details)
+            # print('start_axes_settings', start_axes_settings)
+            scan_info[scan] = (start_axes_settings, scan_details)
 
         self._prune_scan_info(scan_info)
 
@@ -463,6 +464,8 @@ Try to provide the constant stem of the file name using the -s option.\n")
         # print('matched', re.match(scan_frame_regex, all_names[-1]))
         assert re.match(scan_frame_regex, all_names[-1]), "Regular expression for first \
     frame is not matching the last frame."
+
+        print(f'\nFound scan/frame naming convention: \n{scan_frame_regex}')
 
         return scan_frame_regex, all_names, first_scan
 
@@ -671,7 +674,15 @@ Try to provide the constant stem of the file name using the -s option.\n")
         pixel_sizes = [group.strip() for group in val_unit.groups()]
         # print(pixel_sizes)
 
-        return float(pixel_sizes[0]), pixel_sizes[1], float(pixel_sizes[2]), pixel_sizes[3]
+        # as it is in mm now, we round to 5 decimal places since otherwise:
+        # >>> 0.000172*1000 =0.17200000000000001
+        _, x_pixel = self._convert_units(('x_size',
+            (float(pixel_sizes[0]), pixel_sizes[1])))
+        _, y_pixel = self._convert_units(('y_size',
+            (float(pixel_sizes[2]), pixel_sizes[3])))
+        # print(x_pixel, y_pixel)
+
+        return round(x_pixel, 5), round(y_pixel, 5)
 
 
     def _get_SMV_header(self, fname):
@@ -766,7 +777,7 @@ Try to provide the constant stem of the file name using the -s option.\n")
         # print('wann kepp', keep_this)
 
         for name, ini_val in initial_vals.items():
-            if not (name in imgCIF_assembler.ALWAYS_AXES) and not (name in keep_this) \
+            if not (name in imgCIF_creator.ALWAYS_AXES) and not (name in keep_this) \
                 and np.isclose(ini_val, 0, atol=0.001):
 
                 for s in scan_info:
