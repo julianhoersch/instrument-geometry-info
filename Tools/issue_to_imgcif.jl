@@ -140,8 +140,10 @@ make_gonio_axes(raw_info) = begin
             kv[1] *= rotfac
             push!(vector,kv)
         elseif lowercase(a) == lowercase(chi_axis)
+            println("pushing into it $a")
             push!(vector, get_chi_info(raw_info))
         else
+            println("pushing $a")
             push!(vector, [1, 0, 0] * rotfac)
         end
     end
@@ -192,6 +194,7 @@ get_chi_info(raw_info) = begin
     if !(axname in lowercase.(axes))
         throw(error("Chi axis name $axname not listed as a goniometer axis"))
     end
+    println("this is $cinfo")
     r = -1 * parse(Float64, cinfo[2])
 
     # Now turn this into an axis direction

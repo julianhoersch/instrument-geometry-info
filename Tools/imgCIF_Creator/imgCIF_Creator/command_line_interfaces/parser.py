@@ -22,21 +22,23 @@ class CommandLineParser():
                 print(e)
 
 
+        # TODO sometimes e.g. for chi a trailing space is enough to fail the regex
         self.validation_regex = {
-            'doi': None, # not checking doi format yet
-            'layout': r'Beamline|Laboratory',
-            'facility': None,
+            'doi': None,
+            'layout': self._create_regex_from_options('layout'),
+            'facility': self._create_regex_from_options('facility'),
             'beamline': None,
             'rad_type': None,
             "model" : None,
             "location" : None,
-            "manufacturer" : None,
+            "manufacturer" : self._create_regex_from_options('manufacturer'),
             # 'Is updated?': r'yes|no\Z', # no effect?
             # 'Start date': r'\d{4}-\d{2}-\d{2}\Z', # does not prevent the user from putting
             # in unrealistic values, no effect?
             # 'Finish date': r'\d{4}-\d{2}-\d{2}\Z', # no effect?
             'principal_orientation': r'\d{1,3}\Z',
             'goniometer_axes': r'(?:.+,\s*(a|c))+\Z', # matches n patterns xxxxx, a|c
+            'goniometer_axes' : r'((?:[^,]*,\s*(a|c),\s*)*[^,]*,\s*(a|c))\Z',
             'rotation_axis': None, # no effect?
             "two_theta_axis" : r'(a|c|anticlockwise|clockwise)\Z', # no effect?
             # "detector_repositioning" : None, # no effect?
@@ -44,9 +46,10 @@ class CommandLineParser():
             "detector_axes" : None, #r'(?:\S*,\s*)+(\S*)\Z', # this is not exact
             # r"(?:\d+,\s*)+(?:\d+)\s*\Z",
             "chi_axis" : r'.*(?:\s+\d{1,3})\Z',
-            'kappa_axis': r'.*(?:\s+\d{1,3}){1,2}\Z', # capture something like kappa, 50, 50
-            'image_orientation':r'(top left|top right|bottom left|bottom right)\Z',
-            'fast_direction': r'(horizontal|vertical)\Z',
+            #(?:\s+\d{1,3}){1,2}\Z
+            'kappa_axis': r'.*(((\s|,)(\s)*\d{1,3}){1,2})\Z', # capture something like kappa, 50, 50
+            'image_orientation': self._create_regex_from_options('image_orientation'),
+            'fast_direction': self._create_regex_from_options('fast_direction'),
             'pixel_size': r'(\d+\.?\d*\Z)|(\d+\.?\d*,\s*\d+\.?\d*\Z)', # matches either
             # one pixel dimension or both separated by a comma
             # 'pixel_number': r'(\d+,{0,1}\s*\d+\Z)', # matches two numbers separated by
@@ -56,11 +59,12 @@ class CommandLineParser():
             'doi': None, # no effect?
             'comments': None, # no effect?
             'filename' : r'.*((\.h5)\Z|(\.cbf)\Z|(\.smv)\Z)',
-            'goniometer_rot_direction' : r'(clockwise|anti-clockwise|c|a)\Z',
+            'goniometer_rot_direction' : r'(a|c|anticlockwise|clockwise)\Z',
             'frame_numbers' : r'^\d+(,\s*\d+)*$'
         }
 
         self.required_information = {
+            'name' : False,
             'doi': True,
             'layout': True,
             'facility': True,
@@ -103,8 +107,8 @@ class CommandLineParser():
             print(f"\n{self.input_options[label]['label']} ({required}):")
             choices = ''
             if self.input_options[label].get('options') is not None:
-                choices = ' (choices: ' +\
-                    ', '.join(self.input_options[label]['options']) + ')'
+                choices = '\n Choices: ' +\
+                    ', '.join(self.input_options[label]['options'])
             print(f"{self.input_options[label]['description']}".strip('\n') + choices)
             self.parsed[label] = self.validated_user_input(label)
 
@@ -151,6 +155,18 @@ please try again.')
 
         return parsed_input
 
+    def _create_regex_from_options(self, label, case_insensitive=True):
+        options =  self.input_options[label].get('options')
+        if options is not None:
+            options_regex = r'('+ r'|'.join(options) + r')\Z'
+            if case_insensitive:
+                options_regex = r'(?i)' + options_regex
+            # print('facreg', facilities_regex)
+        else:
+            options_regex = None
+
+        return options_regex
+
 
     def parse_axis_string(self, x):
         """
@@ -179,7 +195,7 @@ please try again.')
         return axes, senses
 
 
-    def make_goniometer_axes(self, goniometer_axes, kappa_axis, chi_axis):
+    def make_goniometer_axes(self, goniometer_axes, kappa_info, chi_info):
 
         """
         make_gonio_axes(raw_info)
@@ -198,25 +214,44 @@ please try again.')
         below, so the sense of rotation is reversed.
 
         """
-        print('gonx', goniometer_axes)
+        # print('gonx', goniometer_axes)
 
+        # print('isit?', kappa_info is None)
+        # print('kappa is now', kappa_info)
         axes, senses = goniometer_axes
         # n = len(axes)
         axis_type = ["rotation" for _ in axes]
         equip = ["goniometer" for _ in axes]
 
-        if kappa_axis is None:
-            kappa_axis = "- - -"
-        kappa_axis = re.split(r',| ', kappa_axis)[0]
+        # kappa is '' if no input
+        if kappa_info != '':
+            kappa_info = re.split(r',| ', kappa_info)
+            kappa_info = [info for info in kappa_info if info != '']
+        else:
+            kappa_info = ['']
+#             while not kappa_info[0] in axes:
+#                 print('Your kappa axis does not match the given goniometer axes! \
+# Please provide a name of the axes listed in the goniometer axes.')
+#                 kappa_info = self.request_input('kappa_axis')
+#                 kappa_info = re.split(r',| ', kappa_info)
 
-        if chi_axis is None:
-            chi_axis = "- - -"
-        chi_axis = re.split(r',| ', chi_axis)[0]
+        # print('kappa is now', kappa_info)
+
+        if chi_info != '':
+            # chi_info = "- -"
+            chi_info = re.split(r',| ', chi_info)
+            chi_info = [info for info in chi_info if info != '']
+        else:
+            kappa_info = ['']
+
+        # print('chi is now', chi_info)
+
+
 
         # Construct axis dependency chain
         depends_on = []
         depends_on += axes[1:]
-        depends_on.append('none')
+        depends_on.append('.')
 
         # Remember the principal axis direction
         principal = senses[-1]
@@ -225,17 +260,18 @@ please try again.')
         vector = []
         offset = []
         for (a, d) in zip(axes, senses):
-            print(a, d)
+            # print(a, d)
             rotfac = 1 if d == principal else -1
-            if a.lower() == kappa_axis.lower():
-                kv = self.get_kappa_info(goniometer_axes, kappa_axis)
+            if a.lower() == kappa_info[0].lower():
+                kv = self.get_kappa_info(goniometer_axes, kappa_info)
                 kv[1] *= rotfac
                 vector.append(kv)
-            elif a.lower() == chi_axis.lower():
-                vector.append(self.get_chi_info(goniometer_axes, chi_axis))
+            elif a.lower() == chi_info[0].lower():
+                # print('chiied', self.get_chi_info(goniometer_axes, chi_info))
+                vector.append(self.get_chi_info(goniometer_axes, chi_info))
             else:
                 vector.append([i * rotfac for i in [1, 0, 0]])
-            print('vec', vector)
+            # print('vec', vector)
             offset.append([0, 0, 0])
 
         axes_dict = {
@@ -268,32 +304,32 @@ please try again.')
         # Insert assumed axis names and orientations
         axis_id = ["two_theta", "trans", "detx", "dety"]
         axis_type = ["translation" for _ in axis_id]
-        axis_type[1] = "rotation"
+        axis_type[0] = "rotation"
         equip = ["detector" for _ in axis_id]
-        depends_on = ['none', "two_theta", "trans", "detx"]
+        depends_on = ['.', "two_theta", "trans", "detx"]
 
         # Read necessary information
-        print('prinsens', goniometer_axes)
+        # print('prinsens', goniometer_axes)
         principal_sense = goniometer_axes[1][-1]
-        principal = principal_orientation
         corner = image_orientation
 
         # Adjust two theta direction #TODO ensure twotheta exists
         rotsense = 1 if two_theta_axis == principal_sense else -1
+        # print('rotting sense', rotsense)
         vector = [[rotsense, 0, 0]]
 
         # Detector translation always opposite to beam direction
         vector.append([0, 0, -1])
 
         # Work out det_x and det_y
-        x_d, y_d = self.determine_detx_dety(principal, principal_sense, corner)
+        x_d, y_d = self.determine_detx_dety(principal_orientation, principal_sense, corner)
         vector.append(x_d)
         vector.append(y_d)
 
         # Beam centre is unknown for now
         # offset = [[0, 0, 0], [0, 0, 0], [np.nan, np.nan, 0], [0, 0, 0]]
-        # TODO this should probably not be none
-        offset = [[0, 0, 0], [0, 0, 0], ['none', 'none', 0], [0, 0, 0]]
+        # TODO this should probably not be none, beamcenter
+        offset = [[0, 0, 0], [0, 0, 0], ['?', '?', 0], [0, 0, 0]]
 
         axes_dict = {
             'axes' : axis_id,
@@ -306,24 +342,18 @@ please try again.')
         return axes_dict
 
 
-    def get_kappa_info(self, goinometer_axes, kappa_axis):
+    def get_kappa_info(self, goinometer_axes, kappa_info):
 
         # extract kappa information
-        axes, senses = goinometer_axes
+        axes, _ = goinometer_axes
         # TODO keepempty=false is ok with python?
-        kinfo = kappa_axis.split([' ',','])
+        # kinfo = kappa_info.split([' ',','])
 
-        if len(kinfo) == 2:
-            kinfo.append("0")
+        if len(kappa_info) == 2:
+            kappa_info.append("0")
 
-        axname = kinfo[0]
-        if not axname in axes:
-            # throw(error("Kappa axis $axname not listed as a goniometer axis"))
-            # TODO reaise correct here
-            raise Exception("Kappa axis $axname not listed as a goniometer axis")
-
-        kapang = float(kinfo[1])
-        kappoise = float(kinfo[2])
+        kapang = float(kappa_info[1])
+        kappoise = float(kappa_info[2])
 
         # Now calculate direction of axis in X-Z plane assuming
         # rotation of kappa is same as principal axis. There is no
@@ -340,36 +370,35 @@ please try again.')
         return [up_comp, 0.0, z_comp]
 
 
-    def get_chi_info(self, goniometer_axes, chi_axis):
+    def get_chi_info(self, goniometer_axes, chi_info):
 
         # Extract chi information
         axes, senses = goniometer_axes
         # TODO keepempty?
-        cinfo = chi_axis.split([' ',',']) #,keepempty=false)
-        axname = cinfo[0].lower() #lowercase( first( cinfo ) )
-        if not axname in axes.lower():
-            raise Exception("Chi axis name $axname not listed as a goniometer axis")
-        r = -1 * float(cinfo[2])
+        # print('chiasamesn', chi_info)
+        # chi_info = chi_info.split([' ',',']) #,keepempty=false)
+        axname = chi_info[0].lower() #lowercase( first( chi_info ) )
+        rot = np.radians(-1 * float(chi_info[1]))
 
         # Now turn this into an axis direction
         # At the provided rotation, the chi axis is parallel to z. It is rotated
         # by -chi_rot about omega to bring it to the start position. The sense
         # of omega rotation is always about 1 0 0 by definition
         # chi_sense = indexin([axname], lowercase.(axes))[]
-        #TODO correct?
-        axes_lower = axes.lower()
-        chi_sense = [axes_lower.index(val) for val in [axname]]
-        chi_sense = senses[chi_sense]
+        axes_lowered = [axis.lower() for axis in axes]
+        ax_index = axes_lowered.index(axname)
+        chi_sense = senses[ax_index]
 
         # TODO arrays?
-        chi_beam_dir = [0, 0, 1] if chi_sense == "a" else [0, 0, -1]
-        chi_rot = [
-            [1, 0, 0],
-            [0, np.cos(r), -np.sin(r)],
-            [0, np.sin(r), np.cos(r)]
-        ]
+        chi_beam_dir = np.array([0, 0, 1]) if chi_sense == "a" \
+            else np.array([0, 0, -1])
+        chi_rot = np.array([
+            [1.0, 0.0, 0.0],
+            [0.0, np.cos(rot), -np.sin(rot)],
+            [0.0, np.sin(rot), np.cos(rot)]
+        ])
 
-        return np.array(chi_rot) * np.array(chi_beam_dir)
+        return list(np.dot(chi_rot, chi_beam_dir))
 
 
     def determine_detx_dety(self, principal_angle, principal_sense, corner):
@@ -410,5 +439,5 @@ please try again.')
             x_direction = [i * -1 for i in y_direction] #-1*y_direction
             y_direction = temp
 
-        return x_direction,y_direction
+        return x_direction, y_direction
 

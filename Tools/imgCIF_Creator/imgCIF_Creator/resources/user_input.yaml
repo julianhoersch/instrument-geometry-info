@@ -1,13 +1,19 @@
+name:
+    label: Dataset Name
+    description: >
+      Please give a name for the dataset which will be used in the imgCIF and the
+      file name if not specified otherwise in the command line call.
+
+
 layout:
     label: Layout
-    description: Is the data coming from a beamline or laboratory?
+    description: Is the data from a beamline or laboratory setup?
     options:
       - Beamline
       - Laboratory
 
 
 facility:
-  # attributes:
     label: Facility name
     description: Please give the facility name.
     options:
@@ -39,20 +45,22 @@ facility:
       - Sirius
       - Soleil
       - Spring-8
-      # - Other (please write name in the comments at end of form)
+      - Other
+      #-(please write name in the comments at end of form)
 
 beamline:
-  # attributes:
     label: Beamline name
     description: Please type the beamline name, without hyphens.
 
 rad_type:
     label: Radiation type
-    description: Please enter the type of the radaition, e.g. x-ray
+    description: >
+      Please enter the type of the radaition, e.g. x-ray
+      (defaults to x-ray).
 
 manufacturer:
-  # attributes:
     label: Name of manufacturer
+    description: Please enter the name of the manufacturer
     options:
       - Agilent
       - Anton Paar
@@ -61,18 +69,19 @@ manufacturer:
       - PANalytical
       - Rigaku
       - Stoe
-      # - Other (please write name in the comments at end of form)
+      - Other
+      #-(please write the name in the comments at the end of the form)
 
 model:
-  # attributes:
     label: Model
     description: Please give the manufacturer model name.
 
 location:
     label: Location
     description: >
-      If geometry and/or detector varies for the same manufacturer and model, please provide the location of the
-      instrument, for example, "University of Wessex Crystallography Lab"
+      If the geometry and/or detector varies for the same manufacturer and model,
+      please provide the location of the instrument, for example, "University of
+      Wessex Crystallography Lab"
 
 # - type: dropdown #checkboxes
 #   id: is-update
@@ -107,10 +116,11 @@ location:
 principal_orientation:
     label: Principal axis orientation
     description: >
-      With all angles at zero, and looking along the beam towards the detector, imagine an arrow drawn from the sample to the
-      centre of the goniometer base.
-      At what angle in degrees is this arrow to the horizontal plane, where 0 is '3 o'clock' and angles are measured counter-clockwise,
-      so 90 is 12 o'clock and 270 is 6 o'clock.
+      With all angles at zero, and looking along the beam towards the detector,
+      imagine an arrow drawn from the sample to the centre of the goniometer base.
+      At what angle in degrees is this arrow to the horizontal plane, where 0 is
+      '3 o'clock' and angles are measured counter-clockwise, so 90 is 12 o'clock
+      and 270 is 6 o'clock.
 
 goniometer_axes:
     label: Goniometer axes
@@ -122,29 +132,30 @@ goniometer_axes:
       order of stacking from closest to the crystal to furthest (phi would
       typically be first if present, omega is usually last).
 
+rotation_axis:
+    label: Rotation axis name
+    description: "Of the axes listed in the goniometer axes previously question,
+    which one is the rotation axis used for data collection?"
+
 goniometer_rot_direction:
     label: Goniometer rotation direction
     description: >
       Please enter the rotation direction of the goniometer.
     options:
     - clockwise (c)
-    - anti-clockwise (a)
-
-
-rotation_axis:
-    label: Rotation axis name
-    description: "Of the axes listed in the previous question, which one is the rotation axis used for data collection?"
+    - anticlockwise (a)
 
 kappa_axis:
     label: kappa
     description: >
-      If your goniometer has a &#954; axis, please give its name and &#954;
+      If your goniometer has a kappa axis, please give its name and its;
       angle here, for example "kappa 50". When looking from above, with the
       beam going from left to right and all axes at their zero positions, the
-      &#954; base is assumed to be at the left. If this is not the case,
-      please append the base location as a counter-clockwise rotation from this
-      position when looking from above. For example, if the &#954; base is
-      located on the detector side, type "kappa 50 180".
+      kappa base is assumed to be at the left. If this is not the case,
+      please append the base location as a counterclockwise rotation from this
+      position when looking from above. For example, if the kappa base is
+      located on the detector side, type "kappa 50 180". The name of the kappa
+      axis must be included in the goniometer axes.
 # - type: input
 #   id: kappa
 #   attributes:
@@ -155,16 +166,17 @@ kappa_axis:
 chi_axis:
     label: chi
     description: >
-      If your goniometer has a &#967; axis, please give its name here, followed
-      by an &#969; angle at which the &#967; rotation axis is parallel to the
-      beam. The sense of rotation provided for &#967; in the "Goniometer axes"
-      question above is the sense of rotation when the &#969; axis has been
-      rotated by this angle and the &#967; axis is viewed from the beam source.
-      For example, if &#969; is rotated by 90 to bring the &#967; axis parallel
-      to the beam and moving to positive &#967; rotates the crystal
-      anticlockwise when viewed from the source, `chi,a` should be given for
-      "Goniometer axes" and `chi 90` should be provided here. `chi,c` with
-      `chi -90` would also describe the same situation.
+      If your goniometer has a chi axis, please give its name here, followed
+      by an omega angle at which the chi rotation axis is parallel to the
+      beam. The sense of rotation provided for chi in the "Goniometer axes"
+      question above is the sense of rotation when the omega axis has been
+      rotated by this angle and the chi axis is viewed from the beam source.
+      For example, if omega is rotated by 90 to bring the chi axis parallel
+      to the beam and moving to positive chi rotates the crystal
+      anticlockwise when viewed from the source, 'chi, a' should be given for
+      "Goniometer axes" and `chi 90` should be provided here. 'chi, c' with
+      'chi -90' would also describe the same situation. The name of the chi
+      axis must be included in the goniometer axes.
 
 # - type: markdown
 #   attributes:
@@ -178,14 +190,15 @@ chi_axis:
 image_orientation:
     label: Image orientation
     description: >
-      The first pixel of the raw image is located at what position on the detector when viewing the detector from the crystal
-      position?
+      The first pixel of the raw image is located at what position on the detector
+      when viewing the detector from the crystal position?
     options:
       - top left
       - top right
       - bottom left
       - bottom right
-      # - other (please describe in comments)
+      - other
+      #-(please describe in comments)
 
 fast_direction:
     label: Fast direction
@@ -199,27 +212,32 @@ fast_direction:
 pixel_size:
     label: Pixel size
     description: >
-        The size of pixels in mm in order horizontal, vertical (eg '0.12, 0.15'). If identical sizes, a single number is sufficient.
-        Pixels are assumed to have no space between them, if this is not the case please write in the comments section below.
+        The size of pixels in mm in order horizontal, vertical (eg '0.12, 0.15').
+        If identical sizes, a single number is sufficient. Pixels are assumed to
+        have no space between them, if this is not the case please write in the
+        comments section below.
 
 pixel_number:
     label: Number of pixels
     description: >
-        The number of pixels in the fast and slow directions (eg '195, 487'). This can usually be found by opening an output frame
-        in a text editor and examining the header. If unknown, please provide a DOI below where at least one output frame from this
-        detector is available.
+        The number of pixels in the fast and slow directions (eg '195, 487').
+        This can usually be found by opening an output frame in a text editor
+        and examining the header. If unknown, please provide a DOI below where
+        at least one output frame from this detector is available.
 
 two_theta_axis:
     label: Two theta axis
     description: >
       When looking from above, what is the sense of rotation of the two theta axis?
+    options:
+      - clockwise (c)
+      - anticlockwise (a)
+
 
 detector_axes:
     label: Detector Axes Names
     description: >
       Please give the names of the detector axes e.g. detx, dety.
-
-
 
 detector_repositioning:
     label: Detector axes
@@ -238,12 +256,12 @@ detector_repositioning:
 #       file here.
 doi:
     label: Data DOI
-    description: >-
-      If available, please give the DOI of a raw data set obtained using this configuration
-      that includes images separated by at least 90 degrees of phi rotation.
-      Consider uploading a representative data set to Zenodo if automated public access is not otherwise
-      available for your instrument. These will be used in future for automated checking
-      of the configuration.
+    description: >
+      If available, please give the DOI of a raw data set obtained using this
+      configuration that includes images separated by at least 90 degrees of phi
+      rotation. Consider uploading a representative data set to Zenodo if
+      automated public access is not otherwise available for your instrument.
+      These will be used in future for automated checking of the configuration.
 
 comments:
     label: Comments
@@ -253,5 +271,5 @@ comments:
 frame_numbers:
     label: Number of Frames in Files
     description: >
-      Please give a list of N(frames) per file separated by a comma (info missing
-      in the master). e.g. 100, 100, 100 for three files.'
+      Please give a list of N(frames) per file separated by a comma (information
+      is missing in the hdf5 master file). e.g. 100, 100, 100 for three files.'

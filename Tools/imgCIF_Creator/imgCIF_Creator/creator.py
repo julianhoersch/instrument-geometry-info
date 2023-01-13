@@ -3,10 +3,17 @@ import click
 import os
 import re
 import CifFile
-from imgCIF_Creator.output_assembler import imgCIF_assembler
+from imgCIF_Creator.output_creator import imgCIF_creator
+from imgCIF_Creator.command_line_interfaces import parser
+
 
 
 def validate_filename(filename):
+    """_summary_
+
+    Args:
+        filename (_type_): _description_
+    """
 
     if os.path.isdir(filename):
         for _, _, files in os.walk(filename + os.sep):
@@ -104,22 +111,28 @@ scan/frame file naming convention",
 )
 
 def main(filename, gui, external_url, include, stem, output_file):
-    """A tool to do things with a FILENAME
+    """This is an interactive command line interface to collect the necessary
+information to create an imgCIF file out of HDF5, full CBF and some common subset
+of miniCBF
 
     Args:
-        gui (_type_): _description_
+        filename (str): The filename or directory.
+        gui (bool): Whether to use the gui or the command line.
+        external_url (str): The external url of the files (zenodo url)
+        include (bool): Include the directory name as part of the archive path name.
+        stem (str): Constant portion of frame file name.
+        output_file (str): Output file to write to.
     """
-
     # stem = '010_Ni_dppe_Cl_2_150K'
     # stem = r".*?_"
 
     print('\n--------------------------- imgCIF Creator ---------------------------\n' )
-    print("""This is an interactive command line interface to collect the necessary \
-information to create an imgCIF file out of HDF5, full CBF and some common subset \
+    print("""This is an interactive command line interface to collect the necessary
+information to create an imgCIF file out of HDF5, full CBF and some common subset
 of miniCBF.
 
 Parameters that are missing in the provided file or directory will be requested
-from the user. You can skip parameters that are not required with an empty input,\
+from the user. You can skip parameters that are not required with an empty input,
 if you provide an input it will be checked against the required format.
 """)
 
@@ -144,19 +157,24 @@ def command_line_interface(filename, filetype, external_url, prepend_dir, stem,
 
     cif_file = CifFile.CifFile()
     cif_block = CifFile.CifBlock()
-    cif_file['imgCIF'] = cif_block
+    name = parser.CommandLineParser().request_input('name')
+    name = name if name != '' else 'myimgcif'
+    cif_file[name] = cif_block
 
-    assembler = imgCIF_assembler.imgCIFAssembler(filename, filetype, stem)
-    assembler.create_imgCIF(
+    creator = imgCIF_creator.imgCIFCreator(filename, filetype, stem)
+    creator.create_imgCIF(
         cif_block, external_url, prepend_dir, filename, filetype)
 
     if output_file == '':
-        output_file = os.getcwd() + os.sep + "my_imgCIF.cif"
+        output_file = os.getcwd() + os.sep + name + '.cif'
     else:
         if not output_file.endswith('.cif'):
             output_file = output_file + '.cif'
 
     with open(output_file, 'w') as file:
+        print('\nRequired input completed! \n')
+        # setting wraplength and maxoutlength does not have an effect
+        # wraplength=1000
         file.write(cif_file.WriteOut())
         print(f'Created imgCIF and saved to: {output_file}')
 
