@@ -18,6 +18,9 @@ setup(
             "creator.py=imgCIF_Creator.creator:main",
         ],
     },
+    package_data={"imgCIF_Creator" : [
+        'resources/user_input.yaml',
+        ]},
     include_package_data=True,
 
 )

@@ -293,7 +293,7 @@ class extractor(extractor_interface.ExtractorInterface):
         # find the unique scans
         unique_scans = set(map(lambda x : x[0], all_frames.keys()))
         # unique_scans = unique!(map( x -> x[1], collect( keys( all_frames ) ) ) )
-        print(f"{len(unique_scans)} scans found")
+        print(f"{len(unique_scans)} scan(s) found")
 
         return unique_scans, all_frames
 
@@ -465,7 +465,7 @@ Try to provide the constant stem of the file name using the -s option.\n")
         assert re.match(scan_frame_regex, all_names[-1]), "Regular expression for first \
     frame is not matching the last frame."
 
-        print(f'\nFound scan/frame naming convention: \n{scan_frame_regex}')
+        print(f'\nFound scan/frame naming convention!')
 
         return scan_frame_regex, all_names, first_scan
 

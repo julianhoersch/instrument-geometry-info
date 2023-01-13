@@ -176,7 +176,7 @@ def command_line_interface(filename, filetype, external_url, prepend_dir, stem,
         # setting wraplength and maxoutlength does not have an effect
         # wraplength=1000
         file.write(cif_file.WriteOut())
-        print(f'Created imgCIF and saved to: {output_file}')
+        print(f'Created imgCIF and saved to: {output_file}\n')
 
 
 def graphical_user_interface():
