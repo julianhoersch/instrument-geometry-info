@@ -58,6 +58,11 @@ rad_type:
       Please enter the type of the radaition, e.g. x-ray
       (defaults to x-ray).
 
+wavelength:
+    label: Wavelength
+    description: >
+      Please enter the value of the wavelength in Angstrom.
+
 manufacturer:
     label: Name of manufacturer
     description: Please enter the name of the manufacturer
