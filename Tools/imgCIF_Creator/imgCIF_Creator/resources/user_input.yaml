@@ -276,4 +276,5 @@ comments:
 frame_numbers:
     label: Number of Frames per File
     description: >
-      Please give a list of N(frames) per file separated by a comma e.g. 100, 100, 100 for three files.'
+      Please give a list of N(frames) per file separated by a comma e.g. 100, 100,
+      100 for three files. The order must reflect the above file ordering.'
