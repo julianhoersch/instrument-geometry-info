@@ -176,8 +176,7 @@ class imgCIFCreator:
 
 
     def check_axes_completeness(self, axes_info):
-        """Check if the axes information is complete and request input
-        if not.
+        """Check if the axes information is complete and request input if not.
 
         Args:
             axes_info (dict):
@@ -301,8 +300,7 @@ one detector, or detectors are non-rectangular, please describe in the comments 
         if self.param_is_none(detector_info["detector_id"]):
             detector_info["detector_id"] = ['det1']
 
-        detector_axes_labels = ['number_of_axes', 'axis_id', 'detector_id',
-            'detector_axis_id']
+        detector_axes_labels = ['number_of_axes', 'axis_id']
 
         if any([self.param_is_none(detector_info[label]) for label in detector_axes_labels]):
             det_axes = self.cmd_parser.request_input('detector_axes').split(',')
@@ -314,9 +312,10 @@ one detector, or detectors are non-rectangular, please describe in the comments 
             # TODO is that true? in the hdf5 this is trans and in the cbf this is
             # detx and dety
             detector_info["axis_id"] = det_axes
-            #TODO it's not ensured that this is always a list...
-            detector_info["detector_axis_id"] = \
-                detector_info["detector_id"] * len(det_axes)
+
+        #TODO it's not ensured that this is always a list...
+        detector_info["detector_axis_id"] = \
+            detector_info["detector_id"] * len(detector_info["axis_id"])
 
         return detector_info
 
@@ -932,24 +931,24 @@ class imgCIFEntryGenerators():
         # TODO is the index correct? julia indexes different than python
         def mapping_func(x):
             # i is local from the scope of the loop
-
-            #TODO rounding?? can that cause problems
             try:
                 # the vector indices in cif start at 1
-                # print('thi is ', x[i-1])
                 x[i - 1] = float(x[i - 1])
-                # it can be that some values are by computaional effects
-                # are very close to zero e.g. -1.2246467991473532e-16 -> map to 0
-                # round to 5 decimal places
-                if np.isclose(round(x[i - 1], 5), x[i - 1]):
-                    # display numbers without trailing zero? 1.0 -> 1?
-                    rounded = f"{round(x[i - 1], 5):.0f}"
-                    if rounded in ['-0.0', '-0']:
-                        rounded = '0'
-                    return rounded # x[i]
+                # display numbers without trailing zero? 1.0 -> 1
+                if round(x[i - 1]) == x[i - 1]:
+                    return f"{round(x[i - 1]):.0f}"
                 else:
-                    # print('wasn;t round', x[i-1])
-                    return f"{x[i - 1]:1.5f}" # x[i] @sprintf "%1.5f" x[i]
+                    # don't format if it has less than 5 decimal places
+                    if len(str(x[i - 1]).split('.')[1]) < 5:
+                        formatted = str(x[i - 1])
+                    else:
+                        formatted = f"{x[i - 1]:1.5f}"
+                    # it can be that some values are by computaional effects
+                    # are very close to zero e.g. -1.2246467991473532e-16 -> map to 0
+                    if float(formatted) == 0:
+                        formatted = "0"
+
+                    return formatted # x[i] @sprintf "%1.5f" x[i]
             except ValueError:
                 # print('exepted', x[i-1])
                 return x[i - 1]
