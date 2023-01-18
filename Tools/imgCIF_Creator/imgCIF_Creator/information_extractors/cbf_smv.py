@@ -28,7 +28,6 @@ class extractor(extractor_interface.ExtractorInterface):
             stem (str): constant portion of a frame file name to help determine the
                 scan/frame file naming convention
         """
-        super().__init__()
 
         self._unique_scans, self.all_frames = \
             self._get_scans_and_frames(directory, stem=stem)
@@ -101,7 +100,7 @@ class extractor(extractor_interface.ExtractorInterface):
 
 
     def get_source_info(self):
-        """Return the information about the facility and beamline or the insstrument,
+        """Return the information about the facility and beamline or the instrument,
         model and location. Cif block: _diffrn_source
 
         Returns:
@@ -220,7 +219,6 @@ class extractor(extractor_interface.ExtractorInterface):
         Returns:
             dict: a dictionary containing the information about the array
         """
-
 
         # array structure list axis
         base = "_array_structure_list_axis."
