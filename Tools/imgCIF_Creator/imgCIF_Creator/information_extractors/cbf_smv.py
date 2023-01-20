@@ -93,6 +93,13 @@ class extractor(extractor_interface.ExtractorInterface):
         doi = self._full_header_dict.get('_database.dataset_doi')
         overload = self._full_header_dict.get('_array_intensities.overload')
 
+        #TODO for smv?
+        if overload is None:
+            overload, _ = self._get_CBF_header_values(
+                self.first_mini_header, 'count_cutoff', with_unit=False)
+            if overload is not None:
+                overload = int(overload)
+
         # get doi also from mini header?
         return {'doi' : doi,
                 'overload' : overload,
@@ -473,7 +480,8 @@ class extractor(extractor_interface.ExtractorInterface):
             # print('scandet', scan_details)
             scan_info[scan] = (start_axes_settings, scan_details)
 
-        self._prune_scan_info(scan_info)
+        #TODO do I need this?
+        # self._prune_scan_info(scan_info)
 
         return scan_info
 
@@ -736,12 +744,13 @@ Try to provide the constant stem of the file name using the -s option.\n")
         return dict(ax_vals), "phi", ax_incr[0][1], exposure, wl
 
 
-    def _get_CBF_header_values(self, lines, matcher):
+    def _get_CBF_header_values(self, lines, matcher, with_unit=True):
         """Get the value following the string given in matcher and units if present.
 
         Args:
             lines (list): the list of lines from the mini header
             matcher (str): the string that should be matched in the lines
+            with_unit (bool): wheter the header value has an unit at the end
 
         Returns:
             val (float): the value that has been matched
@@ -749,6 +758,7 @@ Try to provide the constant stem of the file name using the -s option.\n")
         """
 
         pattern = re.compile(re.escape(matcher) + r"[ =]+")
+        # print('pattern', pattern)
         matching_lines = list(filter(lambda x : pattern.search(x) is not None, lines))
         # print('mtch lng', matching_lines)
 
@@ -756,16 +766,20 @@ Try to provide the constant stem of the file name using the -s option.\n")
         if len(matching_lines) < 1:
             return None, None
 
-        val_unit_regex = re.escape(matcher) + \
-            r"[ =]+(?P<val>[A-Za-z0-9+-.]+) +(?P<units>[A-Za-z.]+)"
+        val_unit_regex = re.escape(matcher) + r"[ =]+(?P<val>[A-Za-z0-9+-.]+)"
+        if with_unit:
+            val_unit_regex += r" +(?P<units>[A-Za-z.]+)"
 
         val_unit = [re.search(val_unit_regex, matching_line)
             for matching_line in matching_lines]
 
         # print('valuns', val_unit)
-        val_unit = val_unit[0]
-        val = val_unit["val"].strip()
-        units = val_unit["units"].strip()
+        # if val_unit[0] is not None:
+        val = val_unit[0]["val"].strip()
+        if with_unit:
+            units = val_unit[0]["units"].strip()
+        else:
+            units = None
 
         # print('v', val, 'u', units)
         return float(val), units
