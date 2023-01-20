@@ -63,7 +63,7 @@ class CommandLineParser():
             'doi': None, # no effect?
             'comments': None, # no effect?
             'filename' : r'.*((\.h5)\Z|(\.cbf)\Z|(\.smv)\Z)',
-            # 'goniometer_rot_direction' : self._create_options_regex('goniometer_rot_direction'), # no effect
+            'goniometer_rot_direction' : self._create_options_regex('goniometer_rot_direction'), # no effect
             'frame_numbers' : r'^\d+(,\s*\d+)*$'
         }
 
@@ -98,7 +98,7 @@ class CommandLineParser():
             'doi': True, # no effect?
             'comments': False, # no effect?
             'filename' : True,
-            # 'goniometer_rot_direction' : True,
+            'goniometer_rot_direction' : True,
             'frame_numbers': True
         }
 
