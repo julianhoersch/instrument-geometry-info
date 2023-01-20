@@ -55,55 +55,58 @@ class imgCIFCreator:
         # _diffrn_source block
         source_info = self.extractor.get_source_info()
         source_info = self.check_source_completeness(source_info)
-        self.generators.generate_source(cif_block, source_info)
 
         uncat_info = self.extractor.get_uncategorized_info()
         uncat_info = self.check_uncategorized_completeness(uncat_info)
-        self.generators.generate_uncategorized(cif_block, uncat_info)
 
         # self.generate _diffrn_wavelength block
         radiation_info = self.extractor.get_radiation_info()
         radiation_info = self.check_radiation_completeness(radiation_info)
-        self.generators.generate_radiation(cif_block, radiation_info)
-
-        # describe _axis block
-        axes_info = self.extractor.get_axes_info()
-        axes_info = self.check_axes_completeness(axes_info)
-        self.generators.generate_axes(cif_block, axes_info)
 
         # # describe _array_structure_list_axis and _array_structure_list
         array_info = self.extractor.get_array_info()
         array_info = self.check_array_completeness(array_info)
-        self.generators.generate_array(cif_block, array_info)
+
+        # describe _axis block
+        axes_info = self.extractor.get_axes_info()
+        axes_info = self.check_axes_completeness(axes_info, array_info)
 
         # describe _diffrn_detector and _diffrn_detector_axis
         # this correlates with the detector axes in generate axes!
         detector_info = self.extractor.get_detector_info()
         detector_info = self.check_detector_completeness(detector_info)
-        self.generators.generate_detector(cif_block, detector_info)
 
         scan_setting_info = self.extractor.get_scan_settings_info()
         # TODO this is not checking anything right now
         scan_setting_info = self.check_scan_settings_completeness(scan_setting_info)
         scan_list = self.generate_scan_list(scan_setting_info)
 
+        archive, external_url = self.get_archive_type(external_url, filename)
+
+
+        # now generate the cif block
+        # _diffrn_source block
+        self.generators.generate_source(cif_block, source_info)
+        self.generators.generate_uncategorized(cif_block, uncat_info)
+        # self.generate _diffrn_wavelength block
+        self.generators.generate_radiation(cif_block, radiation_info)
+        # describe _axis block
+        self.generators.generate_axes(cif_block, axes_info)
+        # # describe _array_structure_list_axis and _array_structure_list
+        self.generators.generate_array(cif_block, array_info)
+        # describe _diffrn_detector and _diffrn_detector_axis
+        self.generators.generate_detector(cif_block, detector_info)
         # self.generate _diffrn_scan_axis block
         self.generators.generate_scan_settings(cif_block, scan_setting_info)
-
         # self.generate _diffrn_scan block
         self.generators.generate_scan_info(cif_block, scan_list)
-
         # self.generate _diffrn_scan_frame block
         self.generators.generate_step_info(cif_block, scan_setting_info, scan_list)
-
         # self.generate _diffrn_data_frame block
         self.generators.generate_data_frame_info(cif_block, scan_list)
-
         # self.generate _array_data block
         self.generators.generate_ids(cif_block, scan_list)
-
         # self.generate _array_data_external_data
-        archive, external_url = self.get_archive_type(external_url, filename)
         self.generators.generate_external_ids(
             cif_block, external_url, self.extractor.all_frames,
             scan_list, archive, prepend_dir, filetype)
@@ -140,13 +143,13 @@ class imgCIFCreator:
         if not any(source_info.values()):
             layout = self.cmd_parser.request_input('layout')
 
-        if layout.lower() == 'beamline' or \
+        if layout.lower() in ['beamline', 'b'] or \
             (source_info.get('beamline') is not None) or \
             (source_info.get('facility') is not None):
             required_info = ['facility', 'beamline']
             print('\nCreating a imgCIF file for a beamline.')
 
-        if layout.lower() == 'laboratory' or \
+        if layout.lower() in ['laboratory', 'l'] or \
             (source_info.get('manufacturer') is not None) or \
             (source_info.get('model') is not None) or \
             (source_info.get('location') is not None):
@@ -175,11 +178,12 @@ class imgCIFCreator:
         return self.lists_to_values(source_info)
 
 
-    def check_axes_completeness(self, axes_info):
+    def check_axes_completeness(self, axes_info, array_info):
         """Check if the axes information is complete and request input if not.
 
         Args:
-            axes_info (dict):
+            axes_info (dict): information about the axes
+            array_info (dict): information about the data array
 
         Returns:
             dict: the information completed
@@ -221,12 +225,13 @@ Answer the goniometer questions for all axes in zero position.')
 all detector positioning axes are at their home positions. If there is more than \
 one detector, or detectors are non-rectangular, please describe in the comments \
 (not implemented yet).')
-            principal_orientation = self.cmd_parser.request_input('principal_orientation')
+            principal_angle = self.cmd_parser.request_input('principal_angle')
             image_orientation = self.cmd_parser.request_input('image_orientation')
-            two_theta_axis = self.cmd_parser.request_input('two_theta_axis')
+            two_theta_sense = self.cmd_parser.request_input('two_theta_sense')
 
             det_axes = self.cmd_parser.make_detector_axes(
-                goniometer_axes, principal_orientation, image_orientation, two_theta_axis)
+                goniometer_axes, principal_angle, image_orientation, two_theta_sense,
+                array_info)
 
             for key in  gon_axes.keys():
                 gon_axes[key] += det_axes[key]
@@ -269,13 +274,13 @@ one detector, or detectors are non-rectangular, please describe in the comments 
 
             if self.param_is_none(array_info['array_dimension']):
                 array_info['array_dimension'] = \
-                    self.cmd_parser.request_input('pixel_number').replace(' ', '').split(',')
+                    self.cmd_parser.request_input('array_dimension').replace(' ', '').split(',')
 
             array_info["array_direction"] = ["increasing", "increasing"]
 
             if self.param_is_none(array_info['array_precedence']):
                 fast_direction = self.cmd_parser.request_input('fast_direction')
-                if fast_direction == "horizontal":
+                if fast_direction in ["horizontal", 'h']:
                     array_info['array_precedence'] = [1, 2]
                 else:
                     array_info['array_precedence'] = [2, 1]
@@ -775,7 +780,7 @@ class imgCIFEntryGenerators():
         else:
             cif_block[base + "make"] = source_info["manufacturer"] + "-" + \
                 source_info["model"]
-            cif_block[base + "details"] = 'Located at' + f"{source_info['location']}"
+            cif_block[base + "details"] = f"Located at {source_info['location']}"
                 # f"Located at {source_info['location']}"
             audit_id_1 = re.sub(regex, '_', source_info["manufacturer"])
             audit_id_2 = re.sub(regex, '_', source_info["model"])
@@ -794,6 +799,7 @@ class imgCIFEntryGenerators():
                 the information should be written.
             array_info (dict): information about the source
         """
+        #TODO also works for one element input?
         hor, vert = [float(element) for element in array_info['pixel_size']]
         # array structure list axis
         base = "_array_structure_list_axis."
