@@ -11,6 +11,7 @@ layout:
     options:
       - Beamline
       - Laboratory
+    abbreviate: true
 
 
 facility:
@@ -118,7 +119,7 @@ location:
 #       Answer the following questions for all axes in zero position.
 
 
-principal_orientation:
+principal_angle:
     label: Principal axis orientation
     description: >
       With all angles at zero, and looking along the beam towards the detector,
@@ -147,8 +148,9 @@ goniometer_rot_direction:
     description: >
       Please enter the rotation direction of the goniometer.
     options:
-    - clockwise (c)
-    - anticlockwise (a)
+    - clockwise
+    - anticlockwise
+    abbreviate: true
 
 kappa_axis:
     label: kappa
@@ -213,6 +215,7 @@ fast_direction:
     options:
       - horizontal
       - vertical
+    abbreviate: true
 
 pixel_size:
     label: Pixel size
@@ -222,21 +225,23 @@ pixel_size:
         have no space between them, if this is not the case please write in the
         comments section below.
 
-pixel_number:
-    label: Number of pixels
+array_dimension:
+    label: Array dimensions
     description: >
         The number of pixels in the fast and slow directions (eg '195, 487').
         This can usually be found by opening an output frame in a text editor
         and examining the header. If unknown, please provide a DOI below where
         at least one output frame from this detector is available.
 
-two_theta_axis:
-    label: Two theta axis
+two_theta_sense:
+    label: Two theta sense
     description: >
       When looking from above, what is the sense of rotation of the two theta axis?
+      (defaults to the same as the principal axis)
     options:
-      - clockwise (c)
-      - anticlockwise (a)
+      - clockwise
+      - anticlockwise
+    abbreviate: true
 
 
 detector_axes:
