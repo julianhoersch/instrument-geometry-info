@@ -242,7 +242,8 @@ class CommandLineParser():
 
 
     def make_detector_axes(self, goniometer_axes, principal_angle,
-                           image_orientation, two_theta_sense, array_info):
+                           image_orientation, two_theta_sense, array_info,
+                           scan_settings_info):
         """Add information concerning the detector axes. We define our own axis names,
         with the detector distance being inserted when the data file is read. We
         choose det_x to be in the horizontal direction, and det_y to be vertical.
@@ -259,6 +260,8 @@ class CommandLineParser():
                 degree
             image_orientation (str): the image orientation string, e.g. 'top left',...
             two_theta_sense (str): the sense of the two theta axis (e.g. clockwise)
+            array_info (dict): information about the array
+            scan_settings_info (dict): information about the scan settings
 
         Returns:
             dict: a dictionary containing the information about the detector axes
@@ -290,6 +293,15 @@ class CommandLineParser():
         # Detector translation always opposite to beam direction
         vector.append([0, 0, -1])
 
+        # add z offset
+        first_scan = sorted(scan_settings_info.keys())[0]
+        first_scan_info = scan_settings_info[first_scan][0]
+        z_offset = first_scan_info.get('distance')
+        if z_offset is None:
+            z_offset = first_scan_info.get('detector_distance')
+        if z_offset is None:
+            z_offset = 0
+
         # Work out det_x and det_y
         beam_x, beam_y = self._calculate_beam_centre(
             array_info['array_dimension'], array_info['pixel_size'])
@@ -301,7 +313,9 @@ class CommandLineParser():
         vector.append(y_d)
 
         # TODO Beam centre is unknown for now
-        offset = [[0, 0, 0],[0, 0, 0], [0, 0, 0], [0, 0, 0], [x_c, y_c, 0], [0, 0, 0]]
+        # TODO z offset negative?
+        offset = [[0, 0, 0],[0, 0, 0], [0, 0, 0], [0, 0, -z_offset], [x_c, y_c, 0],
+            [0, 0, 0]]
         # offset = [[0, 0, 0], [0, 0, 0], ['?', '?', 0], [0, 0, 0]]
 
         axes_dict = {
