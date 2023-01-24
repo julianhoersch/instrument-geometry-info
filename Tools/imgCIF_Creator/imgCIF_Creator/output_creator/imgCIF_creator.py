@@ -67,19 +67,20 @@ class imgCIFCreator:
         array_info = self.extractor.get_array_info()
         array_info = self.check_array_completeness(array_info)
 
+        scan_setting_info = self.extractor.get_scan_settings_info()
+        # TODO this is not checking anything right now
+        scan_setting_info = self.check_scan_settings_completeness(scan_setting_info)
+        scan_list = self.generate_scan_list(scan_setting_info)
+
         # describe _axis block
         axes_info = self.extractor.get_axes_info()
-        axes_info = self.check_axes_completeness(axes_info, array_info)
+        axes_info = self.check_axes_completeness(axes_info, array_info,
+            scan_setting_info)
 
         # describe _diffrn_detector and _diffrn_detector_axis
         # this correlates with the detector axes in generate axes!
         detector_info = self.extractor.get_detector_info()
         detector_info = self.check_detector_completeness(detector_info)
-
-        scan_setting_info = self.extractor.get_scan_settings_info()
-        # TODO this is not checking anything right now
-        scan_setting_info = self.check_scan_settings_completeness(scan_setting_info)
-        scan_list = self.generate_scan_list(scan_setting_info)
 
         archive, external_url = self.get_archive_type(external_url, filename)
 
@@ -178,12 +179,13 @@ class imgCIFCreator:
         return self.lists_to_values(source_info)
 
 
-    def check_axes_completeness(self, axes_info, array_info):
+    def check_axes_completeness(self, axes_info, array_info, scan_settings_info):
         """Check if the axes information is complete and request input if not.
 
         Args:
             axes_info (dict): information about the axes
             array_info (dict): information about the data array
+            scan_settings_info (dict): information about the scans
 
         Returns:
             dict: the information completed
@@ -200,7 +202,7 @@ class imgCIFCreator:
                 missing_information = True
 
         if missing_information or not hast_same_len:
-            print('\nSome information about the goiometer/detector is missing, please enter\
+            print('\nSome information about the goiometer/detector is missing, please enter \
 the missing information.')
 
             print('\nGoniometer information: \n\
@@ -231,7 +233,7 @@ one detector, or detectors are non-rectangular, please describe in the comments 
 
             det_axes = self.cmd_parser.make_detector_axes(
                 goniometer_axes, principal_angle, image_orientation, two_theta_sense,
-                array_info)
+                array_info, scan_settings_info)
 
             for key in  gon_axes.keys():
                 gon_axes[key] += det_axes[key]
