@@ -64,42 +64,9 @@ class CommandLineParser():
             'comments': None, # no effect?
             'filename' : r'.*((\.h5)\Z|(\.cbf)\Z|(\.smv)\Z)',
             'goniometer_rot_direction' : self._create_options_regex('goniometer_rot_direction'), # no effect
-            'frame_numbers' : r'^\d+(,\s*\d+)*$'
-        }
+            'frame_numbers' : r'^\d+(,\s*\d+)*$',
+            'external_url' : None,
 
-        self.required_information = {
-            'name' : False,
-            'doi': True,
-            'layout': True,
-            'facility': True,
-            'beamline': True,
-            "model" : True,
-            "location" : True,
-            "manufacturer" : True,
-            # 'Is updated?': r'yes|no\Z', # no effect?
-            # 'Start date': r'\d{4}-\d{2}-\d{2}\Z', # does not prevent the user from putting
-            # in unrealistic values, no effect?
-            # 'Finish date': r'\d{4}-\d{2}-\d{2}\Z', # no effect?
-            'principal_angle': True,
-            'goniometer_axes': True, # matches n patterns xxxxx, a|c
-            'rotation_axis': False, # no effect?
-            "two_theta_sense" : False, # no effect?
-            # "detector_repositioning" : None, # no effect?
-            'detector_repositioning': False, # no effect? almost the same as the above
-            'detector_axes' : True,
-            "chi_axis" : False,
-            'kappa_axis': False, # capture something like kappa, 50, 50
-            'image_orientation': True,
-            'fast_direction': True,
-            'pixel_size': True, # matches either
-            # one pixel dimension or both separated by a comma
-            # 'xds.inp': None, # no effect
-            'array_dimension' : True,
-            'doi': True, # no effect?
-            'comments': False, # no effect?
-            'filename' : True,
-            'goniometer_rot_direction' : True,
-            'frame_numbers': True
         }
 
 
@@ -115,7 +82,7 @@ class CommandLineParser():
         """
 
         while self.parsed.get(label) is None:
-            required = 'required' if self.required_information.get(label) \
+            required = 'required' if self.input_options[label].get('required') \
                 else 'not required'
             print(f"\n{self.input_options[label]['label']} ({required}):")
             choices = ''
@@ -349,15 +316,15 @@ class CommandLineParser():
 
         # required parameter, but either regex failed or no input was made if no regex
         # is defined
-        if self.required_information.get(label) and parsed_input in [None, '']:
+        if self.input_options[label].get('required') and parsed_input in [None, '']:
             print(' ==> Could not interpret your input correctly! This input is required, \
 please try again.')
             parsed_input = None
         # not required with defined regex, but no user input
-        elif not self.required_information.get(label) and user_input == '':
+        elif not self.input_options[label].get('required') and user_input == '':
             parsed_input = ''
         # not required with defined regex, but user input
-        elif not self.required_information.get(label) and parsed_input is None:
+        elif not self.input_options[label].get('required') and parsed_input is None:
             print(' ==> Could not interpret your input correctly! Please try again.')
 
         if parsed_input is not None:

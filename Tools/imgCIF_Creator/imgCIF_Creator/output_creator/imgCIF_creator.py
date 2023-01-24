@@ -82,7 +82,7 @@ class imgCIFCreator:
         detector_info = self.extractor.get_detector_info()
         detector_info = self.check_detector_completeness(detector_info)
 
-        archive, external_url = self.get_archive_type(external_url, filename)
+        archive, external_url = self.check_external_url(external_url, filename)
 
 
         # now generate the cif block
@@ -124,8 +124,8 @@ class imgCIFCreator:
             dict: the information completed
         """
 
-        if self.param_is_none(uncat_info['doi']):
-            uncat_info['doi'] = self.cmd_parser.request_input('doi')
+        # if self.param_is_none(uncat_info['doi']):
+        #     uncat_info['doi'] = self.cmd_parser.request_input('doi')
 
         return self.lists_to_values(uncat_info)
 
@@ -446,7 +446,7 @@ one detector, or detectors are non-rectangular, please describe in the comments 
         return param_dict
 
 
-    def get_archive_type(self, external_url, filename):
+    def check_external_url(self, external_url, filename):
         """Get the archive type of the provided external url or return the default
         filename/path as external url if no external url was provided.
 
@@ -462,17 +462,19 @@ one detector, or detectors are non-rectangular, please describe in the comments 
         archive = None
 
         if external_url == '':
+            external_url = self.cmd_parser.request_input('external_url')
+
+        elif external_url == 'force local':
             filename = filename[1:] if filename.startswith('/') else filename
             external_url = "file://" + filename
 
-        else:
-            archives = {"TGZ" : r".*((\.tgz\Z)|(\.tar\.gz\Z|))",
-                        "TBZ" : r".*((\.tbz\Z)|(\.tar\.bz2\Z|))",
-                        "ZIP" : r".*(\.zip\Z)"}
+        archives = {"TGZ" : r".*((\.tgz\Z)|(\.tar\.gz\Z|))",
+                    "TBZ" : r".*((\.tbz\Z)|(\.tar\.bz2\Z|))",
+                    "ZIP" : r".*(\.zip\Z)"}
 
-            for archive, regex in archives.items():
-                if re.match(regex, external_url):
-                    return archive, external_url
+        for archive, regex in archives.items():
+            if re.match(regex, external_url):
+                return archive, external_url
 
         return archive, external_url
 
@@ -497,7 +499,7 @@ class imgCIFEntryGenerators():
             uncat_info (dict): the uncategorized information
         """
 
-        cif_block['_database.dataset_doi'] = uncat_info['doi']
+        # cif_block['_database.dataset_doi'] = uncat_info['doi']
         if not uncat_info.get('overload') is None:
             cif_block['_array_intensities.overload'] = uncat_info['overload']
 
