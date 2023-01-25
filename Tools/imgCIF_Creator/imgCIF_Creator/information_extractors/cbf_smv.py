@@ -82,16 +82,17 @@ class extractor(extractor_interface.ExtractorInterface):
         return self.all_frames
 
 
-    def get_uncategorized_info(self):
+    def get_misc_info(self):
         """Return the information that was found about the doi and the array
         intensities overload.
 
         Returns:
-            dict: a dictionary containing the doi and the array intensities overload
+            dict: a dictionary containing the array intensities overload
         """
 
         doi = self._full_header_dict.get('_database.dataset_doi')
         overload = self._full_header_dict.get('_array_intensities.overload')
+        temperature = self._full_header_dict.get('_diffrn.ambient_temperature')
 
         #TODO for smv?
         if overload is None:
@@ -100,9 +101,16 @@ class extractor(extractor_interface.ExtractorInterface):
             if overload is not None:
                 overload = int(overload)
 
+        if temperature is None:
+            temperature, unit = self._get_CBF_header_values(
+                self.first_mini_header, 'temperature', with_unit=True)
+            if unit is not None and 'k' in unit.lower():
+                temperature -= 273.15
+
         # get doi also from mini header?
         return {'doi' : doi,
                 'overload' : overload,
+                'temperature': temperature,
                 }
 
 

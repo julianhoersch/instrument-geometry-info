@@ -42,19 +42,22 @@ class extractor(extractor_interface.ExtractorInterface):
         self.goniometer_axes= self._get_goniometer_settings(filename, file_mapping)
 
 
-    def get_uncategorized_info(self):
+    def get_misc_info(self):
         """Return the information that was found about the doi and the array
         intensities overload.
 
         Returns:
-            dict: a dictionary containing the doi and the array intensities overload
+            dict: a dictionary containing the array intensities overload
         """
 
         doi = None
         overload = self.setup_info.get('overload')
+        # TODO can there be an hdf5 entry with the temp?
+        temperature = self.setup_info.get('temperature')
 
         return {'doi' : doi,
                 'overload' : overload,
+                'temperature' : temperature,
                 }
 
 

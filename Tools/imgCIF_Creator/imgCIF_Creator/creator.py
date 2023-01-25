@@ -171,6 +171,12 @@ def command_line_interface(filename, filetype, external_url, prepend_dir, stem,
         if not output_file.endswith('.cif'):
             output_file = output_file + '.cif'
 
+    # change some ordering
+    if cif_file[name].get('_database.dataset_doi') is not None:
+        cif_file[name].ChangeItemOrder('_database.dataset_doi', 0)
+    if cif_file[name].get('_audit.block_code') is not None:
+        cif_file[name].ChangeItemOrder('_audit.block_code', 1)
+
     with open(output_file, 'w') as file:
         print('\nRequired input completed! \n')
         # setting wraplength and maxoutlength does not have an effect

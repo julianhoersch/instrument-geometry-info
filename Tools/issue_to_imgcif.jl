@@ -246,8 +246,13 @@ make_detector_axes(raw_info) = begin
     corner = raw_info["Image orientation"]
 
     # Adjust two theta direction
-
-    rotsense = raw_info["Two theta axis"] == principal_sense ? 1 : -1
+    println("two ", raw_info["Two theta axis"])
+    if ismissing(raw_info["Two theta axis"])
+        rotsense = 1
+    else
+        rotsense = raw_info["Two theta axis"] == principal_sense ? 1 : -1
+    end
+    println("rotting", rotsense)
     vector = [[rotsense,0,0]]
 
     # Detector translation always opposite to beam direction

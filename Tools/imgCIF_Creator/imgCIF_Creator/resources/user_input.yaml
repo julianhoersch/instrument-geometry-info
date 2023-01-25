@@ -1,5 +1,6 @@
 name:
     label: Dataset Name
+    required: false
     description: >
       Please give a name for the dataset which will be used in the imgCIF and the
       file name if not specified otherwise in the command line call (defaults to
@@ -8,6 +9,7 @@ name:
 
 layout:
     label: Layout
+    required: true
     description: Is the data from a beamline or laboratory setup?
     options:
       - Beamline
@@ -17,6 +19,7 @@ layout:
 
 facility:
     label: Facility name
+    required: true
     description: Please give the facility name.
     options:
       - Alba
@@ -52,21 +55,25 @@ facility:
 
 beamline:
     label: Beamline name
+    required: true
     description: Please type the beamline name, without hyphens.
 
 rad_type:
     label: Radiation type
+    required: false
     description: >
       Please enter the type of the radaition, e.g. x-ray
       (defaults to x-ray).
 
 wavelength:
     label: Wavelength
+    required: true
     description: >
       Please enter the value of the wavelength in Angstrom.
 
 manufacturer:
     label: Name of manufacturer
+    required: true
     description: Please enter the name of the manufacturer
     options:
       - Agilent
@@ -81,10 +88,12 @@ manufacturer:
 
 model:
     label: Model
+    required: true
     description: Please give the manufacturer model name.
 
 location:
     label: Location
+    required: true
     description: >
       If the geometry and/or detector varies for the same manufacturer and model,
       please provide the location of the instrument, for example, "University of
@@ -122,6 +131,7 @@ location:
 
 principal_angle:
     label: Principal axis orientation
+    required: true
     description: >
       With all angles at zero, and looking along the beam towards the detector,
       imagine an arrow drawn from the sample to the centre of the goniometer base.
@@ -131,6 +141,7 @@ principal_angle:
 
 goniometer_axes:
     label: Goniometer axes
+    required: true
     description: >
       For each axis attached to the goniometer, give the axis name (as used in
       data files if known) and sense of rotation (a=anticlockwise, c=clockwise)
@@ -141,11 +152,13 @@ goniometer_axes:
 
 rotation_axis:
     label: Rotation axis name
+    required: false
     description: "Of the axes listed in the goniometer axes previously question,
     which one is the rotation axis used for data collection?"
 
 goniometer_rot_direction:
     label: Goniometer rotation direction
+    required: true
     description: >
       Please enter the rotation direction of the goniometer.
     options:
@@ -155,6 +168,7 @@ goniometer_rot_direction:
 
 kappa_axis:
     label: kappa
+    required: false
     description: >
       If your goniometer has a kappa axis, please give its name and its;
       angle here, for example "kappa 50". When looking from above, with the
@@ -173,6 +187,7 @@ kappa_axis:
 
 chi_axis:
     label: chi
+    required: false
     description: >
       If your goniometer has a chi axis, please give its name here, followed
       by an omega angle at which the chi rotation axis is parallel to the
@@ -197,6 +212,7 @@ chi_axis:
 
 image_orientation:
     label: Image orientation
+    required: true
     description: >
       The first pixel of the raw image is located at what position on the detector
       when viewing the detector from the crystal position?
@@ -210,6 +226,7 @@ image_orientation:
 
 fast_direction:
     label: Fast direction
+    required: true
     description: >
       The second pixel of the raw image is located in what direction relative
       to the first pixel?
@@ -220,6 +237,7 @@ fast_direction:
 
 pixel_size:
     label: Pixel size
+    required: true
     description: >
         The size of pixels in mm in order horizontal, vertical (eg '0.12, 0.15').
         If identical sizes, a single number is sufficient. Pixels are assumed to
@@ -228,6 +246,7 @@ pixel_size:
 
 array_dimension:
     label: Array dimensions
+    required: true
     description: >
         The number of pixels in the fast and slow directions (eg '195, 487').
         This can usually be found by opening an output frame in a text editor
@@ -236,6 +255,7 @@ array_dimension:
 
 two_theta_sense:
     label: Two theta sense
+    required: false
     description: >
       When looking from above, what is the sense of rotation of the two theta axis?
       (defaults to the same as the principal axis)
@@ -247,11 +267,13 @@ two_theta_sense:
 
 detector_axes:
     label: Detector Axes Names
+    required: true
     description: >
       Please give the names of the detector axes e.g. detx, dety.
 
 detector_repositioning:
     label: Detector axes
+    required: false
     description: >
       If the detector is repositioned during data collection (excluding distance
       from the sample), please name the repositioning axes as they appear in
@@ -267,20 +289,39 @@ detector_repositioning:
 #       file here.
 doi:
     label: Data DOI
+    required: false
     description: >
-      If available, please give the DOI of a raw data set obtained using this
-      configuration that includes images separated by at least 90 degrees of phi
-      rotation. Consider uploading a representative data set to Zenodo if
-      automated public access is not otherwise available for your instrument.
-      These will be used in future for automated checking of the configuration.
+      Please provide a DOI for this raw data set.
+
+# obtained using this
+# configuration that includes images separated by at least 90 degrees of phi
+# rotation. Consider uploading a representative data set to Zenodo if
+# automated public access is not otherwise available for your instrument.
+# These will be used in future for automated checking of the configuration.
 
 comments:
     label: Comments
+    required: false
     description: >
       Please provide any additional comments.
 
 frame_numbers:
     label: Number of Frames per File
+    required: true
     description: >
       Please give a list of N(frames) per file separated by a comma e.g. 100, 100,
       100 for three files. The order must reflect the above file ordering.'
+
+external_url:
+    label: External url
+    required: true
+    description: >
+      Please enter the URL where the files can be found (e.g. a zenodo URL). If
+      you can not provide an external URL you can use the local file location by
+      entering 'force local' (discouraged).
+
+temperature:
+    label: Ambient temperature
+    required: true
+    description: >
+      Please provide the ambient temperature during the experiment (Celsius).

@@ -62,11 +62,11 @@ class CommandLineParser():
             # 'xds.inp': None, # no effect
             'doi': None, # no effect?
             'comments': None, # no effect?
-            'filename' : r'.*((\.h5)\Z|(\.cbf)\Z|(\.smv)\Z)',
+            'filename': r'.*((\.h5)\Z|(\.cbf)\Z|(\.smv)\Z)',
             'goniometer_rot_direction' : self._create_options_regex('goniometer_rot_direction'), # no effect
-            'frame_numbers' : r'^\d+(,\s*\d+)*$',
-            'external_url' : None,
-
+            'frame_numbers': r'^\d+(,\s*\d+)*$',
+            'external_url': None,
+            'temperature': r'\d+\Z',
         }
 
 
