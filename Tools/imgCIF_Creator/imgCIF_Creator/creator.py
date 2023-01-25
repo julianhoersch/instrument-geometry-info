@@ -158,7 +158,7 @@ def command_line_interface(filename, filetype, external_url, prepend_dir, stem,
     cif_file = CifFile.CifFile()
     cif_block = CifFile.CifBlock()
     name = parser.CommandLineParser().request_input('name')
-    name = name if name != '' else 'myimgcif'
+    name = name if name != '' else filename.strip('.h5')
     cif_file[name] = cif_block
 
     creator = imgCIF_creator.imgCIFCreator(filename, filetype, stem)
