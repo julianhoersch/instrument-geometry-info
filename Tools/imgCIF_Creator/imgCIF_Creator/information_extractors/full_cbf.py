@@ -1,6 +1,9 @@
-import CifFile
-from contextlib import contextmanager, redirect_stderr, redirect_stdout
+"""Functionalities to extract information from full cbf headers.
+"""
+
 from os import devnull
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
+import CifFile
 
 @contextmanager
 def suppress_stdout_stderr():
@@ -11,7 +14,7 @@ def suppress_stdout_stderr():
             yield (err, out)
 
 
-class text_container:
+class TextContainer:
     """See documentation of the init method.
     """
 
@@ -55,7 +58,7 @@ def extract_full_cbf_header_information(filename):
         text = file_content[:header_end_index].decode('utf-8')
         text = text.split("--CIF-BINARY-FORMAT-SECTION--")[0]
 
-    container = text_container(text)
+    container = TextContainer(text)
     could_read = False
     while not could_read:
         try:

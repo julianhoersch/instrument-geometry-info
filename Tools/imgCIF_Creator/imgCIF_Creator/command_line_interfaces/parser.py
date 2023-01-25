@@ -1,8 +1,12 @@
+"""This module allows to interact with the user via the command line and processes
+the input information.
+"""
+
 import os
-import yaml
 import re
-import numpy as np
 from inspect import getsourcefile
+import numpy as np
+import yaml
 
 
 class CommandLineParser():
@@ -22,8 +26,8 @@ class CommandLineParser():
         with open(f"{self._resources_path}user_input.yaml", 'r') as stream:
             try:
                 self.input_options = yaml.safe_load(stream)
-            except yaml.YAMLError as e:
-                print(e)
+            except yaml.YAMLError as error:
+                print(error)
 
         # TODO sometimes e.g. for chi a trailing space is enough to fail the regex
         self.validation_regex = {
@@ -40,7 +44,7 @@ class CommandLineParser():
             # in unrealistic values, no effect?
             # 'Finish date': r'\d{4}-\d{2}-\d{2}\Z', # no effect?
             'principal_angle': r'\d{1,3}\Z',
-            'goniometer_axes': r'(?:.+,\s*(a|c))+\Z', # matches n patterns xxxxx, a|c
+            # 'goniometer_axes': r'(?:.+,\s*(a|c))+\Z', # matches n patterns xxxxx, a|c
             'goniometer_axes' : r'((?:[^,]*,\s*(a|c),\s*)*[^,]*,\s*(a|c))\Z',
             'rotation_axis': None, # no effect?
             # "two_theta_sense" : r'(a|c|anticlockwise|clockwise)\Z', # no effect?
@@ -60,10 +64,10 @@ class CommandLineParser():
             'array_dimension': r'(\d+(,\s*)\d+\Z)',
             # a comma or a whitespace
             # 'xds.inp': None, # no effect
-            'doi': None, # no effect?
             'comments': None, # no effect?
             'filename': r'.*((\.h5)\Z|(\.cbf)\Z|(\.smv)\Z)',
-            'goniometer_rot_direction' : self._create_options_regex('goniometer_rot_direction'), # no effect
+            'goniometer_rot_direction' : \
+                self._create_options_regex('goniometer_rot_direction'), # no effect
             'frame_numbers': r'^\d+(,\s*\d+)*$',
             'external_url': None,
             'temperature': r'\d+\Z',
@@ -97,9 +101,6 @@ class CommandLineParser():
         return self.parsed[label]
 
 
-
-
-
     def parse_axis_string(self, axis_string):
         """Parse a string of form axis, sense, axis, sense...
 
@@ -114,16 +115,16 @@ class CommandLineParser():
             senses (list): a list containing the axis senses
         """
 
-        s = [sub.strip() for sub in axis_string.split(',')]
-        if len(s) % 2 != 0:
+        ax_str = [sub.strip() for sub in axis_string.split(',')]
+        if len(ax_str) % 2 != 0:
             raise Exception("Axis string is incorrect: %axis_string")
 
         axes = []
         senses = []
-        for i in range(0, len(s), 2): #1:2:length(s)
-            axes.append(s[i])
-            a = s[i+1].lower()
-            senses.append(a)
+        for i in range(0, len(ax_str), 2): #1:2:length(ax_str)
+            axes.append(ax_str[i])
+            sense = ax_str[i+1].lower()
+            senses.append(sense)
 
         return axes, senses
 
@@ -246,9 +247,9 @@ class CommandLineParser():
 
         # Adjust two theta direction
         if two_theta_sense in ['anticlockwise', 'a']:
-            rotsense = 1 if 'a' == principal_sense else -1
+            rotsense = 1 if principal_sense == 'a' else -1
         elif two_theta_sense in ['clockwise', 'c']:
-            rotsense = 1 if 'c' == principal_sense else -1
+            rotsense = 1 if principal_sense == 'c' else -1
         else:
             rotsense = 1
         # rotsense = 1 if two_theta_sense == principal_sense else -1
@@ -281,8 +282,8 @@ class CommandLineParser():
 
         # TODO Beam centre is unknown for now
         # TODO z offset negative?
-        offset = [[0, 0, 0],[0, 0, 0], [0, 0, 0], [0, 0, -z_offset], [x_c, y_c, 0],
-            [0, 0, 0]]
+        offset = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, -z_offset], [x_c, y_c, 0],
+                  [0, 0, 0]]
         # offset = [[0, 0, 0], [0, 0, 0], ['?', '?', 0], [0, 0, 0]]
 
         axes_dict = {
@@ -427,7 +428,8 @@ please try again.')
         return gravity
 
 
-    def _determine_detx_dety(self, principal_angle, principal_sense, corner, beam_x, beam_y):
+    def _determine_detx_dety(self, principal_angle, principal_sense, corner,
+                             beam_x, beam_y):
         """Determine direction of detx (horizontal) and dety (vertical) in
         imgCIF coordinates.
 
@@ -508,7 +510,7 @@ please try again.')
         Returns:
             regexp: regular expression formed by the options for the input label
         """
-        options =  self.input_options[label].get('options')
+        options = self.input_options[label].get('options')
         if options is not None:
             options_regex = r'|'.join(options)
             if self.input_options[label].get('abbreviate'):
@@ -537,8 +539,8 @@ please try again.')
             tuple: the x and y beam centre in mm
         """
 
-        nx, ny = array_dimension
-        # nx, ny = parse.(Int64,split(raw_info["Number of pixels"],","))
+        dim_x, dim_y = array_dimension
+        # dim_x, dim_y = parse.(Int64,split(raw_info["Number of pixels"],","))
         pix_x, pix_y = pixel_size
 
-        return float(pix_x) * float(nx)/2, float(pix_y) * float(ny)/2
+        return float(pix_x) * float(dim_x)/2, float(pix_y) * float(dim_y)/2
