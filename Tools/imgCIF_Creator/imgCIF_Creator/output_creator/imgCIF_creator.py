@@ -1,6 +1,7 @@
 import re
 import importlib
 import numpy as np
+import os
 from imgCIF_Creator.command_line_interfaces import parser
 
 # Configuration information
@@ -56,8 +57,8 @@ class imgCIFCreator:
         source_info = self.extractor.get_source_info()
         source_info = self.check_source_completeness(source_info)
 
-        uncat_info = self.extractor.get_uncategorized_info()
-        uncat_info = self.check_uncategorized_completeness(uncat_info)
+        misc_info = self.extractor.get_misc_info()
+        misc_info = self.check_misc_completeness(misc_info)
 
         # self.generate _diffrn_wavelength block
         radiation_info = self.extractor.get_radiation_info()
@@ -88,7 +89,7 @@ class imgCIFCreator:
         # now generate the cif block
         # _diffrn_source block
         self.generators.generate_source(cif_block, source_info)
-        self.generators.generate_uncategorized(cif_block, uncat_info)
+        self.generators.generate_misc(cif_block, misc_info)
         # self.generate _diffrn_wavelength block
         self.generators.generate_radiation(cif_block, radiation_info)
         # describe _axis block
@@ -113,21 +114,24 @@ class imgCIFCreator:
             scan_list, archive, prepend_dir, filetype)
 
 
-    def check_uncategorized_completeness(self, uncat_info):
-        """Check if the uncategorized information is complete and request input
+    def check_misc_completeness(self, misc_info):
+        """Check if the misc information is complete and request input
         if not.
 
         Args:
-            uncat_info (dict): Some uncategorized information that is needed.
+            misc_info (dict): Some misc information that is needed.
 
         Returns:
             dict: the information completed
         """
 
-        # if self.param_is_none(uncat_info['doi']):
-        #     uncat_info['doi'] = self.cmd_parser.request_input('doi')
+        if self.param_is_none(misc_info['doi']):
+            misc_info['doi'] = self.cmd_parser.request_input('doi')
 
-        return self.lists_to_values(uncat_info)
+        if self.param_is_none(misc_info['temperature']):
+            misc_info['temperature'] = self.cmd_parser.request_input('temperature')
+
+        return self.lists_to_values(misc_info)
 
 
     def check_source_completeness(self, source_info):
@@ -464,17 +468,18 @@ one detector, or detectors are non-rectangular, please describe in the comments 
         if external_url == '':
             external_url = self.cmd_parser.request_input('external_url')
 
-        elif external_url == 'force local':
-            filename = filename[1:] if filename.startswith('/') else filename
-            external_url = "file://" + filename
+        if external_url == 'force local':
+            filename = filename[1:] if filename.startswith(os.sep) else filename
+            external_url = f"file:{os.sep}{os.sep}" + filename
 
-        archives = {"TGZ" : r".*((\.tgz\Z)|(\.tar\.gz\Z|))",
-                    "TBZ" : r".*((\.tbz\Z)|(\.tar\.bz2\Z|))",
-                    "ZIP" : r".*(\.zip\Z)"}
+        archives = {"TGZ" : r"(\.tgz)|(\.tar.gz)\Z",
+                    "TBZ" : r"(\.tbz)|(\.tar\.bz2)\Z",
+                    "ZIP" : r"(\.zip)\Z"}
 
-        for archive, regex in archives.items():
-            if re.match(regex, external_url):
-                return archive, external_url
+        for archive_type, regex in archives.items():
+            searched = re.search(regex, external_url)
+            if bool(searched) and searched.group(0) != '':
+                return archive_type, external_url
 
         return archive, external_url
 
@@ -490,18 +495,21 @@ class imgCIFEntryGenerators():
         """
         pass
 
-    def generate_uncategorized(self, cif_block, uncat_info):
-        """Generate the cif_block entries for the uncategorized information.
+    def generate_misc(self, cif_block, misc_info):
+        """Generate the cif_block entries for the misc information.
 
         Args:
             cif_block (CifFile.CifFile_module.CifBlock): the cif block into which
                 the information should be written.
-            uncat_info (dict): the uncategorized information
+            misc_info (dict): the misc information
         """
 
-        # cif_block['_database.dataset_doi'] = uncat_info['doi']
-        if not uncat_info.get('overload') is None:
-            cif_block['_array_intensities.overload'] = uncat_info['overload']
+        if misc_info.get('doi') is not None:
+            cif_block['_database.dataset_doi'] = misc_info['doi']
+
+        cif_block['_diffrn.ambient_temperature'] = misc_info['temperature']
+        if misc_info.get('overload') is not None:
+            cif_block['_array_intensities.overload'] = misc_info['overload']
 
 
     def generate_radiation(self, cif_block, radiation_info):
@@ -698,12 +706,17 @@ class imgCIFEntryGenerators():
             for frame in range(1, frames + 1):
                 # print('allfr, scan, fram', all_frames[(scan, frame)])
                 counter += 1
-                frame_name = f"/{all_frames[(scan, frame)]['filename']}"
+                frame_name = f"{all_frames[(scan, frame)]['filename']}"
 
                 entries[base + ".id"].append(f"ext{counter}")
                 file_format = 'HDF5' if file_format == 'h5' else file_format
                 entries[base + ".format"].append(file_format.upper())
-                entries[base + ".uri"].append(external_url) #TODO zenodo uri here?
+                if external_url.startswith("file:"):
+                    separator = '' if external_url.endswith(os.sep) else os.sep
+                    local_url = external_url + separator + frame_name
+                    entries[base + ".uri"].append(local_url)
+                else:
+                    entries[base + ".uri"].append(external_url)
 
                 # TODO path and frame only for hdf5? repsectively containerized images?
                 if file_format == 'h5' or file_format == 'HDF5':
@@ -711,9 +724,12 @@ class imgCIFEntryGenerators():
                     entries[base + ".frame"].append(all_frames[(scan, frame)]['frame'])
 
                 # A too-clever-by-half way of optionally live constructing a URL
+                # TODO what is the archive path actually
                 if arch is not None:
                     entries[base + ".archive_format"].append(arch)
-                    entries[base + ".archive_path"].append(prepend_dir + frame_name)
+                    separator = '' if external_url.endswith(os.sep) else os.sep
+                    entries[base + ".archive_path"].append(
+                        prepend_dir + separator + frame_name)
 
         for name, value in entries.items():
             # print('name', name, 'value', value)

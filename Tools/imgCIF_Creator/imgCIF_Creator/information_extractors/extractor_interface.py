@@ -26,8 +26,8 @@ class ExtractorInterface(metaclass=abc.ABCMeta):
                 callable(subclass.get_scan_setting_info) and
                 hasattr(subclass, 'get_scan_settings_info') and
                 callable(subclass.get_scan_settings_info) and
-                hasattr(subclass, 'get_uncategorized_info') and
-                callable(subclass.get_uncategorized_info) and
+                hasattr(subclass, 'get_misc_info') and
+                callable(subclass.get_misc_info) and
                 hasattr(subclass, 'get_array_info') and
                 callable(subclass.get_array_info) or
                 NotImplemented)
@@ -132,7 +132,7 @@ class ExtractorInterface(metaclass=abc.ABCMeta):
 
 
     @abc.abstractmethod
-    def get_uncategorized_info():
+    def get_misc_info():
         """Return the information that was found about the doi and the array
         intensities overload.
 
