@@ -17,7 +17,7 @@ source it with
 `source my_environment_name/bin/activate`.
 
 and install it into the environment by navigating your terminal to the package
-directory with the `setup.py` file. There type:
+directory with the `setup.cfg` file. There type:
 
 `pip install .`
 
@@ -27,15 +27,15 @@ This will install the imgCIF_Creator in `my_environment_name`.
 
 If the virtual environment is sourced the imgCIF_Creator can be used by typing:
 
-`creator.py path/to/a/file/or/directory/you/want/to/convert`
+`creator path/to/a/file/or/directory/you/want/to/convert`
 
 You always need to provide the path to the directory containing the scan files, or
 in case it is an hdf5 file, to the master file.
 
 You can provide more optional arguments to the call, for example to provide the
-constant portion of the file name (`creator.py path --stem my/stem`) if the
+constant portion of the file name (`creator path/to/file --stem my/stem`) if the
 programm can not deduce the scan/frame naming convention of the files. All options
-are found by typing `creator.py --help`.
+are found by typing `creator --help`.
 
 The programm will guide you through the process of information collection and if
 information is missing in the provided file/directory or if it could not be automatically
@@ -50,12 +50,12 @@ the format.
 
 The programm is still in development and might produce faulty output, or crash.
 
-The general structure of the package is build around the `imgCIF_creator.py` module
+The general structure of the package is build around the `imgcif_creator.py` module
 which contains classes to obtain the required information and generate the imgCIF
 file out of that. Depending on the filetype different information extractors
 from the `information_extractors` directory are choosen. These must implement the
-`extractor_interface.py` and provide the output expected by the `imgCIF_creator.py`.
-The `imgCIF_creator.py` checks if the required information is present and will request
+`extractor_interface.py` and provide the output expected by the `imgcif_creator.py`.
+The `imgcif_creator.py` checks if the required information is present and will request
 an user input if that is not the case.
 
 To generate the imgCIF the PyCIFRW package (https://github.com/jamesrhester/pycifrw)
