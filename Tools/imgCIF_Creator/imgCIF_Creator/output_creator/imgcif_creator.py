@@ -1,7 +1,9 @@
+"""Functionality to create the actual imgCIF file with the collected information.
+"""
+
 import re
-import importlib
-import numpy as np
 import os
+import importlib
 from imgCIF_Creator.command_line_interfaces import parser
 
 # Configuration information
@@ -12,7 +14,7 @@ TRANS_AXES = ("detector_distance", "dx", "trans", "distance")
 ALWAYS_AXES = ("distance", "two_theta", "detector_2theta")
 
 
-class imgCIFCreator:
+class ImgCIFCreator:
     """See documentation of the __init__ method.
     """
 
@@ -32,14 +34,14 @@ class imgCIFCreator:
                 'imgCIF_Creator.information_extractors.cbf_smv')
         elif filetype == 'h5':
             extractor_module = importlib.import_module(
-                'imgCIF_Creator.information_extractors.hdf5_NxMx')
+                'imgCIF_Creator.information_extractors.hdf5_nxmx')
 
-        self.extractor = extractor_module.extractor(filename, stem)
+        self.extractor = extractor_module.Extractor(filename, stem)
         self.cmd_parser = parser.CommandLineParser()
-        self.generators = imgCIFEntryGenerators()
+        self.generators = ImgCIFEntryGenerators()
 
 
-    def create_imgCIF(self, cif_block, external_url, prepend_dir, filename, filetype):
+    def create_imgcif(self, cif_block, external_url, prepend_dir, filename, filetype):
         """Add the required information to a cif_block and request the missing
         information from the user.
 
@@ -75,8 +77,8 @@ class imgCIFCreator:
 
         # describe _axis block
         axes_info = self.extractor.get_axes_info()
-        axes_info = self.check_axes_completeness(axes_info, array_info,
-            scan_setting_info)
+        axes_info = self.check_axes_completeness(
+            axes_info, array_info, scan_setting_info)
 
         # describe _diffrn_detector and _diffrn_detector_axis
         # this correlates with the detector axes in generate axes!
@@ -200,7 +202,7 @@ class imgCIFCreator:
         hast_same_len = all([length == lengths[0] for length in lengths])
 
         missing_information = False
-        for prop, value in axes_info.items():
+        for value in axes_info.values():
 
             if self.param_is_none(value):
                 missing_information = True
@@ -239,7 +241,7 @@ one detector, or detectors are non-rectangular, please describe in the comments 
                 goniometer_axes, principal_angle, image_orientation, two_theta_sense,
                 array_info, scan_settings_info)
 
-            for key in  gon_axes.keys():
+            for key in gon_axes:
                 gon_axes[key] += det_axes[key]
 
             # print('gohomoni', gon_axes)
@@ -271,7 +273,7 @@ one detector, or detectors are non-rectangular, please describe in the comments 
                 array_info['pixel_size'] = self.cmd_parser.request_input('pixel_size')
 
         array_structure_list_labels = ['array_id', 'array_index', 'array_dimension',
-            'array_direction', 'array_precedence']
+                                       'array_direction', 'array_precedence']
         if any([self.param_is_none(array_info[label]) for label in array_structure_list_labels]):
 
             array_info["array_id"] = [1, 1]
@@ -316,7 +318,7 @@ one detector, or detectors are non-rectangular, please describe in the comments 
         if any([self.param_is_none(detector_info[label]) for label in detector_axes_labels]):
             det_axes = self.cmd_parser.request_input('detector_axes').split(',')
             det_axes = [axis.strip() for axis in det_axes]
-            det_axes = [axis for axis in det_axes if axis!='']
+            det_axes = [axis for axis in det_axes if axis != '']
 
             # TODO testing len is always correct
             detector_info["number_of_axes"] = [len(det_axes)]
@@ -413,22 +415,21 @@ one detector, or detectors are non-rectangular, please describe in the comments 
 
         if param is None:
             return True
-        elif type(param) == str:
+        if isinstance(param, str):
             return param.lower() == 'none'
-        elif type(param) == list:
+        if isinstance(param, list):
             is_none = []
             for entry in param:
                 if entry is None:
                     is_none.append(True)
-                elif type(entry) == str:
+                elif isinstance(entry, str):
                     is_none.append(entry.lower() == 'none')
                 else:
                     is_none.append(False)
 
             return any(is_none)
 
-        else:
-            return False
+        return False
 
 
     def lists_to_values(self, param_dict):
@@ -443,7 +444,7 @@ one detector, or detectors are non-rectangular, please describe in the comments 
         """
 
         for key, value in param_dict.items():
-            if (type(value) == list) and (len(value) == 1):
+            if isinstance(value, list) and (len(value) == 1):
                 param_dict[key] = value[0]
                 # print('set', value, 'to', param_dict[key])
 
@@ -484,7 +485,7 @@ one detector, or detectors are non-rectangular, please describe in the comments 
         return archive, external_url
 
 
-class imgCIFEntryGenerators():
+class ImgCIFEntryGenerators():
 
     """See the documentation of the __init__ method
     """
@@ -493,7 +494,6 @@ class imgCIFEntryGenerators():
         """This class provides methods to generate the entries in the imgCIF with
         the extracted information.
         """
-        pass
 
     def generate_misc(self, cif_block, misc_info):
         """Generate the cif_block entries for the misc information.
@@ -558,13 +558,13 @@ class imgCIFEntryGenerators():
             # print("keylen", len(axes.keys()))
             #TODO do this for all axes or only the one that changes? >> all
             for axis, val in axes.items():
-                step, range = 0, 0
+                step, scan_range = 0, 0
                 if axis == dets["axis"]:
                     step = dets["incr"]
-                    range = dets["range"]
+                    scan_range = dets["range"]
                     val = dets["start"]
 
-                settings = [val, step, range]
+                settings = [val, step, scan_range]
                 empty_settings = ['.', '.', '.']
 
                 if axis in TRANS_AXES:
@@ -719,7 +719,7 @@ class imgCIFEntryGenerators():
                     entries[base + ".uri"].append(external_url)
 
                 # TODO path and frame only for hdf5? repsectively containerized images?
-                if file_format == 'h5' or file_format == 'HDF5':
+                if file_format in ('h5', 'HDF5'):
                     entries[base + ".path"].append(all_frames[(scan, frame)]['path'])
                     entries[base + ".frame"].append(all_frames[(scan, frame)]['frame'])
 
@@ -839,7 +839,7 @@ class imgCIFEntryGenerators():
         cif_block[base + "array_id"] = array_info['array_id']
         cif_block[base + "index"] = array_info['array_index']
         cif_block[base + "axis_set_id"] = array_info['axis_set_id']
-        cif_block[base + "dimension"] = array_info['array_dimension']# ['none', 'none']   #number of elements in each direction
+        cif_block[base + "dimension"] = array_info['array_dimension']
         cif_block[base + "direction"] = array_info['array_direction']
         cif_block[base + "precedece"] = array_info['array_precedence']
 
@@ -933,9 +933,9 @@ class imgCIFEntryGenerators():
         self.split_vectors(axes_info['vector'], base + "vector", cif_block)
         self.split_vectors(axes_info['offset'], base + "offset", cif_block)
         cif_block.CreateLoop([base + "id", base + "type", base + "equipment",
-                            base + "depends_on",
-                            base + "vector[1]", base + "vector[2]", base + "vector[3]",
-                            base + "offset[1]", base + "offset[2]", base + "offset[3]"])
+                              base + "depends_on",
+                              base + "vector[1]", base + "vector[2]", base + "vector[3]",
+                              base + "offset[1]", base + "offset[2]", base + "offset[3]"])
 
 
     def split_vectors(self, vectors, basename, cif_block):
@@ -955,33 +955,31 @@ class imgCIFEntryGenerators():
         #         vectors[idx_1][idx_2] = float(element)
 
         # TODO is the index correct? julia indexes different than python
-        def mapping_func(x):
+        def mapping_func(vector):
             # i is local from the scope of the loop
             try:
                 # the vector indices in cif start at 1
-                x[i - 1] = float(x[i - 1])
+                vector[i - 1] = float(vector[i - 1])
                 # display numbers without trailing zero? 1.0 -> 1
-                if round(x[i - 1]) == x[i - 1]:
-                    return f"{round(x[i - 1]):.0f}"
+                if round(vector[i - 1]) == vector[i - 1]:
+                    return f"{round(vector[i - 1]):.0f}"
+                # don't format if it has less than 5 decimal places
+                if len(str(vector[i - 1]).split('.')[1]) < 5:
+                    formatted = str(vector[i - 1])
                 else:
-                    # don't format if it has less than 5 decimal places
-                    if len(str(x[i - 1]).split('.')[1]) < 5:
-                        formatted = str(x[i - 1])
-                    else:
-                        formatted = f"{x[i - 1]:1.5f}"
-                    # it can be that some values are by computaional effects
-                    # are very close to zero e.g. -1.2246467991473532e-16 -> map to 0
-                    if float(formatted) == 0:
-                        formatted = "0"
+                    formatted = f"{vector[i - 1]:1.5f}"
+                # it can be that some values are by computaional effects
+                # are very close to zero e.g. -1.2246467991473532e-16 -> map to 0
+                if float(formatted) == 0:
+                    formatted = "0"
 
-                    return formatted # x[i] @sprintf "%1.5f" x[i]
+                return formatted # vector[i] @sprintf "%1.5f" vector[i]
             except ValueError:
-                # print('exepted', x[i-1])
-                return x[i - 1]
+                # print('exepted', vector[i-1])
+                return vector[i - 1]
 
         for i in range(1, 4):
             # print('vcodor', vectors)
             # mppd = map(mapping_func, vectors)
             # print('mppd', i, list(mppd))
             cif_block[basename + f"[{i}]"] = map(mapping_func, vectors)
-

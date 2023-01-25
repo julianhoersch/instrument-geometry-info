@@ -1,9 +1,12 @@
+"""The main stript to call the imgCIF creator.
+"""
+
 import sys
-import click
 import os
 import re
+import click
 import CifFile
-from imgCIF_Creator.output_creator import imgCIF_creator
+from imgCIF_Creator.output_creator import imgcif_creator
 from imgCIF_Creator.command_line_interfaces import parser
 
 
@@ -19,7 +22,7 @@ def validate_filename(filename):
         for _, _, files in os.walk(filename + os.sep):
             pattern = re.compile(r'.*((?P<cbf>\.cbf)\Z|(?P<smv>\.smv)\Z)')
             matches = [bool(pattern.match(file)) for file in files]
-            occurences = len([match for match in matches if match == True])
+            occurences = len([match for match in matches if match])
             if occurences > 0:
                 print('Found a folder with .cbf or .smv files.')
                 filetype = 'cbf'
@@ -59,7 +62,7 @@ def validate_filename(filename):
     default=False,
     type=bool,
     is_flag=True,
-    help="Start the imgCIF_creator with a graphical user interface.",
+    help="Start the imgcif_creator with a graphical user interface.",
 )
 
 @click.option(
@@ -126,7 +129,7 @@ of miniCBF
     # stem = '010_Ni_dppe_Cl_2_150K'
     # stem = r".*?_"
 
-    print('\n--------------------------- imgCIF Creator ---------------------------\n' )
+    print('\n--------------------------- imgCIF Creator ---------------------------\n')
     print("""This is an interactive command line interface to collect the necessary
 information to create an imgCIF file out of HDF5, full CBF and some common subset
 of miniCBF.
@@ -152,17 +155,29 @@ if you provide an input it will be checked against the required format.
 
 
 def command_line_interface(filename, filetype, external_url, prepend_dir, stem,
-        output_file):
+                           output_file):
+    """Launch the command line interface to interactively create the imgCIF.
 
+    Args:
+        filename (str): the filename or directory name where the data is located
+        filetype (str): the filetype of the files, either cbf or h5
+        external_url (str): the external file url provided by the user
+        prepend_dir (str): the directory that should be prepended (directory name
+            as part of the archive path name)
+        stem (str): Constant portion of frame file name. This can help determine the \
+            scan/frame file naming convention
+        output_file (str): output file to write to
+    """
 
     cif_file = CifFile.CifFile()
     cif_block = CifFile.CifBlock()
     name = parser.CommandLineParser().request_input('name')
-    name = name if name != '' else filename.strip('.h5')
+    if name == '':
+        name = filename.split(os.sep)[-1].strip('.h5')
     cif_file[name] = cif_block
 
-    creator = imgCIF_creator.imgCIFCreator(filename, filetype, stem)
-    creator.create_imgCIF(
+    creator = imgcif_creator.ImgCIFCreator(filename, filetype, stem)
+    creator.create_imgcif(
         cif_block, external_url, prepend_dir, filename, filetype)
 
     if output_file == '':

@@ -1,13 +1,17 @@
+"""This module defines an extractor class that allows to extract information
+from an cbf or smv file with an mini header.
+"""
+
 import os
 import re
 import sys
 import numpy as np
-from imgCIF_Creator.output_creator import imgCIF_creator
+from imgCIF_Creator.output_creator import imgcif_creator
 from . import extractor_interface
 from . import full_cbf
 
 
-class extractor(extractor_interface.ExtractorInterface):
+class Extractor(extractor_interface.ExtractorInterface):
     """See also documentation of the init method.
 
     Args:
@@ -96,13 +100,13 @@ class extractor(extractor_interface.ExtractorInterface):
 
         #TODO for smv?
         if overload is None:
-            overload, _ = self._get_CBF_header_values(
+            overload, _ = self._get_cbf_header_values(
                 self.first_mini_header, 'count_cutoff', with_unit=False)
             if overload is not None:
                 overload = int(overload)
 
         if temperature is None:
-            temperature, unit = self._get_CBF_header_values(
+            temperature, unit = self._get_cbf_header_values(
                 self.first_mini_header, 'temperature', with_unit=True)
             if unit is not None and 'k' in unit.lower():
                 temperature -= 273.15
@@ -129,16 +133,13 @@ class extractor(extractor_interface.ExtractorInterface):
         # print(self._scan_info_full_header[self._first_scan][self._data_name].keys())
         block_ids = ['_diffrn_source.diffrn_id', '_diffrn.id']
         for b_id in block_ids:
-            block_id = self._full_header_dict.get(b_id)
-            if type(block_id) == list:
-                block_id = block_id[0]
+            block_id = self._lists_to_values(self._full_header_dict.get(b_id))
             if block_id is not None:
                 beamline = block_id.split('_')[-1]
 
         # check beamline is the same?
-        source_string = self._full_header_dict.get('_diffrn_source.type')
-        if type(source_string) == list:
-                source_string = source_string[0]
+        source_string = self._lists_to_values(
+            self._full_header_dict.get('_diffrn_source.type'))
         if source_string is not None:
             if 'beamline' in source_string:
                 splitter = 'beamline'
@@ -158,16 +159,14 @@ class extractor(extractor_interface.ExtractorInterface):
         model = None
         location = None
 
-        make_string = self._full_header_dict.get('_diffrn_source.make')
-        if type(make_string) == list:
-                make_string = make_string[0]
+        make_string = self._lists_to_values(
+            self._full_header_dict.get('_diffrn_source.make'))
         if make_string is not None:
             manufacturer, model = make_string.split('-')
 
         # is this meant like general details?
-        location_string = self._full_header_dict.get('_diffrn_source.details')
-        if type(location_string) == list:
-            location_string = location_string[0]
+        location_string = self._lists_to_values(
+            self._full_header_dict.get('_diffrn_source.details'))
 
         if location_string is not None:
             location = location_string
@@ -303,8 +302,8 @@ class extractor(extractor_interface.ExtractorInterface):
            dict: a dictionary containing the information about the radiation
         """
 
-        # TODO not creating a list of wl id's here (yet)
-        # TODO could infer rad type from wl...
+        # TODO not creating a list of wavelength id's here (yet)
+        # TODO could infer rad type from wavelength...
         rad_type = \
             self._full_header_dict.get('_diffrn_radiation.type')
 
@@ -317,7 +316,7 @@ class extractor(extractor_interface.ExtractorInterface):
 
         # get from mini header
         # TODO can this differ from scan to scan? it better shouldnt...\
-        # assert that it is the same wl?
+        # assert that it is the same wavelength?
         if wavelength is None:
             wavelength = self._scan_info_mini_header[self._first_scan][1].get('wavelength')
 
@@ -385,7 +384,7 @@ class extractor(extractor_interface.ExtractorInterface):
                 all_frames[("01", int(matched["frame"]))] = {'filename' : name}
 
         # find the unique scans
-        unique_scans = set(map(lambda x : x[0], all_frames.keys()))
+        unique_scans = set(map(lambda x: x[0], all_frames.keys()))
         print(f"{len(unique_scans)} scan(s) found")
 
         return unique_scans, all_frames
@@ -433,7 +432,7 @@ class extractor(extractor_interface.ExtractorInterface):
         """
 
         scan_info = {}
-        axes = imgCIF_creator.ROT_AXES + imgCIF_creator.TRANS_AXES
+        axes = imgcif_creator.ROT_AXES + imgcif_creator.TRANS_AXES
         frame_type = self._determine_frame_type(
             os.path.join(frame_dir, all_frames[list(all_frames)[0]]['filename']))
 
@@ -442,7 +441,7 @@ class extractor(extractor_interface.ExtractorInterface):
 
         for scan in unique_scans:
 
-            scan_frame_map = list(filter(lambda x : x[0] == scan, all_frames.keys()))
+            scan_frame_map = list(filter(lambda x: x[0] == scan, all_frames.keys()))
             frames = [x[1] for x in scan_frame_map]
 
             # Get information for first frame
@@ -451,11 +450,12 @@ class extractor(extractor_interface.ExtractorInterface):
             file_name = os.path.join(frame_dir, all_frames[(scan, 1)]['filename'])
             mini_header = self._get_mini_header(file_name, frame_type)
             # print('mini head', mini_header)
-            start_axes_settings, scan_ax, scan_incr, exposure, wl,  = \
+            start_axes_settings, scan_ax, scan_incr, exposure, wavelength, = \
                 self._get_frame_info(mini_header, frame_type, axes)
             x_pixel_size, y_pixel_size, = self._get_pixel_sizes(mini_header)
             # print('pxsz', x_pixel_size, y_pixel_size)
-            # print("start_axes_settings ", start_axes_settings, "scanax ", scan_ax, "scaninc ", scan_incr, "exposure ", exposure, "wl ", wl)
+            # print("start_axes_settings ", start_axes_settings, "scanax ",
+            # scan_ax, "scaninc ", scan_incr, "exposure ", exposure, "wavelength ", wavelength)
             start = start_axes_settings[scan_ax]
 
             # Get information for last frame
@@ -478,7 +478,7 @@ class extractor(extractor_interface.ExtractorInterface):
                             "time" : exposure,
                             "start" : start,
                             "range" : scan_incr * len(frames),
-                            "wavelength" : wl,
+                            "wavelength" : wavelength,
                             "x_pixel_size" : x_pixel_size,
                             "y_pixel_size" : y_pixel_size,
                             "mini_header" : mini_header
@@ -515,12 +515,12 @@ class extractor(extractor_interface.ExtractorInterface):
 
         # filter out only .cbf and .img files
         all_names = list(filter(
-            lambda f_name : f_name.endswith(".cbf") or f_name.endswith(".img"),
+            lambda f_name: f_name.endswith(".cbf") or f_name.endswith(".img"),
             all_names))
         # print('all_names', all_names)
 
         # if given a file stem filter out only the files that start with the stem/file_pattern
-        all_names = list(filter(lambda f_name : file_pattern.match(f_name), all_names))
+        all_names = list(filter(lambda f_name: file_pattern.match(f_name), all_names))
         all_names.sort()
         # print('all names', all_names)
 
@@ -534,7 +534,7 @@ class extractor(extractor_interface.ExtractorInterface):
         if num_digits >= 5:
             scan_frame_regex = None
             # Allow first scan not to be scan 1
-            for scan in [str(i) for i in range(1,10)]:
+            for scan in [str(i) for i in range(1, 10)]:
                 regex = r"(?:" + stem + r")" +\
                     r"(?:(?P<scan>[0-9]*" + re.escape(scan) + \
                     r")(?P<sep>0|_)(?P<frame>[0-9]+1)(?P<ext>\.cbf|img))"
@@ -551,7 +551,8 @@ class extractor(extractor_interface.ExtractorInterface):
                     if match.group("sep") == "0":
                         frame_len += 1
 
-                    # scan_frame_regex = stem * Regex("(?<scan>[0-9]{$scan_len})_?(?<frame>[0-9]{$frame_len})")
+                    # scan_frame_regex = stem * \
+                    # Regex("(?<scan>[0-9]{$scan_len})_?(?<frame>[0-9]{$frame_len})")
                     scan_frame_regex = r"(?:" + stem + r")" +\
                         r"(?:(?P<scan>[0-9]{" + re.escape(str(scan_len)) + r"})" +\
                         r"_?(?P<frame>[0-9]{" + re.escape(str(frame_len)) + r"}))"
@@ -594,8 +595,10 @@ Try to provide the constant stem of the file name using the -s option.\n")
             # TODO ensure this! maybe its also 0x0c for the form feed character
             if b'\f' in header:
                 return 'SMV'
-            elif b'_array_data' in header:
+            if b'_array_data' in header:
                 return 'CBF'
+
+        return ''
 
 
     def _get_frame_info(self, mini_header, frame_type, axes):
@@ -611,9 +614,11 @@ Try to provide the constant stem of the file name using the -s option.\n")
         """
 
         if frame_type == "CBF":
-            return self._get_frame_info_CBF(mini_header, axes)
-        elif frame_type == "SMV":
-            return self._get_frame_info_SMV(mini_header)
+            return self._get_frame_info_cbf(mini_header, axes)
+        if frame_type == "SMV":
+            return self._get_frame_info_smv(mini_header)
+
+        return None
 
 
     def _get_mini_header(self, filename, frame_type):
@@ -630,12 +635,14 @@ Try to provide the constant stem of the file name using the -s option.\n")
         """
 
         if frame_type == "CBF":
-            return self._get_CBF_header(filename)
-        elif frame_type == "SMV":
-            return self._get_SMV_header(filename)
+            return self._get_cbf_header(filename)
+        if frame_type == "SMV":
+            return self._get_smv_header(filename)
+
+        return None
 
 
-    def _get_CBF_header(self, filename):
+    def _get_cbf_header(self, filename):
         """Return the lines of the mini header of a cbf file.
 
         Args:
@@ -653,7 +660,7 @@ Try to provide the constant stem of the file name using the -s option.\n")
                 if b'_array_data.header_contents' in line:
                     found_header = True
                 # consider that the mini header is enclosed within two lines of ;
-                elif (line == b';\n') or (line == b';\r\n') or (line == b';\r'):
+                elif line in (b';\n', b';\r\n', b';\r'):
                     within_mini_header = not within_mini_header
                 elif b"-BINARY-FORMAT-SECTION-" in line:
                     break
@@ -665,7 +672,7 @@ Try to provide the constant stem of the file name using the -s option.\n")
         return cbf_header
 
 
-    def _get_frame_info_CBF(self, cbf_header, axes):
+    def _get_frame_info_cbf(self, cbf_header, axes):
         """Return any values found for provided axes. All axes converted to lowercase.
         Return also the exposure time and the wavelength and determine the scan
         axis.
@@ -683,25 +690,25 @@ Try to provide the constant stem of the file name using the -s option.\n")
                 matched with the given axes
             scan_ax[1] (float): the scan axis increment
             exposure (float): the exposure time in seconds
-            wl (float): the wavelength in Angstrom
+            wavelength (float): the wavelength in Angstrom
         """
 
         ax_vals = \
-            list(map(lambda ax : (ax.lower(), self._get_CBF_header_values(cbf_header, ax)),
-                    axes))
-        ax_vals = list(filter( lambda x : x[1][0] != None, ax_vals))
+            list(map(lambda ax:
+                     (ax.lower(), self._get_cbf_header_values(cbf_header, ax)), axes))
+        ax_vals = list(filter(lambda x: x[1][0] is not None, ax_vals))
         ax_vals = [self._convert_units(ax_val, 'length') for ax_val in ax_vals]
         # print('ax vals', ax_vals)
 
-        ax_incr = list(map(lambda ax : (ax.lower(), self._get_CBF_header_values(
+        ax_incr = list(map(lambda ax: (ax.lower(), self._get_cbf_header_values(
             cbf_header, ax + "_increment")), axes))
-        ax_incr = list(filter( lambda x : x[1][0] != None, ax_incr))
+        ax_incr = list(filter(lambda x: x[1][0] is not None, ax_incr))
         ax_incr = [self._convert_units(incr, 'length') for incr in ax_incr]
         # print('axinc 2', ax_incr)
 
-        _, exposure = self._convert_units(('et', self._get_CBF_header_values(
+        _, exposure = self._convert_units(('et', self._get_cbf_header_values(
             cbf_header, "exposure_time")), 'time')
-        _, wl = self._convert_units(('wl', self._get_CBF_header_values(
+        _, wavelength = self._convert_units(('wavelength', self._get_cbf_header_values(
             cbf_header, "wavelength")), 'wavelength')
 
         # find the first element whose increment changes
@@ -709,12 +716,12 @@ Try to provide the constant stem of the file name using the -s option.\n")
         scan_ax = next(filter(lambda x: not np.isclose(x[1], 0, atol=1e-6), ax_incr), None)
         # print('scax', scan_ax)
 
-        matching_scan_ax = list(filter(lambda ax : scan_ax[0] in ax[0], ax_vals))
+        matching_scan_ax = list(filter(lambda ax: scan_ax[0] in ax[0], ax_vals))
         if matching_scan_ax == []:
             raise Exception(
                 f"Could not match the scan axis found ({scan_ax}) with an axis name.")
-        else:
-            matching_scan_ax = matching_scan_ax[0][0]
+
+        matching_scan_ax = matching_scan_ax[0][0]
 
         # print('mtchscax', matching_scan_ax)
         # Get rid of duplicate names
@@ -732,27 +739,27 @@ Try to provide the constant stem of the file name using the -s option.\n")
             if matching_scan_ax != "angle":   #we have an actual one
                 del ax_vals["angle"]
 
-        return ax_vals, matching_scan_ax, scan_ax[1], exposure, wl
+        return ax_vals, matching_scan_ax, scan_ax[1], exposure, wavelength
 
 
-    def _get_frame_info_SMV(self, filename):
+    def _get_frame_info_smv(self, filename):
         # TODO
         # For a single-axis diffractometer currently
 
-        smv_header = self._get_SMV_header(filename)
+        smv_header = self._get_smv_header(filename)
 
-        ax_vals = [("phi", self._get_SMV_header_values(smv_header, "phi"))]
-        ax_vals.append(("trans", self._get_SMV_header_values(smv_header, "distance")))
-        ax_incr = [("phi", self._get_SMV_header_values(smv_header, "osc_range"))]
+        ax_vals = [("phi", self._get_smv_header_values(smv_header, "phi"))]
+        ax_vals.append(("trans", self._get_smv_header_values(smv_header, "distance")))
+        ax_incr = [("phi", self._get_smv_header_values(smv_header, "osc_range"))]
         ax_incr.append(("trans", 0.0))
 
-        exposure = self._get_SMV_header_values(smv_header, "time")
-        wl = self._get_SMV_header_values(smv_header, "wavelength")
+        exposure = self._get_smv_header_values(smv_header, "time")
+        wavelength = self._get_smv_header_values(smv_header, "wavelength")
 
-        return dict(ax_vals), "phi", ax_incr[0][1], exposure, wl
+        return dict(ax_vals), "phi", ax_incr[0][1], exposure, wavelength
 
 
-    def _get_CBF_header_values(self, lines, matcher, with_unit=True):
+    def _get_cbf_header_values(self, lines, matcher, with_unit=True):
         """Get the value following the string given in matcher and units if present.
 
         Args:
@@ -767,7 +774,7 @@ Try to provide the constant stem of the file name using the -s option.\n")
 
         pattern = re.compile(re.escape(matcher) + r"[ =]+")
         # print('pattern', pattern)
-        matching_lines = list(filter(lambda x : pattern.search(x) is not None, lines))
+        matching_lines = list(filter(lambda x: pattern.search(x) is not None, lines))
         # print('mtch lng', matching_lines)
 
         # TODO is it now ensured that there are not more than one lines matching?
@@ -779,7 +786,7 @@ Try to provide the constant stem of the file name using the -s option.\n")
             val_unit_regex += r" +(?P<units>[A-Za-z.]+)"
 
         val_unit = [re.search(val_unit_regex, matching_line)
-            for matching_line in matching_lines]
+                    for matching_line in matching_lines]
 
         # print('valuns', val_unit)
         # if val_unit[0] is not None:
@@ -806,30 +813,30 @@ Try to provide the constant stem of the file name using the -s option.\n")
 
         matcher = 'pixel_size'
         pattern = re.compile(re.escape(matcher) + r"[ =]+")
-        matching_lines = list(filter(lambda x : pattern.search(x) is not None, lines))
+        matching_lines = list(filter(lambda x: pattern.search(x) is not None, lines))
         if len(matching_lines) < 1:
             return None, None, None, None
 
         dim = r"([A-Za-z0-9+-.]+) +([A-Za-z.]+)"
         val_unit_regex = re.escape(matcher) + r'[ =]+' + dim + r' [A-Za-z] ' + dim
         val_unit = [re.search(val_unit_regex, matching_line)
-            for matching_line in matching_lines]
+                    for matching_line in matching_lines]
         # print('valuns', val_unit)
         val_unit = val_unit[0]
         pixel_sizes = [group.strip() for group in val_unit.groups()]
 
         # as it is in mm now, we round to 5 decimal places since otherwise:
         # >>> 0.000172*1000 = 0.17200000000000001
-        _, x_pixel = self._convert_units(('x_size',
-            (float(pixel_sizes[0]), pixel_sizes[1])), 'length')
-        _, y_pixel = self._convert_units(('y_size',
-            (float(pixel_sizes[2]), pixel_sizes[3])), 'length')
+        _, x_pixel = self._convert_units(
+            ('x_size', (float(pixel_sizes[0]), pixel_sizes[1])), 'length')
+        _, y_pixel = self._convert_units(
+            ('y_size', (float(pixel_sizes[2]), pixel_sizes[3])), 'length')
         # print(x_pixel, y_pixel)
 
         return round(x_pixel, 5), round(y_pixel, 5)
 
 
-    def _get_SMV_header(self, filename):
+    def _get_smv_header(self, filename):
 
         # TODO look at smv files
         with open(filename, 'rb') as file:
@@ -839,7 +846,7 @@ Try to provide the constant stem of the file name using the -s option.\n")
         return smv_header
 
 
-    def _get_SMV_header_values(self, lines, matcher):
+    def _get_smv_header_values(self, lines, matcher):
         """
         Get the value following the string given in matcher and units if present
         """
@@ -847,7 +854,7 @@ Try to provide the constant stem of the file name using the -s option.\n")
 
         pattern = re.compile(r"^" + re.escape(matcher) + r"[ =]+")
         # rr = Regex("^$matcher[ =]+")
-        matching_line = list(filter(lambda x : pattern.search(x) is not None, lines))
+        matching_line = list(filter(lambda x: pattern.search(x) is not None, lines))
         # one_line = filter( x-> !isnothing(match(rr, x)), lines)
 
         if len(matching_line) != 1:
@@ -867,6 +874,22 @@ Try to provide the constant stem of the file name using the -s option.\n")
         return float(val), None
 
 
+    def _lists_to_values(self, param):
+        """If single lenght lists occur, convert them to a single value.
+
+        Args:
+            param (Any): the parameter to check
+
+        Returns:
+            Any: the parameter converted to a single entry
+        """
+
+        if isinstance(param, list) and len(param) == 1:
+            return param[0]
+        return param
+
+
+
     def _convert_units(self, ax_val, val_type):
         """Convert into units used in the imgCIF format (mm, s, Angstrom)
 
@@ -881,8 +904,8 @@ Try to provide the constant stem of the file name using the -s option.\n")
         """
 
         conversion_map = {('length', 'm') : 1e3, ('length', 'cm') : 10,
-            ('time', 'ms') : 1e-3, ('time', 'us') : 1e-6,
-            ('time', 'ns') : 1e-9, ('wavelength', 'nm') : 1e-1}
+                          ('time', 'ms') : 1e-3, ('time', 'us') : 1e-6,
+                          ('time', 'ns') : 1e-9, ('wavelength', 'nm') : 1e-1}
 
         name, (val, unit) = ax_val
         if (val_type, unit) in conversion_map.keys():
@@ -934,6 +957,6 @@ Try to provide the constant stem of the file name using the -s option.\n")
             if not (name in imgCIF_creator.ALWAYS_AXES) and not (name in keep_this) \
                 and np.isclose(ini_val, 0, atol=0.001):
 
-                for s in scan_info:
-                    print('I pruned:', scan_info[s][0], name)
-                    del(scan_info[s][0], name)
+                for scan in scan_info:
+                    print('I pruned:', scan_info[scan][0], name)
+                    del(scan_info[scan][0], name)

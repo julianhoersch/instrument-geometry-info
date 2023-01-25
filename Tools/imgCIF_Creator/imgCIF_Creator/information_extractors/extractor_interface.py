@@ -1,3 +1,6 @@
+"""The module with the extractor interface.
+"""
+
 import abc
 
 class ExtractorInterface(metaclass=abc.ABCMeta):

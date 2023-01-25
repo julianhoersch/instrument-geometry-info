@@ -1,2 +1,2 @@
-"""Assembel imgCIF files from different parts.
+"""Assemble imgCIF files.
 """
