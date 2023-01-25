@@ -2,7 +2,8 @@
 
 The creator is a tool to create imgCIF files out of HDF5, full CBF and some common
 subset of miniCBF. An interactive command line interface can be used to
-collect the information that is missing from the dataset under investigation.
+collect the information that is missing from the dataset under investigation. This
+Tool is still under construction.
 
 ## Installation
 
