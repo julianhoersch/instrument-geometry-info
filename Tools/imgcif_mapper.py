@@ -651,7 +651,6 @@ def transform_nexus_to_cbf_coordinates(tags_dict, goniometer_pos,
     for tag, value in tags_dict.items():
         if 'OVEC' in tag or 'OFFSET' in tag:
             tags_dict[tag] = rotate_from_nexus_to_cbf(value, goniometer_pos)
-            # print('rotated', tag, 'from', value, 'to ==>', tags_dict[tag])
         elif 'SCAN_INCR' in tag:
             assert goniometer_rot_direction in ['clockwise', 'counter_clockwise'], \
                 """Unknown goniometer position! Please choose between

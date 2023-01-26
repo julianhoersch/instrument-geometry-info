@@ -25,10 +25,6 @@ get_scan_info(frame_dir; stem = Regex(".*?_")) = begin
 
     frame_catcher, all_names, first_scan = get_scan_frame_fmt(frame_dir, stem = stem)
 
-    # println("fcat", frame_catcher)
-    # println("alln", all_names)
-    # println("fscan", first_scan)
-
     # index them all for speed
 
     all_frames = map(all_names) do an
@@ -40,37 +36,21 @@ get_scan_info(frame_dir; stem = Regex(".*?_")) = begin
         end
     end
 
-    # println("allfrm", all_frames)
     all_frames = Dict(all_frames)
-    # println("allfrm", all_frames)
-    # println("ks", keys(all_frames))
-    # println("colks", collect(keys(all_frames)))
-
-    if keys(all_frames) == collect(keys(all_frames))
-        println("Heureka!")
-    end
-
+    
     all_scans = unique!(map( x -> x[1], collect( keys( all_frames ) ) ) )
-
-    # println("allscans", all_scans)
     println("$(length(all_scans)) scans found")
     scan_info = Dict()
 
     axes = union(rot_axes, trans_axes)
-    # println("axes", axes)
-    # println("frdir", frame_dir)
-    # println("first allfrmes", first(all_frames))
-    # println("first allfrmes sec", first(all_frames).second)
 
     frame_type = determine_frame_type( joinpath(frame_dir, first(all_frames).second))
 
     @debug "$frame_type determined"
-
+    
     for s in all_scans
-
-        # println("unic s", s)
+        
         snames = filter( x-> x[1] == s, keys(all_frames))
-        # println("scnnam,es", snames)
         frames = [ x[2] for x in snames ]
 
         @debug "$(length(frames)) frames found for scan $s"
@@ -80,7 +60,6 @@ get_scan_info(frame_dir; stem = Regex(".*?_")) = begin
         fname = joinpath( frame_dir, all_frames[(s, 1)])
 
         vals, scan_ax, scan_incr, et, wl = get_frame_info(frame_type, fname, axes)
-        println("vals ", vals, "scanax ", scan_ax, "scaninc ", scan_incr, "et ", et, "wl ", wl)
         start = vals[scan_ax]
 
         fname = joinpath( frame_dir, all_frames[(s, length(frames))])
@@ -88,11 +67,11 @@ get_scan_info(frame_dir; stem = Regex(".*?_")) = begin
         finish = vals[scan_ax]
 
         # Check increment and range match
-
+        
         if !isapprox(start + scan_incr * (length(frames)-1), finish, atol=1e-6)
             throw(error("Scan range does not match increment: $start to $finish, $(length(frames)-1) steps of $scan_incr"))
         end
-
+       
         details = Dict("frames" => length(frames),
                        "axis" => scan_ax,
                        "incr" => scan_incr,
@@ -100,22 +79,21 @@ get_scan_info(frame_dir; stem = Regex(".*?_")) = begin
                        "start" => start,
                        "range" => scan_incr * length(frames),
                        "wavelength" => wl)
-
+        
         scan_info[s] = (vals, details)
     end
 
-    # println("\n scaninf bef ", scan_info, '\n')
     prune_scan_info!(scan_info)
-
+    
     return scan_info, all_frames
-
+    
 end
 
 # Deduce scan/frame naming convention
 get_scan_frame_fmt(frame_dir; stem = Regex(".*?_")) = begin
 
     first_scan = 1
-
+    
     all_names = readdir(frame_dir)
     filter!(x-> x[end-3:end] in (".cbf",".img"), all_names)
     if !ismissing(stem)
@@ -135,24 +113,17 @@ get_scan_frame_fmt(frame_dir; stem = Regex(".*?_")) = begin
     if num_digits > 4
 
         fr_sc_regex = missing
-
+        
         # Allow first scan to not be scan 1
 
         for t in 1:9
-            # println("stem", stem)
-            # println(Regex("(?<scan>[0-9]*$t)(?<sep>0|_)(?<frame>[0-9]+1)\\.(cbf|img)"))
             rr = stem * Regex("(?<scan>[0-9]*$t)(?<sep>0|_)(?<frame>[0-9]+1)\\.(cbf|img)")
-            # print("\n rr", rr, "\n")
             m = match(rr,all_names[1])
-            # println("mathc ", m)
-
             if !isnothing(m)
-                # println("ssc", m["scan"])
-
+                
                 s_pos = m.offsets[1]
                 s_len = length(m["scan"])
                 f_len = length(m["frame"])
-                # println("offeset", m.offsets)
                 if m["sep"] == "0"
                     f_pos = m.offsets[2]
                     f_len = f_len + 1
@@ -171,7 +142,7 @@ get_scan_frame_fmt(frame_dir; stem = Regex(".*?_")) = begin
         end
 
     else
-
+        
         fr_sc_regex = stem * r"(?<frame>[0-9]+)"
 
     end
@@ -180,26 +151,20 @@ get_scan_frame_fmt(frame_dir; stem = Regex(".*?_")) = begin
         @error("Cannot find scan/frame naming pattern for $test_name. Try using the -s option")
         exit()
     end
-
-    # println("fsregex is", fr_sc_regex)
-
+    
     @assert !isnothing(match(fr_sc_regex, all_names[end]))
-
+    
     return fr_sc_regex, all_names, first_scan
 end
 
 """
-
+    
 Determine the type of frame file: currently SMV (ADSC) and CBF are
 recognised.
 """
 determine_frame_type(filename) = begin
 
-    # reads first 512 characters/bytes
-    # returns list of ascii charactes in hexadecimal notation
     header = read(filename, 512)
-    # println("header", header)
-    # 0x0c is the form feed character (control character)
     if 0x0c in header return Val(:SMV) end
     if occursin("_array_data", String(header)) return Val(:CBF) end
     return missing
@@ -210,17 +175,17 @@ Return any values found for provided axes. All axes converted to lowercase. This
 tries to adapt to all of the crazy stuff stashed in miniCBF headers.
 """
 get_frame_info(t::Val{:CBF}, fname, axes) = begin
-
+    
     header = readuntil(fname, "--CIF-BINARY-FORMAT-SECTION--")
     info = parse_header(header)
 
     @debug "Header contents" info
-
+    
     ax_vals = filter(x -> lowercase(x.first) in axes, info)
     ax_incr = filter(x -> lowercase(x.first) in map(x -> x*"_increment", axes), info)
     ax_vals = convert_units(ax_vals)
     ax_incr = convert_units(ax_incr)
-
+    
     et = parse(Float64, info["exposure_time"][1])
     wl = parse(Float64, info["wavelength"][1])
 
@@ -235,7 +200,7 @@ get_frame_info(t::Val{:CBF}, fname, axes) = begin
     if length(scan_ax) >= 2 && "angle_increment" in keys(ax_incr)
         delete!(scan_ax, "angle_increment")
     end
-
+    
     if length(scan_ax) == 1
         ax_incr = first(scan_ax).second
         scan_ax_name = first(scan_ax).first[1:end-10]
@@ -246,7 +211,7 @@ get_frame_info(t::Val{:CBF}, fname, axes) = begin
                 ax_vals[an] = ax_vals["start_angle"]
             end
         end
-
+                
     elseif an != nothing
         if an in keys(ax_vals) && an*"_increment" in keys(ax_incr)
             scan_ax_name = an
@@ -255,7 +220,6 @@ get_frame_info(t::Val{:CBF}, fname, axes) = begin
     else
         @error "Unable to determine scan axis"
     end
-    println("scax nam", scan_ax_name)
 
     # Get rid of duplicate names
 
@@ -266,11 +230,11 @@ get_frame_info(t::Val{:CBF}, fname, axes) = begin
     if haskey(ax_vals, "distance") && haskey(ax_vals, "detector_distance")
         delete!(ax_vals, "detector_distance")
     end
-
+    
     @debug "Extracted info" ax_vals ax_incr scan_ax_name et wl
-
+    
     return ax_vals, scan_ax_name, ax_incr, et, wl
-
+    
 end
 
 # For a single-axis diffractometer currently
@@ -287,7 +251,7 @@ get_frame_info(t::Val{:SMV}, fname, _) = begin
     et = get_header_value(t, lines, "time")
     wl = get_header_value(t, lines, "wavelength")
 
-    return Dict(ax_vals), "phi", ax_incr[1][2], et, wl
+    return Dict(ax_vals), "phi", ax_incr[1][2], et, wl 
 end
 
 """
@@ -369,7 +333,7 @@ rename_axes!(scan_info, axis_dict) = begin
             dets["axis"] = axis_dict[dets["axis"]]
         end
     end
-
+    
 end
 
 """
@@ -378,10 +342,7 @@ end
 """
 prune_scan_info!(scan_info) = begin
 
-    # println("scanfirst", first(scan_info))
-
     initial_vals, deets = first(scan_info).second
-    # println("inits ", initial_vals, " deets ", deets)
     scan_axis = deets["axis"]
     keep_this = [scan_axis]
     for (name, ini_val) in initial_vals
@@ -393,8 +354,6 @@ prune_scan_info!(scan_info) = begin
         end
     end
 
-    # println("wann kepp ", keep_this)
-
     @debug "Changing axes: " keep_this
 
     for (name, ini_val) in initial_vals
@@ -405,10 +364,8 @@ prune_scan_info!(scan_info) = begin
             end
         end
     end
-
-    # println("\n scan inf", scan_info, '\n')
-
-
+    
+    
 end
 
 #============= Output routines ========================#
@@ -422,7 +379,6 @@ output_scan_info(scan_info, all_frames, output_file, new_url; prepend_dir = "", 
 
     sl = create_scan_list(scan_info)
     exp_info = Dict([s=>scan_info[s][2]["time"] for s in keys(scan_info)])
-    println("expin", exp_info)
 
     op = isnothing( output_file ) ? stdout : open(output_file, "w")
 
@@ -433,7 +389,7 @@ output_scan_info(scan_info, all_frames, output_file, new_url; prepend_dir = "", 
     generate_array_info(op, sl)
     generate_ids(op, sl)
     generate_external_ids(op, new_url, all_frames, sl, prepend_dir, comp=arch, separate = separate)
-
+    
 end
 
 create_scan_list(scan_info) = begin
@@ -445,7 +401,7 @@ create_scan_list(scan_info) = begin
     slist = [(s, scan_info[s][2]["frames"]) for s in scans]
 
     @debug "Scan list" slist
-
+    
     return slist
 end
 
@@ -466,7 +422,7 @@ Information we have obtained from the cbf file
                        "time"
                        "start"
                        "range")
-
+        
 
 """
 generate_scan_settings(op, scan_info) = begin
@@ -481,10 +437,10 @@ _diffrn_scan_axis.angle_increment
 _diffrn_scan_axis.angle_range
 """
     println(op, header)
-    # println("len sorted", length(sort(collect(keys(scan_info)))))
     for s in sort(collect(keys(scan_info)))
-
+        
         axes, dets = scan_info[s]
+        
         for (a, val) in axes
 
             step, range = 0, 0
@@ -504,7 +460,7 @@ _diffrn_scan_axis.angle_range
 
     end
 
-
+    
 end
 
 """
@@ -549,8 +505,6 @@ _array_data_external_data.uri
 _array_data_external_data.archive_path"""
     end
 
-    print("myarch ius ", arch)
-
     # If comp is nothing, then each frame has a separate URI and is treated as a local file.
     # If comp is something, then each frame is relative to a single URI and is output
     # separately.
@@ -569,11 +523,11 @@ _array_data_external_data.archive_path"""
             print(op, "  $ctr $fmt $outuri")
 
             # A too-clever-by-half way of optionally live constructing a URL
-
+            
             if !isnothing(arch)
                 print(op, "  $comp $prepend_dir")
             end
-
+            
             println(op, "/" * "$fname")
         end
     end
@@ -586,7 +540,7 @@ the start
 """
 generate_scan_info(op, scan_list) = begin
     header = """loop_
-_diffrn_scan.id
+_diffrn_scan.id 
 _diffrn_scan.frame_id_start
 _diffrn_scan.frame_id_end
 _diffrn_scan.frames"""
@@ -652,15 +606,15 @@ end
 determine_archive(location) = begin
 
     arch = nothing
-
+    
     if location == []
         location = "file://" * frame_dir
-
+        
     else
         location = parsed_args["location"][]
         long_end = location[end-6:end]
         short_end = location[end-2:end]
-
+        
         if short_end == "tgz" || long_end == ".tar.gz"
             arch = "TGZ"
         elseif short_end == "tbz" || long_end == "tar.bz2"
@@ -674,7 +628,7 @@ determine_archive(location) = begin
     end
 
     return arch, location
-
+        
 end
 
 parse_cmdline(d) = begin
@@ -685,16 +639,10 @@ parse_cmdline(d) = begin
         "-l", "--location"
         help = "Final URL of files in output. Final 'nn' in name will be replaced by scan number if -n option is used"
         nargs = 1
-        # this changes the uri, which is the file location before into the value
-        # specified here
-        # e.g. file://cbf_cyclohexane_crystal2/CBF_crystal_2/ciclohexano3_010001.cbf -->
-        # my_new_name/ciclohexano3_010001.cbf
-
         "-s", "--stem"
         help = "Constant portion of frame file name. This can help determine the scan/frame file naming convention"
         nargs = 1
         default = [""]
-
         "-i", "--include"
         help = "Include directory name as part of frame location info in output"
         nargs = 0
@@ -704,14 +652,11 @@ parse_cmdline(d) = begin
         "-o", "--output"
         help = "Output file to write to, if missing stdout"
         nargs = 1
-
         "-a", "--axis"
         nargs = 2
         metavar = ["cbf", "new"]
         action = "append_arg"
-        help = "Change axis name from <cbf> to <new> in output file to match goniometer axis definitions. May be used multiple times for multiple axis renaming"
-        # this changes an axis name and should be done according to the header info
-
+        help = "Change axis name from <cbf> to <new> in output file to match goniometer axis definitions. May be used multiple times for multiple axis renaming" 
         "directory"
         help = "Directory containing scan frames in minicbf format"
         required = true
@@ -724,42 +669,31 @@ end
 if abspath(PROGRAM_FILE) == @__FILE__
 
     # Process arguments
-
+    
     parsed_args = parse_cmdline("Extract scan information from minicbf files")
     frame_dir = parsed_args["directory"]
     do_output = parsed_args["output"] != nothing
     prepend_dir = parsed_args["include"] ? frame_dir : ""
     file_stem = parsed_args["stem"][] == "" ? Regex(".*?_") : Regex(parsed_args["stem"][])
     @debug parsed_args
-
+    
     # Analyse CBF files
-
+    
     scan_info, all_frames = get_scan_info(frame_dir, stem = file_stem)
-    println("this is the scaninfo:")
-    println(scan_info)
-
-    println("\nthis is all_frames:")
-    println(all_frames)
-    println(length(all_frames))
-
 
     # Rename axes
 
     @debug "axis" parsed_args["axis"]
     if length(parsed_args["axis"]) > 0
         lower_axes = Dict([lowercase(x[1]) => x[2] for x in parsed_args["axis"]])
-        print("lo axes ", lower_axes)
         @debug "lower" lower_axes
         rename_axes!(scan_info, lower_axes)
-        print("lo axes renamed", scan_info)
     end
-
+    
     # Output CIF fragment
 
     arch, location = determine_archive(parsed_args["location"])
-
-    print("myarch ", arch, "myloc ", location)
-
+    
     out_file = parsed_args["output"] != [] ? parsed_args["output"][] : nothing
     if do_output
 
