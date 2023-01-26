@@ -1,10 +1,28 @@
 # Tools for generating imgCIF files
 
+## `imgCIF_Creator`
+The imgCIF creator is a tool to create imgCIF files out of HDF5, full CBF and
+some common subset of miniCBF. An interactive command line interface can be used
+to collect the information that is missing from the dataset which is processed.
+This tool replaces the other `julia` and `python` tools listed in the following
+sections. For more information please read the README in the `imgCIF_Creator`
+directory.
+
+Warning: This Tool is still under construction.
+
 ## `imgcif_mapper.py`
+
+The `imgcif_mapper.py` allows to convert hdf5 files in the nexus NxMx standard
+to imgCIF. As the hdf5 master file can contain links to multiple hdf5 files and
+the master file does not state the number of frames per file, the input of frames
+per file is required from the user. To run the tool you need to provide the zenodo
+record number of the dataset in the command line call, for example:
+`python imgcif_mapper.py 5886687`
+Make sure that the required dependencies are installed (h5py, numpy, requests).
 
 ## `cbf_scan_extractor`
 
-`cbf_scan_extractor` analyses a sequence of miniCBF files contained in 
+`cbf_scan_extractor` analyses a sequence of miniCBF files contained in
 the indicated directory and makes a best-effort attempt to divide them
 into scans and to extract the axis settings for each scan. This has not
 been widely tested on the many possible miniCBF formats and file naming
@@ -14,7 +32,7 @@ The final output is a _fragment_ of a complete imgCIF file. To produce a
 complete file from this fragment, the following steps are necessary:
 
 1. the axis and detector geometric information (such as those
-that have been collected together in this repository) should be 
+that have been collected together in this repository) should be
 prepended.
 
 2. Actual values for any missing geometric items (`?` characters in
@@ -61,7 +79,7 @@ to the terminal, using a local URL to specify the frame locations.
 
 Analyse frames in directory `/home/me/CBF_crystal_2` and then output an imgCIF fragment to
 `stoe_test.cif` assuming that the actual network location of an archive file containing
-the frames is 
+the frames is
 `https://zenodo.org/record/123456/files/cbfcrystal2.tar.bz2`, prepending the directory
 name (`-i` option) to the location specification within the archive. Axes named
 `detector_2theta` and `Detector_distance` in the frames are renamed to `two_theta`
