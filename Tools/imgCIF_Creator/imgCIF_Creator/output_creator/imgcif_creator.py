@@ -701,6 +701,7 @@ class ImgCIFEntryGenerators():
             entries[base + ".archive_path"] = []
 
         counter = 0
+        protocols = ["file:", "rsync:"]
         for scan, frames in scan_list:
             # print('sc fr scl', scan, frames, scan_list)
             for frame in range(1, frames + 1):
@@ -711,7 +712,7 @@ class ImgCIFEntryGenerators():
                 entries[base + ".id"].append(f"ext{counter}")
                 file_format = 'HDF5' if file_format == 'h5' else file_format
                 entries[base + ".format"].append(file_format.upper())
-                if external_url.startswith("file:"):
+                if any([external_url.startswith(prot) for prot in protocols]):
                     separator = '' if external_url.endswith(os.sep) else os.sep
                     local_url = external_url + separator + frame_name
                     entries[base + ".uri"].append(local_url)
