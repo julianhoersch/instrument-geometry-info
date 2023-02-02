@@ -252,6 +252,20 @@ class Extractor(extractor_interface.ExtractorInterface):
         array_id = self._full_header_dict.get(base + "array_id")
         array_index = self._full_header_dict.get(base + "index")
         array_dimension = self._full_header_dict.get(base + "dimension")
+
+        if array_dimension is None:
+            fast_dim, _ = self._get_cbf_header_values(
+                self.first_mini_header, 'x-binary-size-fastest-dimension:',
+                with_unit=False)
+            slow_dim, _ = self._get_cbf_header_values(
+                self.first_mini_header, 'x-binary-size-second-dimension:',
+                with_unit=False)
+
+            if fast_dim is not None and slow_dim is not None:
+                fast_dim = int(fast_dim)
+                slow_dim = int(slow_dim)
+                array_dimension = [fast_dim, slow_dim]
+
         array_direction = self._full_header_dict.get(base + "direction")
         array_precedence = self._full_header_dict.get(base + "precedence")
 
@@ -654,22 +668,33 @@ Try to provide the constant stem of the file name using the -s option.\n")
 
         with open(filename, 'br') as file:
             cbf_header = []
+            binary_info = []
             found_header = False
             within_mini_header = False
+            within_binary_info = False
             for line in file:
+                # select only the mini header part since otherwise e.g. comments
+                # with same names could be problematic
                 if b'_array_data.header_contents' in line:
                     found_header = True
                 # consider that the mini header is enclosed within two lines of ;
                 elif line in (b';\n', b';\r\n', b';\r'):
                     within_mini_header = not within_mini_header
                 elif b"-BINARY-FORMAT-SECTION-" in line:
-                    break
+                    within_binary_info = not within_binary_info
+
+                if within_binary_info:
+                    try:
+                        binary_info.append(line.decode('utf-8').lower().strip('\n').strip('\r'))
+                    except UnicodeDecodeError:
+                        # binary part starts here
+                        break
 
                 if found_header and within_mini_header and line.startswith(b'#'):
                     cbf_header.append(line.decode('utf-8').lower().strip('\n').strip('\r'))
 
         # print('lns', cbf_header)
-        return cbf_header
+        return cbf_header + binary_info
 
 
     def _get_frame_info_cbf(self, cbf_header, axes):
