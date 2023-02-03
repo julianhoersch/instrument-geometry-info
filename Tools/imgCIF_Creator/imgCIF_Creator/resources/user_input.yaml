@@ -324,4 +324,5 @@ temperature:
     label: Ambient temperature
     required: true
     description: >
-      Please provide the ambient temperature during the experiment (Celsius).
+      Please provide the mean temperature in kelvins at which the intensities
+      were measured.
