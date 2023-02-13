@@ -464,21 +464,23 @@ class Extractor(extractor_interface.ExtractorInterface):
             file_name = os.path.join(frame_dir, all_frames[(scan, 1)]['filename'])
             mini_header = self._get_mini_header(file_name, frame_type)
             # print('mini head', mini_header)
-            start_axes_settings, scan_ax, scan_incr, exposure, wavelength, = \
+            axes_settings, scan_ax, scan_incr, exposure, wavelength, = \
                 self._get_frame_info(mini_header, frame_type, axes)
             x_pixel_size, y_pixel_size, = self._get_pixel_sizes(mini_header)
             # print('pxsz', x_pixel_size, y_pixel_size)
-            # print("start_axes_settings ", start_axes_settings, "scanax ",
-            # scan_ax, "scaninc ", scan_incr, "exposure ", exposure, "wavelength ", wavelength)
-            start = start_axes_settings[scan_ax]
+            print('scan', scan)
+            print("start_axes_settings ", axes_settings, "scanax ",
+                    scan_ax, "scaninc ", scan_incr, "exposure ", exposure,
+                    "wavelength ", wavelength)
+            start = axes_settings[scan_ax]
 
             # Get information for last frame
             file_name = \
                 os.path.join(frame_dir, all_frames[(scan, len(frames))]['filename'])
             mini_header = self._get_mini_header(file_name, frame_type)
             # print('mini headi', mini_header)
-            start_axes_settings, _, _, _, _ = self._get_frame_info(mini_header, frame_type, axes)
-            finish = start_axes_settings[scan_ax]
+            axes_settings, _, _, _, _ = self._get_frame_info(mini_header, frame_type, axes)
+            finish = axes_settings[scan_ax]
 
             # Check increment and range match
             if not np.isclose(start + scan_incr * (len(frames)-1), finish, atol=1e-6):
@@ -500,10 +502,9 @@ class Extractor(extractor_interface.ExtractorInterface):
             # print('start_axes_settings', start_axes_settings)
             # print('scan', scan)
             # print('scandet', scan_details)
-            scan_info[scan] = (start_axes_settings, scan_details)
+            scan_info[scan] = (axes_settings, scan_details)
 
-        #TODO do I need this?
-        # self._prune_scan_info(scan_info)
+        scan_info = self._prune_scan_info(scan_info)
 
         return scan_info
 
@@ -961,27 +962,37 @@ Try to provide the constant stem of the file name using the -s option.\n")
 
 
     def _prune_scan_info(self, scan_info):
-        """
-        Remove reference to any axes that do not change position and are
+        """Remove reference to any axes that do not change position and are
         essentially zero, but are not in `always_axes`.
+
+        Args:
+            scan_info (dict): a dictionary containing the scan information
+
+        Returns:
+            scan_info (dict): a dictionary containing the relevant scan information
         """
 
-        #TODO check that this does the right thing
-        start_axes_settings, details = scan_info[list(scan_info.keys())[0]]
-        # print('iits', start_axes_settings, 'dets', details)
+        # get the scan axes and the details from the first scan
+        first_axes_settings, details = scan_info[list(scan_info.keys())[0]]
         scan_axis = details["axis"]
         keep_this = [scan_axis]
-        for name, ini_val in start_axes_settings.items():
-            for content in scan_info.values():
-                if content[0][name] != ini_val:
-                    keep_this.append(name)
+        for axis, inital_val in first_axes_settings.items():
+            for axes_settings, _ in scan_info.values():
+                # keep axes which change their values in one of the scans
+                if axes_settings[axis] != inital_val:
+                    keep_this.append(axis)
                     break
-        # print('wann kepp', keep_this)
 
-        for name, ini_val in start_axes_settings.items():
-            if not (name in imgCIF_creator.ALWAYS_AXES) and not (name in keep_this) \
-                and np.isclose(ini_val, 0, atol=0.001):
+        delete_later = []
+        for axis, inital_val in first_axes_settings.items():
+            if not (axis in imgcif_creator.ALWAYS_AXES) and not (axis in keep_this) \
+                and np.isclose(inital_val, 0, atol=0.001):
 
                 for scan in scan_info:
-                    print('I pruned:', scan_info[scan][0], name)
-                    del(scan_info[scan][0], name)
+                    delete_later.append((scan, axis))
+
+        for scan, axis in delete_later:
+            del scan_info[scan][0][axis]
+
+        return scan_info
+
