@@ -245,9 +245,10 @@ class Extractor(extractor_interface.ExtractorInterface):
                             path = f'{scan}/sample/transformations/{scan_axis}_increment_set'
                             scan_incr = self._get_hdf5_item(h5_master, path)[0]
                             # if the rotation direction is the other way round,
-                            # chage increment
-                            if goniometer_rot_direction == 'counter_clockwise':
+                            # change increment
+                            if goniometer_rot_direction in ['anticlockwise', 'a']:
                                 scan_incr = scan_incr * -1
+                                scan_stop *= -1
                             scan_range = n_frames * scan_incr
                     except TypeError:
                         # for fast and slow this is a scalar and no list
