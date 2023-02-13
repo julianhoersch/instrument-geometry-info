@@ -12,33 +12,38 @@ from imgCIF_Creator.command_line_interfaces import parser
 
 
 def validate_filename(filename):
-    """_summary_
+    """Checks if the input string is a) a folder containing cbf or smv files or
+    b) is a h5 filename, otherwise exits the program. Only the top level directory
+    is checked.
 
     Args:
-        filename (_type_): _description_
+        filename (str): the name of the folder containing the files or the filename
     """
 
     if os.path.isdir(filename):
-        for _, _, files in os.walk(filename + os.sep):
+        for root, dirs, files in os.walk(filename + os.sep):
             pattern = re.compile(r'.*((?P<cbf>\.cbf)\Z|(?P<smv>\.smv)\Z)')
             matches = [bool(pattern.match(file)) for file in files]
             occurences = len([match for match in matches if match])
             if occurences > 0:
-                print('Found a folder with .cbf or .smv files.')
+                print(f'Found {occurences} cbf or smv files in {root}.')
                 filetype = 'cbf'
             else:
-                print('Could not find .cbf or .smv files in directory.')
+                print(f'Could not find cbf or smv files in {root}. Subfolder(s) \
+{dirs} are not considered automatically.')
                 sys.exit()
+            # check only top level dir
+            break
     elif os.path.isfile(filename):
         regex = r'.*((?P<h5>\.h5)\Z)'
         match = re.match(regex, filename)
         filetype = 'h5'
         if not match:
             print('Only h5 (NxMx) files are supported! If you want to convert \
-.cbf and .smv files please provide a directory. Exiting.')
+cbf and smv files please provide a directory. Exiting.')
             sys.exit()
     else:
-        print('Could not find a cbf, smv or hdf5 file for the given file or directory!')
+        print(f'{filename} is neither a valid directory nor filename!')
         sys.exit()
 
     return filename, filetype
@@ -140,7 +145,7 @@ if you provide an input it will be checked against the required format.
 """)
 
     filename, filetype = validate_filename(filename)
-    print(f'Identified {filename}, as {filetype} file.')
+    print(f'Identified fileformat in {filename}, as {filetype}.')
 
     if include:
         prepend_dir = os.path.split(filename)[-1]
