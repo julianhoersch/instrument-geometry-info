@@ -139,6 +139,7 @@ principal_angle:
       '3 o'clock' and angles are measured counter-clockwise, so 90 is 12 o'clock
       and 270 is 6 o'clock.
 
+# not accessed anymore
 goniometer_axes:
     label: Goniometer axes
     required: true
@@ -149,6 +150,40 @@ goniometer_axes:
       each value by a comma, for example 'Chi, c, Omega, a'. List the axes in
       order of stacking from closest to the crystal to furthest (phi would
       typically be first if present, omega is usually last).
+
+change_goniometer_axes:
+    label: Goniometer axes
+    required: true
+    description: >
+      For each axis attached to the goniometer, give the axis name (as used in
+      data files if known) and sense of rotation (a=anticlockwise, c=clockwise)
+      when looking from the crystal in the direction of the goniometer. Separate
+      each value by a comma, for example 'Chi, c, Omega, a'. List the axes in
+      order of stacking from closest to the crystal to furthest (phi would
+      typically be first if present, omega is usually last). You need to include
+      the axis names which are already found, but you can add additional axes.
+
+change_det_rot_axes:
+    label: Detector rotation axes
+    required: true
+    description: >
+      For each rotation axis attached to the detector, give the axis name (as used
+      in data files if known) and sense of rotation (a=anticlockwise, c=clockwise)
+      when looking from above. Separate each value by a comma, for example:
+      'detector_2theta, c'. List the axes in order of stacking from closest to
+      the crystal to furthest. You need to include the axis names which are already
+      found, but you can add additional axes.
+
+change_det_trans_axes:
+    label: Detector translation axes
+    required: true
+    description: >
+      For each translation axis attached to the detector, give the axis name (as used
+      in data files if known). Separate each value by a comma, for example:
+      'trans'. List the axes in order of stacking from closest to the crystal to
+      furthest. You need to include the axis names which are already found,
+      but you can add additional axes.
+
 
 rotation_axis:
     label: Rotation axis name
@@ -326,3 +361,14 @@ temperature:
     description: >
       Please provide the mean temperature in Kelvins at which the intensities
       were measured.
+
+keep_axes:
+    label: Keep axes
+    required: true
+    description: >
+      Are these axes, their stacking and possible rotation senses correct? If not,
+      please enter "No" to change them.
+    options:
+      - 'Yes'
+      - 'No'
+    abbreviate: true

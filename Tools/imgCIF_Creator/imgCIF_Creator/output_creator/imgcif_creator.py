@@ -7,9 +7,18 @@ import importlib
 from imgCIF_Creator.command_line_interfaces import parser
 
 # Configuration information
-#TODO always?
-ROT_AXES = ("chi", "phi", "detector_2theta", "two_theta", "omega",
-            "angle", "start_angle", "kappa")
+# the order reflects the stacking
+# GONIOMETER_BASE = ("omega", "angle", "two_theta")
+GONIOMETER_AXES = ("phi", "kappa", "chi", "omega", "angle", "two_theta")
+# GONIOMETER_AXES = ("chi", "phi", "two_theta", "omega", "angle", "start_angle",
+#                    "kappa")
+
+# DETECTOR_TRANS = ("detector_distance", "dx", "trans", "distance")
+DETECTOR_AXES = ("detector_2theta", "detector_distance", "dx", "trans", "distance")
+
+
+ROT_AXES = ("chi", "phi", "detector_2theta", "two_theta", "omega", "angle",
+            "start_angle", "kappa")
 TRANS_AXES = ("detector_distance", "dx", "trans", "distance")
 ALWAYS_AXES = ("distance", "two_theta", "detector_2theta")
 DETECTOR_ARRAY_AXES = ("detx", "dety")
@@ -200,54 +209,26 @@ class ImgCIFCreator:
 
         # print('axinf', axes_info)
         lengths = [len(values) for values in axes_info.values() if values is not None]
-        hast_same_len = all([length == lengths[0] for length in lengths])
+        has_same_len = all([length == lengths[0] for length in lengths])
 
         missing_information = False
         for value in axes_info.values():
-
             if self.param_is_none(value):
                 missing_information = True
 
-        if missing_information or not hast_same_len:
-            print('\nSome information about the goiometer/detector is missing, please enter \
-the missing information.')
+        if missing_information or not has_same_len:
 
-            print('\nGoniometer information: \n\
-Answer the goniometer questions for all axes in zero position.')
-            goniometer_axes = self.cmd_parser.request_input('goniometer_axes')
-            goniometer_axes = self.cmd_parser.parse_axis_string(goniometer_axes)
-
-            new_regex_stem = r'(' + r'|'.join(goniometer_axes[0]) + r')'
-            # make case insensitve
-            new_regex = r'(?i)(' + new_regex_stem + r'((\s|,)(\s)*\d{1,3}){1,2}' + r')\Z'
-            self.cmd_parser.validation_regex['kappa_axis'] = new_regex
-            kappa_axis = self.cmd_parser.request_input('kappa_axis')
-
-            new_regex = r'(?i)(' + new_regex_stem + r'((\s|,)(\s)*\d{1,3})' + r')\Z'
-            self.cmd_parser.validation_regex['chi_axis'] = new_regex
-            chi_axis = self.cmd_parser.request_input('chi_axis')
-
-            gon_axes = self.cmd_parser.make_goniometer_axes(
-                goniometer_axes, kappa_axis, chi_axis)
-
-            print('\nDetector information: \nAnswer the following questions assuming \
-all detector positioning axes are at their home positions. If there is more than \
-one detector, or detectors are non-rectangular, please describe in the comments \
-(not implemented yet).')
-            principal_angle = self.cmd_parser.request_input('principal_angle')
-            image_orientation = self.cmd_parser.request_input('image_orientation')
-            two_theta_sense = self.cmd_parser.request_input('two_theta_sense')
-
-            det_axes = self.cmd_parser.make_detector_axes(
-                goniometer_axes, principal_angle, image_orientation, two_theta_sense,
-                array_info, scan_settings_info)
+            gon_axes, principal_sense = self._complete_goniometer_axes(axes_info)
+            det_axes = self._complete_detector_axes(axes_info, principal_sense,
+                                                    array_info, scan_settings_info)
 
             for key in gon_axes:
                 gon_axes[key] += det_axes[key]
 
-            # print('gohomoni', gon_axes)
-            axes_info = gon_axes
+            return gon_axes
 
+        # print('gox', gon_axes)
+        # print('dx', det_axes)
         return axes_info
 
 
@@ -490,6 +471,167 @@ one detector, or detectors are non-rectangular, please describe in the comments 
                 return archive_type, external_url
 
         return archive, external_url
+
+
+    def _change_axes(self, axes_files, parser_label):
+        """Change the ordering and rotation senses of axes and add additional axes.
+
+        Args:
+            axes_files (list): the axes that were found in the files
+            parser_label (str): the label that identifies which type of axes the
+                parser must request
+
+        Returns:
+            axes_parsed (list): the list of parsed axes
+            senses_parsed (list): the list of parsed senses
+        """
+
+        missing_axes = True
+        while missing_axes:
+
+            axes_senses = self.cmd_parser.request_input(parser_label)
+            if parser_label == 'change_det_trans_axes':
+                axes_parsed = [sub.strip() for sub in axes_senses.split(',')]
+                senses_parsed = None
+            else:
+                axes_parsed, senses_parsed = \
+                    self.cmd_parser.parse_axis_string(axes_senses)
+
+            # no duplicates allowed
+            if not set(axes_files).issubset(axes_parsed):
+                print(f" ==> The axes found in the files ({', '.join(axes_files)}) \
+are no subset of ({', '.join(axes_parsed)})! Please try again.")
+                missing_axes = True
+                del self.cmd_parser.parsed[parser_label]
+            else:
+                missing_axes = False
+                return axes_parsed, senses_parsed
+
+
+    def _complete_goniometer_axes(self, axes_info):
+        """Use the information found in the files and construct the complete
+        goniometer axes description. Ask for missing information. If no axes are
+        found, the same information is requested, but no axes are predefined.
+
+        Args:
+            axes_info (dict): a dictionary that should contain the goniometer
+                axes (e.g. 'phi, c, omega, c') under the key 'gonio_axes_found'
+        Returns:
+            gon_axes (dict): a dictionary containing the information about the
+                settings of the goniometer
+            principal_sense (str): the sense of the principal axis
+        """
+
+        print('\nSome information about the goniometer is missing, please enter \
+the missing information. Answer the goniometer questions for all axes in zero position.')
+
+        goniometer_axes_in_file = axes_info.get('gonio_axes_found') \
+            if axes_info.get('gonio_axes_found') is not None else ([], [])
+
+        axes_files, senses_files = goniometer_axes_in_file
+        message = ', '.join([f'{ax} ({senses_files[idx]})' \
+        for idx, ax in enumerate(axes_files)])
+        print(f"\nSome goniometer rotation axes and assumed rotations were found. \
+Rotations are, when looking from the crystal in the direction of the goniometer, \
+c=clockwise or a=anticlockwise. The output order reflects the stacking from \
+closest to the crystal to furthest from the crystal. The axes are: \n ==> {message}")
+
+        # offer possibility to change ordering and rotation senses, not names
+        keep_axes = self.cmd_parser.request_input('keep_axes')
+        if keep_axes in ['no', 'n']:
+            goniometer_axes = self._change_axes(
+                axes_files, 'change_goniometer_axes')
+        else:
+            goniometer_axes = (axes_files, senses_files)
+
+        new_regex_stem = r'(' + r'|'.join(goniometer_axes[0]) + r')'
+        # make case insensitive
+        new_regex = r'(?i)(' + new_regex_stem + r'((\s|,)(\s)*\d{1,3}){1,2}' + r')\Z'
+        self.cmd_parser.validation_regex['kappa_axis'] = new_regex
+        kappa_axis = self.cmd_parser.request_input('kappa_axis')
+
+        new_regex = r'(?i)(' + new_regex_stem + r'((\s|,)(\s)*\d{1,3})' + r')\Z'
+        self.cmd_parser.validation_regex['chi_axis'] = new_regex
+        chi_axis = self.cmd_parser.request_input('chi_axis')
+
+        gon_axes = self.cmd_parser.make_goniometer_axes(
+            goniometer_axes, kappa_axis, chi_axis)
+
+        principal_sense = goniometer_axes[1][-1]
+
+        return gon_axes, principal_sense
+
+
+
+    def _complete_detector_axes(self, axes_info, principal_sense, array_info,
+                                scan_settings_info):
+        """Use the information found in the files and construct the complete
+        detector axes description. Ask for missing information. If no axes are
+        found, the same information is requested, but no axes are predefined.
+
+        Args:
+            axes_info (dict): a dictionary that should contain the detector
+                axes under the key 'det_trans_axes_found' and 'det_rot_axes_found'
+            principal_sense (str): the rotation sense of the principal axis
+            array_info (dict): information about the data array
+            scan_settings_info (dict): information about the scans
+        """
+
+        print('\nSome information about the detector is missing, please enter \
+the missing information. Answer the following questions assuming \
+all detector positioning axes are at their home positions. This does currently \
+not work for more than one detector, or non-rectangular detectors.')
+
+        principal_angle = self.cmd_parser.request_input('principal_angle')
+        image_orientation = self.cmd_parser.request_input('image_orientation')
+
+        det_trans_axes_in_file = axes_info.get('det_trans_axes_found') \
+            if axes_info.get('det_trans_axes_found') is not None else []
+
+        axes_files, senses_files = det_trans_axes_in_file, None
+
+        print(f"\nSome detector translation axes were found. The output \
+order reflects the stacking from closest to the crystal to furthest from the \
+crystal: The axes are: \n ==> {', '.join(axes_files)}")
+
+        del self.cmd_parser.parsed['keep_axes']
+        keep_axes = self.cmd_parser.request_input('keep_axes')
+
+        if keep_axes in ['no', 'n']:
+            det_trans_axes, _ = self._change_axes(
+                axes_files, 'change_det_trans_axes')
+        else:
+            det_trans_axes = axes_files
+
+        det_rot_axes_in_file = axes_info.get('det_rot_axes_found') \
+            if axes_info.get('det_rot_axes_found') is not None else ([], [])
+
+        axes_files, senses_files = det_rot_axes_in_file
+
+        message = ', '.join([f'{ax} ({senses_files[idx]})' \
+                                for idx, ax in enumerate(axes_files)])
+
+        print(f"\nSome detector rotation axes and assumed rotations were found. \
+Rotations are when looking from above c=clockwise or a=anticlockwise. The output \
+order reflects the stacking from closest to the crystal to furthest from the \
+crystal. The axes are: \n ==> {message}")
+
+        del self.cmd_parser.parsed['keep_axes']
+        keep_axes = self.cmd_parser.request_input('keep_axes')
+
+        if keep_axes in ['no', 'n']:
+            det_rot_axes = self._change_axes(
+                axes_files, 'change_det_rot_axes')
+        else:
+            det_rot_axes = (axes_files, senses_files)
+
+        det_axes = self.cmd_parser.make_detector_axes(
+            det_trans_axes, det_rot_axes,
+            principal_sense, principal_angle, image_orientation,
+            # two_theta_sense,
+            array_info, scan_settings_info)
+
+        return det_axes
 
 
 class ImgCIFEntryGenerators():
