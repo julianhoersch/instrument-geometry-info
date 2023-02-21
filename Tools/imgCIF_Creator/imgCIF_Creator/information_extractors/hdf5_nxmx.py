@@ -8,6 +8,11 @@ import numpy as np
 from imgCIF_Creator.command_line_interfaces import parser
 from . import extractor_interface
 
+# TODO this should be defined in the imgcif_creator
+GONIOMETER_AXES = ("phi", "kappa", "chi", "omega")
+DETECTOR_AXES = ('slow_pixel_direction', 'dety', 'fast_pixel_direction', 'detx',
+                 'det_z', 'trans', 'two_theta')
+
 
 class Extractor(extractor_interface.ExtractorInterface):
     """See also documentation of the init method.
@@ -372,8 +377,8 @@ class Extractor(extractor_interface.ExtractorInterface):
         while len(frame_numbers) != n_files:
             # strangely this in encapsulated into two lists
             files = [tup[0] for tup in list(file_mapping.values())[0]]
-            print(f'\nFound {n_files} files with {n_frames} frames in total: \n\
-{files}\n', end='')
+            print(f"\nFound {n_files} files with {n_frames} frames in total: \n\
+{', '.join(files)}\n", end='')
             frame_numbers = parser.CommandLineParser().request_input('frame_numbers')
             frame_numbers = frame_numbers.replace(' ', '').split(',')
             frame_numbers = [int(number) for number in frame_numbers]
@@ -467,42 +472,43 @@ of files. Please try again!')
                 their vectors, offsets, etc.
         """
 
-        # print('ff', file_mapping)
         goniometer_axes = {}
         with h5.File(master_file, 'r') as h5_master:
-            # TODO right now this does not work for multiple scans in a file
-            # for _, scan in file_mapping.keys():
-            scan = list(file_mapping.keys())[0][1]
-
-            path = f'{scan}/sample/transformations' #sample_{axis}/{axis}'
-            h5item = h5_master.get(path)
-            for axis in list(h5item.keys()):
-                # TODO for sam_x (detx) and sam_y (dety) the vectors are actually
-                # different than those in fast_pixel_direction etc
-                path = f'{scan}/sample/transformations/{axis}' #sample_{axis}/{axis}'
+            for axis in GONIOMETER_AXES + DETECTOR_AXES:
                 axis = axis.lower()
+                # TODO right now this does not work for multiple scans in a file
+                scan = list(file_mapping.keys())[0][1]
+                if axis in GONIOMETER_AXES:
+                    path = f'{scan}/sample/sample_{axis}/{axis}'
+                elif axis in DETECTOR_AXES:
+                    if axis == 'det_z':
+                        path = f'{scan}/instrument/detector_z/{axis}'
+                    else:
+                        path = f'{scan}/instrument/detector/module/{axis}'
+
                 h5item = h5_master.get(path)
                 if h5item is None or len(h5item.attrs) == 0:
                     continue
-                # else:
-                #     print('Collect INFO for', axis)
 
                 axis_type = h5item.attrs['transformation_type'].decode('utf-8')
                 depends_on = h5item.attrs['depends_on'].decode('utf-8').split('/')[-1]
-
-                # possibly loop through a dependency chain
-                # depends_on_h5item = h5_master[h5item.attrs['depends_on']]
-                # while depends_on in ['sam_x', 'sam_y', 'sam_z', 'module_offset']:
-                #     depends_on = depends_on_h5item.attrs['depends_on']\
-                #         .decode('utf-8').split('/')[-1]
-                    # print('depo while', depends_on)
-                    # depends_on_h5item = h5_master[depends_on_h5item.attrs['depends_on']]
-                    # depends_on_h5item = h5_master[list(depends_on_h5item.attrs.items())\
-                    #     [0][1].decode('utf-8')]
-                # the dependecy chain starts with detx for chi
+                # loop through a dependency chain until it does not depend
+                # on sam_x etc. anymore
+                depends_on_h5item = h5_master[h5item.attrs['depends_on']]
+                while depends_on in ['sam_x', 'sam_y', 'sam_z', 'module_offset']:
+                    depends_on = depends_on_h5item.attrs['depends_on']\
+                        .decode('utf-8').split('/')[-1]
+                    depends_on_h5item = h5_master[depends_on_h5item.attrs['depends_on']]
+                    depends_on_h5item = h5_master[list(depends_on_h5item.attrs.items())\
+                        [0][1].decode('utf-8')]
 
                 depends_on = self._replace_names(depends_on)
                 axis = self._replace_names(axis)
+                if axis == 'dety':
+                    depends_on = 'detx'
+                elif axis == 'trans':
+                    depends_on = 'two_theta'
+
                 vector = h5item.attrs['vector']
                 goniometer_axes[axis] = \
                     {
@@ -513,14 +519,13 @@ of files. Please try again!')
 
                 # TODO is an omega axis always present?
                 if axis == 'omega':
-                    # two_theta axis is duplicate of omega
+                    # two_theta axis is duplicate of omega except for the equipment
                     goniometer_axes['two_theta'] = \
                         {
                             'depends_on': depends_on,
                             'vector': vector,
                             'axis_type': axis_type
                         }
-            # print('goooni', goniometer_axes)
 
             # conversion from NeXus/McStas to CBF coordinate system
             # the kind of transformations (rotation) which have to be performed depend
@@ -552,10 +557,7 @@ of files. Please try again!')
                 self._rotate_from_nexus_to_cbf(content['vector'], goniometer_pos)
             goniometer_axes[axis]['offset'] = \
                 self._rotate_from_nexus_to_cbf(content['offset'], goniometer_pos)
-            # print('rotated', axis, 'from', content['vector'], 'to ==>',
-            # goniometer_axes[axis]['vector'])
-            # print('rotated', axis, 'from', content['vector'], 'to ==>',
-            # offsets[axis]['vector'])
+
         return goniometer_axes
 
 
@@ -570,11 +572,11 @@ of files. Please try again!')
         """
 
         #TODO this is hardcoded
-        if name == 'sam_x':
+        if name == 'fast_pixel_direction':
             return 'detx'
-        if name == 'sam_y':
+        if name == 'slow_pixel_direction':
             return 'dety'
-        if name == 'sam_z':
+        if name == 'det_z':
             return 'trans'
 
         return name
@@ -690,10 +692,9 @@ of files. Please try again!')
             axes.append(axis)
             ax_type = goniometer_axes[axis]['axis_type']
             axis_type.append(ax_type)
-            #TODO can i do that?
-            if ax_type == 'rotation':
+            if axis in GONIOMETER_AXES:
                 equip.append('goniometer')
-            elif ax_type == 'translation':
+            elif axis in DETECTOR_AXES:
                 equip.append('detector')
             else:
                 equip.append('equipment')
