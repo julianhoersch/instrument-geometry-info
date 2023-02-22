@@ -302,6 +302,7 @@ one detector, or detectors are non-rectangular, please describe in the comments 
 
         Args:
             detector_info (dict): information about the detector
+            axes_info (dict): information about the axes
 
         Returns:
             dict: the information completed
