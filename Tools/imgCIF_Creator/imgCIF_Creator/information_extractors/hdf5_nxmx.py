@@ -546,6 +546,11 @@ of files. Please try again!')
             goniometer_axes[axis]['offset'] = \
                 self._rotate_from_nexus_to_cbf(content['offset'], goniometer_pos)
 
+        # scan start for trans must also be transformed
+        if goniometer_axes['trans']['offset'][-1] == -off_z:
+            for scan in self.scan_info:
+                self.scan_info[scan][0]['trans'] *= -1
+
         return goniometer_axes
 
 
