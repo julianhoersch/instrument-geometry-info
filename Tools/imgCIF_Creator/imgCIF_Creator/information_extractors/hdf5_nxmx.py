@@ -234,6 +234,9 @@ class Extractor(extractor_interface.ExtractorInterface):
                         continue
                     axis = list(h5item.keys())[0]
                     axis = self._replace_names(axis)
+                    # drop sam axes
+                    if axis in ['sam_x', 'sam_y', 'sam_z']:
+                        continue
                     # take only first
                     dataset = list(h5item.values())[0]
                     # print('Collect INFO for', axis)
