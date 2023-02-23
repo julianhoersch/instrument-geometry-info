@@ -12,6 +12,7 @@ ROT_AXES = ("chi", "phi", "detector_2theta", "two_theta", "omega",
             "angle", "start_angle", "kappa")
 TRANS_AXES = ("detector_distance", "dx", "trans", "distance")
 ALWAYS_AXES = ("distance", "two_theta", "detector_2theta")
+DETECTOR_ARRAY_AXES = ("detx", "dety")
 
 
 class ImgCIFCreator:
@@ -83,7 +84,7 @@ class ImgCIFCreator:
         # describe _diffrn_detector and _diffrn_detector_axis
         # this correlates with the detector axes in generate axes!
         detector_info = self.extractor.get_detector_info()
-        detector_info = self.check_detector_completeness(detector_info)
+        detector_info = self.check_detector_completeness(detector_info, axes_info)
 
         archive, external_url = self.check_external_url(external_url, filename)
 
@@ -265,8 +266,7 @@ one detector, or detectors are non-rectangular, please describe in the comments 
         array_structure_labels = ['axis_id', 'axis_set_id', 'pixel_size']
         if any([self.param_is_none(array_info[label]) for label in array_structure_labels]):
 
-            array_info["axis_id"] = ["array_x", "array_y"] #TODO should that be the
-            # detector axes detx, dety
+            array_info["axis_id"] = ["detx", "dety"]
             array_info["axis_set_id"] = [1, 2]
 
             if self.param_is_none(array_info['pixel_size']):
@@ -296,19 +296,19 @@ one detector, or detectors are non-rectangular, please describe in the comments 
         return array_info
 
 
-    def check_detector_completeness(self, detector_info):
+    def check_detector_completeness(self, detector_info, axes_info):
         """Check if the detector information is complete and request input
         if not.
 
         Args:
             detector_info (dict): information about the detector
+            axes_info (dict): information about the axes
 
         Returns:
             dict: the information completed
         """
 
         # TODO does not include multiple detectors yet
-        # print('detrinf', detector_info)
 
         if self.param_is_none(detector_info["detector_id"]):
             detector_info["detector_id"] = ['det1']
@@ -316,14 +316,21 @@ one detector, or detectors are non-rectangular, please describe in the comments 
         detector_axes_labels = ['number_of_axes', 'axis_id']
 
         if any([self.param_is_none(detector_info[label]) for label in detector_axes_labels]):
-            det_axes = self.cmd_parser.request_input('detector_axes').split(',')
-            det_axes = [axis.strip() for axis in det_axes]
-            det_axes = [axis for axis in det_axes if axis != '']
+            det_axes = []
+            for idx, axis in enumerate(axes_info['axes']):
+                # skip detx, dety
+                if axis in DETECTOR_ARRAY_AXES:
+                    continue
+                if axes_info['equip'][idx] == 'detector' \
+                    and axes_info['axis_type'][idx] == 'translation':
+                    det_axes.append(axis)
 
-            # TODO testing len is always correct
+            if len(det_axes) < 1:
+                det_axes = self.cmd_parser.request_input('detector_axes').split(',')
+                det_axes = [axis.strip() for axis in det_axes]
+                det_axes = [axis for axis in det_axes if axis != '']
+
             detector_info["number_of_axes"] = [len(det_axes)]
-            # TODO is that true? in the hdf5 this is trans and in the cbf this is
-            # detx and dety
             detector_info["axis_id"] = det_axes
 
         #TODO it's not ensured that this is always a list...

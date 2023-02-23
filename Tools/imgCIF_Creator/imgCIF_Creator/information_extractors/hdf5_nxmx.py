@@ -152,12 +152,10 @@ class Extractor(extractor_interface.ExtractorInterface):
         """
 
         #TODO multiple detectors are not supportet (yet?)
-        detector_axes = self.setup_info.get('detector_axes')
-        number_of_axes = len(detector_axes) if detector_axes is not None else None
         detector_info = {
             'detector_id' : None,
-            'number_of_axes' : [number_of_axes],
-            'axis_id' : detector_axes,
+            'number_of_axes' : None,
+            'axis_id' : None,
             'detector_axis_id' : None
         }
 
@@ -236,6 +234,9 @@ class Extractor(extractor_interface.ExtractorInterface):
                         continue
                     axis = list(h5item.keys())[0]
                     axis = self._replace_names(axis)
+                    # drop sam axes
+                    if axis in ['sam_x', 'sam_y', 'sam_z']:
+                        continue
                     # take only first
                     dataset = list(h5item.values())[0]
                     # print('Collect INFO for', axis)
@@ -443,19 +444,6 @@ of files. Please try again!')
                 elif fast_direction[1] != 0 and fast_direction[0] == fast_direction[2] == 0:
                     setup_info['fast_direction'] = 'vertical'
 
-                # find detector axes
-                # TODO can I extract it from the hdf5 with the number of nxpositioners?
-                detector_axes = []
-                instrument_group = h5_master[f'{scan}/instrument/']
-                for sub_grp in instrument_group.keys():
-                    try:
-                        nx_class = instrument_group[sub_grp].attrs["NX_class"].decode('utf-8')
-                        if "NXpositioner" in nx_class:
-                            detector_axes.append(list(instrument_group[sub_grp].keys())[0])
-                    except KeyError:
-                        pass
-                setup_info['detector_axes'] = detector_axes
-
         return setup_info
 
 
@@ -557,6 +545,11 @@ of files. Please try again!')
                 self._rotate_from_nexus_to_cbf(content['vector'], goniometer_pos)
             goniometer_axes[axis]['offset'] = \
                 self._rotate_from_nexus_to_cbf(content['offset'], goniometer_pos)
+
+        # scan start for trans must also be transformed
+        if goniometer_axes['trans']['offset'][-1] == -off_z:
+            for scan in self.scan_info:
+                self.scan_info[scan][0]['trans'] *= -1
 
         return goniometer_axes
 
