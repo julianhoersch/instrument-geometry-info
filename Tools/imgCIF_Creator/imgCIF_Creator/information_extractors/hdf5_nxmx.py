@@ -6,7 +6,8 @@ from collections import defaultdict
 import h5py as h5
 import numpy as np
 from imgCIF_Creator.command_line_interfaces import parser
-from . import extractor_interface
+from . import extractor_interface, extractor_utils
+
 
 # TODO this should be defined in the imgcif_creator
 GONIOMETER_AXES = ("phi", "kappa", "chi", "omega")
@@ -295,6 +296,8 @@ class Extractor(extractor_interface.ExtractorInterface):
                                 }
                 # print('start_axes_settings', start_axes_settings)
                 scan_info[scan_no] = (start_axes_settings, scan_details)
+
+        scan_info = extractor_utils.prune_scan_info(scan_info)
 
         return scan_info
 
