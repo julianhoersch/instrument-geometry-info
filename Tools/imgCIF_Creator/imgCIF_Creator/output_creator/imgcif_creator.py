@@ -332,8 +332,6 @@ class ImgCIFCreator:
         if self.param_is_none(radiation_info['rad_type']):
             radiation_info['rad_type'] = \
                 self.cmd_parser.request_input('rad_type')
-            if radiation_info['rad_type'] == '':
-                radiation_info['rad_type'] = 'x-ray'
 
         if self.param_is_none(radiation_info['wavelength']):
             radiation_info['wavelength'] = \

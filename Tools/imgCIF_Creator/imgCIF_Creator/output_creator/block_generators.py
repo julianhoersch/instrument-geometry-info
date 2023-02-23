@@ -42,7 +42,8 @@ class ImgCIFEntryGenerators():
         """
 
         # print('scaninf', scan_info)
-        cif_block["_diffrn_radiation.type"] = radiation_info['rad_type']
+        if radiation_info['rad_type'] is not '':
+            cif_block["_diffrn_radiation.type"] = radiation_info['rad_type']
 
         base = "_diffrn_radiation_wavelength"
         cif_block[base + ".id"] = [1]
