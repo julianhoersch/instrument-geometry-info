@@ -498,10 +498,10 @@ class ImgCIFCreator:
                 axes_parsed, senses_parsed = \
                     self.cmd_parser.parse_axis_string(axes_senses)
 
-            # no duplicates allowed
-            if not set(axes_files).issubset(axes_parsed):
-                print(f" ==> The axes found in the files ({', '.join(axes_files)}) \
-are no subset of ({', '.join(axes_parsed)})! Please try again.")
+            # only known axes are allowed
+            if not set(axes_files) == set(axes_parsed):
+                print(f" ==> The set of axes you entered ({', '.join(axes_parsed)})\
+does not match the set of axes in the files ({', '.join(axes_files)})! Please try again.")
                 missing_axes = True
                 del self.cmd_parser.parsed[parser_label]
             else:
@@ -592,8 +592,8 @@ not work for more than one detector, or non-rectangular detectors.')
         axes_files, senses_files = det_trans_axes_in_file, None
 
         print(f"\nSome detector translation axes were found. The output \
-order reflects the stacking from closest to the crystal to furthest from the \
-crystal: The axes are: \n ==> {', '.join(axes_files)}")
+order reflects the stacking from closest to the detector to furthest from the \
+detector: The axes are: \n ==> {', '.join(axes_files)}")
 
         del self.cmd_parser.parsed['keep_axes']
         keep_axes = self.cmd_parser.request_input('keep_axes')

@@ -254,11 +254,11 @@ class CommandLineParser():
 
         # translational axes
         axis_id += det_trans_axes
-        axis_type += ['translation' for axis in det_trans_axes]
-        equip += ['detector' for axis in det_trans_axes]
+        axis_type += ['translation' for _ in det_trans_axes]
+        equip += ['detector' for _ in det_trans_axes]
         # TODO also for multiple axes correct?
         # Detector translation always opposite to beam direction
-        vector += [[0, 0, -1] for axis in det_trans_axes]
+        vector += [[0, 0, -1] for _ in det_trans_axes]
 
         first_scan = sorted(scan_settings_info.keys())[0]
         first_scan_info = scan_settings_info[first_scan][0]
@@ -267,7 +267,7 @@ class CommandLineParser():
         for z in z_offsets:
             #TODO this sets unknown offsets to zero...
             z = z if z is not None else 0
-            offset.append([0, 0, z])
+            offset.append([0, 0, -z])
 
         # rotational axes
         rot_axes, rot_senses = det_rot_axes

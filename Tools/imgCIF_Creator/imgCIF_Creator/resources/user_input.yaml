@@ -160,8 +160,8 @@ change_goniometer_axes:
       when looking from the crystal in the direction of the goniometer. Separate
       each value by a comma, for example 'Chi, c, Omega, a'. List the axes in
       order of stacking from closest to the crystal to furthest (phi would
-      typically be first if present, omega is usually last). You need to include
-      the axis names which are already found, but you can add additional axes.
+      typically be first if present, omega is usually last). You need to use
+      the axis names which were already found in the file.
 
 change_det_rot_axes:
     label: Detector rotation axes
@@ -171,8 +171,8 @@ change_det_rot_axes:
       in data files if known) and sense of rotation (a=anticlockwise, c=clockwise)
       when looking from above. Separate each value by a comma, for example:
       'detector_2theta, c'. List the axes in order of stacking from closest to
-      the crystal to furthest. You need to include the axis names which are already
-      found, but you can add additional axes.
+      the crystal to furthest. You need to use the axis names which were already
+      found in the file.
 
 change_det_trans_axes:
     label: Detector translation axes
@@ -181,8 +181,7 @@ change_det_trans_axes:
       For each translation axis attached to the detector, give the axis name (as used
       in data files if known). Separate each value by a comma, for example:
       'trans'. List the axes in order of stacking from closest to the crystal to
-      furthest. You need to include the axis names which are already found,
-      but you can add additional axes.
+      furthest. You need to use the axis names which were already found in the file.
 
 
 rotation_axis:
