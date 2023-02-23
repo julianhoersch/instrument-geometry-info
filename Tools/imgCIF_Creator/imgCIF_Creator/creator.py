@@ -145,7 +145,7 @@ if you provide an input it will be checked against the required format.
 """)
 
     filename, filetype = validate_filename(filename)
-    print(f'Identified fileformat in {filename}, as {filetype}.')
+    print(f'Identified content of {filename} as {filetype} file.')
 
     if include:
         prepend_dir = os.path.split(filename)[-1]

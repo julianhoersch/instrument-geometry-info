@@ -204,14 +204,15 @@ kappa_axis:
     label: kappa
     required: false
     description: >
-      If your goniometer has a kappa axis, please give its name and its;
-      angle here, for example "kappa 50". When looking from above, with the
-      beam going from left to right and all axes at their zero positions, the
-      kappa base is assumed to be at the left. If this is not the case,
+      Your goniometer seems to have a kappa axis, please provide its name followed
+      by its angle (for example "kappa, 50"). Consider the angle when looking from
+      above, with the beam going from left to right and all axes at their zero positions,
+      the kappa base is assumed to be at the left. If this is not the case,
       please append the base location as a counterclockwise rotation from this
       position when looking from above. For example, if the kappa base is
-      located on the detector side, type "kappa 50 180". The name of the kappa
-      axis must be included in the goniometer axes.
+      located on the detector side, type "kappa, 50, 180". The name of the kappa
+      axis must be included in the goniometer axes. If you don't provide a kappa
+      axis although there is one, the description of the axes might be incorrect.
 # - type: input
 #   id: kappa
 #   attributes:
@@ -223,7 +224,7 @@ chi_axis:
     label: chi
     required: false
     description: >
-      If your goniometer has a chi axis, please give its name here, followed
+      Your goniometer seems to have a chi axis, please provide its name followed
       by an omega angle at which the chi rotation axis is parallel to the
       beam. The sense of rotation provided for chi in the "Goniometer axes"
       question above is the sense of rotation when the omega axis has been
@@ -231,9 +232,10 @@ chi_axis:
       For example, if omega is rotated by 90 to bring the chi axis parallel
       to the beam and moving to positive chi rotates the crystal
       anticlockwise when viewed from the source, 'chi, a' should be given for
-      "Goniometer axes" and `chi 90` should be provided here. 'chi, c' with
-      'chi -90' would also describe the same situation. The name of the chi
-      axis must be included in the goniometer axes.
+      "Goniometer axes" and `chi, 90` should be provided here. 'chi, c' with
+      'chi, -90' would also describe the same situation. The name of the chi
+      axis must be included in the goniometer axes. If you don't provide a chi
+      axis although there is one, the description of the axes might be incorrect.
 
 # - type: markdown
 #   attributes:

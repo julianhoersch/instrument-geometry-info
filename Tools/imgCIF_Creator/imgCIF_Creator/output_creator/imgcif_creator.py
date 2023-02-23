@@ -500,7 +500,7 @@ class ImgCIFCreator:
 
             # only known axes are allowed
             if not set(axes_files) == set(axes_parsed):
-                print(f" ==> The set of axes you entered ({', '.join(axes_parsed)})\
+                print(f" ==> The set of axes you entered ({', '.join(axes_parsed)}) \
 does not match the set of axes in the files ({', '.join(axes_files)})! Please try again.")
                 missing_axes = True
                 del self.cmd_parser.parsed[parser_label]
@@ -546,14 +546,20 @@ closest to the crystal to furthest from the crystal. The axes are: \n ==> {messa
             goniometer_axes = (axes_files, senses_files)
 
         new_regex_stem = r'(' + r'|'.join(goniometer_axes[0]) + r')'
-        # make case insensitive
-        new_regex = r'(?i)(' + new_regex_stem + r'((\s|,)(\s)*\d{1,3}){1,2}' + r')\Z'
-        self.cmd_parser.validation_regex['kappa_axis'] = new_regex
-        kappa_axis = self.cmd_parser.request_input('kappa_axis')
 
-        new_regex = r'(?i)(' + new_regex_stem + r'((\s|,)(\s)*\d{1,3})' + r')\Z'
-        self.cmd_parser.validation_regex['chi_axis'] = new_regex
-        chi_axis = self.cmd_parser.request_input('chi_axis')
+        # ask only if chi/kappa axis is there
+        if any(['chi' in axis.lower() for axis in axes_files]):
+            new_regex = r'(?i)(' + new_regex_stem + r'((\s|,)(\s)*\d{1,3})' + r')\Z'
+            self.cmd_parser.validation_regex['chi_axis'] = new_regex
+            chi_axis = self.cmd_parser.request_input('chi_axis')
+            kappa_axis = ''
+        elif any(['kappa' in axis.lower() for axis in axes_files]):
+            new_regex = r'(?i)(' + new_regex_stem + r'((\s|,)(\s)*\d{1,3}){1,2}' + r')\Z'
+            self.cmd_parser.validation_regex['kappa_axis'] = new_regex
+            kappa_axis = self.cmd_parser.request_input('kappa_axis')
+            chi_axis = ''
+        else:
+            chi_axis, kappa_axis = '', ''
 
         gon_axes = self.cmd_parser.make_goniometer_axes(
             goniometer_axes, kappa_axis, chi_axis)
@@ -561,7 +567,6 @@ closest to the crystal to furthest from the crystal. The axes are: \n ==> {messa
         principal_sense = goniometer_axes[1][-1]
 
         return gon_axes, principal_sense
-
 
 
     def _complete_detector_axes(self, axes_info, principal_sense, array_info,
@@ -586,45 +591,41 @@ not work for more than one detector, or non-rectangular detectors.')
         principal_angle = self.cmd_parser.request_input('principal_angle')
         image_orientation = self.cmd_parser.request_input('image_orientation')
 
-        det_trans_axes_in_file = axes_info.get('det_trans_axes_found') \
+        det_trans_axes = axes_info.get('det_trans_axes_found') \
             if axes_info.get('det_trans_axes_found') is not None else []
 
-        axes_files, senses_files = det_trans_axes_in_file, None
-
-        print(f"\nSome detector translation axes were found. The output \
+        if len(det_trans_axes) > 1:
+            print(f"\nSome detector translation axes were found. The output \
 order reflects the stacking from closest to the detector to furthest from the \
-detector: The axes are: \n ==> {', '.join(axes_files)}")
+detector: The axes are: \n ==> {', '.join(det_trans_axes)}")
 
-        del self.cmd_parser.parsed['keep_axes']
-        keep_axes = self.cmd_parser.request_input('keep_axes')
+            del self.cmd_parser.parsed['keep_axes']
+            keep_axes = self.cmd_parser.request_input('keep_axes')
 
-        if keep_axes in ['no', 'n']:
-            det_trans_axes, _ = self._change_axes(
-                axes_files, 'change_det_trans_axes')
-        else:
-            det_trans_axes = axes_files
+            if keep_axes in ['no', 'n']:
+                det_trans_axes, _ = self._change_axes(
+                    det_trans_axes, 'change_det_trans_axes')
 
         det_rot_axes_in_file = axes_info.get('det_rot_axes_found') \
             if axes_info.get('det_rot_axes_found') is not None else ([], [])
 
-        axes_files, senses_files = det_rot_axes_in_file
-
-        message = ', '.join([f'{ax} ({senses_files[idx]})' \
-                                for idx, ax in enumerate(axes_files)])
+        det_rot_axes, det_rot_senses = det_rot_axes_in_file
+        message = ', '.join([f'{ax} ({det_rot_senses[idx]})' \
+                                for idx, ax in enumerate(det_rot_axes)])
 
         print(f"\nSome detector rotation axes and assumed rotations were found. \
 Rotations are when looking from above c=clockwise or a=anticlockwise. The output \
-order reflects the stacking from closest to the crystal to furthest from the \
-crystal. The axes are: \n ==> {message}")
+order reflects the stacking from closest to the detector to furthest from the \
+detector. The axes are: \n ==> {message}")
 
         del self.cmd_parser.parsed['keep_axes']
         keep_axes = self.cmd_parser.request_input('keep_axes')
 
         if keep_axes in ['no', 'n']:
             det_rot_axes = self._change_axes(
-                axes_files, 'change_det_rot_axes')
+                det_rot_axes, 'change_det_rot_axes')
         else:
-            det_rot_axes = (axes_files, senses_files)
+            det_rot_axes = (det_rot_axes, det_rot_senses)
 
         det_axes = self.cmd_parser.make_detector_axes(
             det_trans_axes, det_rot_axes,
