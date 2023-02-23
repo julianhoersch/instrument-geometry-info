@@ -9,20 +9,16 @@ from . import block_generators
 
 # Configuration information
 # the order reflects the stacking
-# GONIOMETER_BASE = ("omega", "angle", "two_theta")
-GONIOMETER_AXES = ("phi", "kappa", "chi", "omega", "angle", "two_theta")
-# GONIOMETER_AXES = ("chi", "phi", "two_theta", "omega", "angle", "start_angle",
-#                    "kappa")
-
-# DETECTOR_TRANS = ("detector_distance", "dx", "trans", "distance")
-DETECTOR_AXES = ("detector_2theta", "detector_distance", "dx", "trans", "distance")
-
+GONIOMETER_AXES = ("phi", "kappa", "chi", "omega", "angle")
+DETECTOR_AXES = ('slow_pixel_direction', 'dety', 'fast_pixel_direction', 'detx',
+                 'dx', 'distance', 'det_z', 'trans', 'two_theta', 'detector_2theta')
+DETECTOR_ARRAY_AXES = ("detx", "dety")
 
 ROT_AXES = ("chi", "phi", "detector_2theta", "two_theta", "omega", "angle",
             "start_angle", "kappa")
-TRANS_AXES = ("detector_distance", "dx", "trans", "distance")
+TRANS_AXES = ("detector_distance", "dx", "trans", "distance", 'det_z')
+
 ALWAYS_AXES = ("distance", "two_theta", "detector_2theta")
-DETECTOR_ARRAY_AXES = ("detx", "dety")
 
 
 class ImgCIFCreator:
