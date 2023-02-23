@@ -554,7 +554,7 @@ closest to the crystal to furthest from the crystal. The axes are: \n ==> {messa
             chi_axis = self.cmd_parser.request_input('chi_axis')
             kappa_axis = ''
         elif any(['kappa' in axis.lower() for axis in axes_files]):
-            new_regex = r'(?i)(' + new_regex_stem + r'((\s|,)(\s)*\d{1,3}){1,2}' + r')\Z'
+            new_regex = r'(?i)(' + new_regex_stem + r'(,| )\s*\d{1,3}(,| )\s*(180|0)\Z' + r')\Z'
             self.cmd_parser.validation_regex['kappa_axis'] = new_regex
             kappa_axis = self.cmd_parser.request_input('kappa_axis')
             chi_axis = ''
