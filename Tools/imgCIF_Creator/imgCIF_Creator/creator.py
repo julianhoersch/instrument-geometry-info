@@ -118,7 +118,7 @@ scan/frame file naming convention",
     # callback=validate_filename,
 )
 
-def main(filename, gui, external_url, stem, output_file):
+def main(filename, stem, output_file):
     """This is an interactive command line interface to collect the necessary
 information to create an imgCIF file out of HDF5, full CBF and some common subset
 of miniCBF
@@ -147,15 +147,10 @@ if you provide an input it will be checked against the required format.
     filename, filetype = validate_filename(filename)
     print(f'Identified content of {filename} as {filetype} file(s).')
 
-    if gui:
-        graphical_user_interface()
-    else:
-        command_line_interface(
-            filename, filetype, external_url, stem, output_file)
+    command_line_interface(filename, filetype, stem, output_file)
 
 
-def command_line_interface(filename, filetype, external_url, stem,
-                           output_file):
+def command_line_interface(filename, filetype, stem, output_file):
     """Launch the command line interface to interactively create the imgCIF.
 
     Args:
@@ -175,8 +170,7 @@ def command_line_interface(filename, filetype, external_url, stem,
     cif_file[name] = cif_block
 
     creator = imgcif_creator.ImgCIFCreator(filename, filetype, stem)
-    creator.create_imgcif(
-        cif_block, external_url, filename, filetype)
+    creator.create_imgcif(cif_block, filename, filetype)
 
     if output_file == '':
         output_file = os.getcwd() + os.sep + name + '.cif'
@@ -197,7 +191,3 @@ def command_line_interface(filename, filetype, external_url, stem,
         file.write(cif_file.WriteOut())
         print(f'Created imgCIF and saved to: {output_file}\n')
 
-
-def graphical_user_interface():
-
-    print('GUI not implemented yet!')
