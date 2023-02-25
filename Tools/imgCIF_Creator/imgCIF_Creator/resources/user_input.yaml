@@ -352,7 +352,8 @@ external_url:
     label: External url
     required: true
     description: >
-      Please enter the URL where the files can be found (e.g. a zenodo URL). If
+      Please enter the URL where the files can be found (e.g. a zenodo URL). Please
+      provide a link to the the archive file, the folder or hdf5 master file. If
       you can not provide an external URL you can use the local file location by
       entering 'force local' (discouraged).
 
@@ -373,3 +374,11 @@ keep_axes:
       - 'Yes'
       - 'No'
     abbreviate: true
+
+archive_path:
+    label: Archive path
+    required: true
+    description: >
+      The exteral url points to an archive, please specify the path within the archive
+      where the files can be found.
+

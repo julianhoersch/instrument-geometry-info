@@ -82,14 +82,14 @@ cbf and smv files please provide a directory. Exiting.')
 # e.g. file://cbf_cyclohexane_crystal2/CBF_crystal_2/ciclohexano3_010001.cbf -->
 # my_new_name/ciclohexano3_010001.cbf
 
-@click.option(
-    "--include",
-    "-i",
-    type=bool,
-    default=False,
-    is_flag=True,
-    help="Include the directory name as part of the archive path name."
-)
+# @click.option(
+#     "--include",
+#     "-i",
+#     type=bool,
+#     default=False,
+#     is_flag=True,
+#     help="Include the directory name as part of the archive path name."
+# )
 # this only has an effect if the location is set and has a archive archive_path
 # as tgz then _array_data_external_data.archive_path is filled and if i is
 # selected the folder name is prepended to that name
@@ -118,7 +118,7 @@ scan/frame file naming convention",
     # callback=validate_filename,
 )
 
-def main(filename, gui, external_url, include, stem, output_file):
+def main(filename, gui, external_url, stem, output_file):
     """This is an interactive command line interface to collect the necessary
 information to create an imgCIF file out of HDF5, full CBF and some common subset
 of miniCBF
@@ -136,8 +136,8 @@ of miniCBF
 
     print('\n--------------------------- imgCIF Creator ---------------------------\n')
     print("""This is an interactive command line interface to collect the necessary
-information to create an imgCIF file out of HDF5, full CBF and some common subset
-of miniCBF.
+information to create an imgCIF file out of full CBF files and some common
+subsets of miniCBF and HDF5 master files.
 
 Parameters that are missing in the provided file or directory will be requested
 from the user. You can skip parameters that are not required with an empty input,
@@ -147,19 +147,14 @@ if you provide an input it will be checked against the required format.
     filename, filetype = validate_filename(filename)
     print(f'Identified content of {filename} as {filetype} file(s).')
 
-    if include:
-        prepend_dir = os.path.split(filename)[-1]
-    else:
-        prepend_dir = ""
-
     if gui:
         graphical_user_interface()
     else:
         command_line_interface(
-            filename, filetype, external_url, prepend_dir, stem, output_file)
+            filename, filetype, external_url, stem, output_file)
 
 
-def command_line_interface(filename, filetype, external_url, prepend_dir, stem,
+def command_line_interface(filename, filetype, external_url, stem,
                            output_file):
     """Launch the command line interface to interactively create the imgCIF.
 
@@ -167,8 +162,6 @@ def command_line_interface(filename, filetype, external_url, prepend_dir, stem,
         filename (str): the filename or directory name where the data is located
         filetype (str): the filetype of the files, either cbf or h5
         external_url (str): the external file url provided by the user
-        prepend_dir (str): the directory that should be prepended (directory name
-            as part of the archive path name)
         stem (str): Constant portion of frame file name. This can help determine the \
             scan/frame file naming convention
         output_file (str): output file to write to
@@ -183,7 +176,7 @@ def command_line_interface(filename, filetype, external_url, prepend_dir, stem,
 
     creator = imgcif_creator.ImgCIFCreator(filename, filetype, stem)
     creator.create_imgcif(
-        cif_block, external_url, prepend_dir, filename, filetype)
+        cif_block, external_url, filename, filetype)
 
     if output_file == '':
         output_file = os.getcwd() + os.sep + name + '.cif'

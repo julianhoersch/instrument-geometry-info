@@ -377,7 +377,7 @@ class Extractor(extractor_interface.ExtractorInterface):
             # strangely this in encapsulated into two lists
             files = [tup[0] for tup in list(file_mapping.values())[0]]
             print(f"\nFound {n_files} files with {n_frames} frames in total: \n\
-{', '.join(files)}\n", end='')
+ {', '.join(files)}\n", end='')
             frame_numbers = parser.CommandLineParser().request_input('frame_numbers')
             frame_numbers = frame_numbers.replace(' ', '').split(',')
             frame_numbers = [int(number) for number in frame_numbers]

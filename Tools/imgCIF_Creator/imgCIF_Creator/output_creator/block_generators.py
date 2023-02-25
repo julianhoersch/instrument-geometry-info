@@ -222,6 +222,7 @@ class ImgCIFEntryGenerators():
             entries[base + ".archive_path"] = []
 
         counter = 0
+        protocols = ["file:", "rsync:"]
         for scan, frames in scan_list:
             # print('sc fr scl', scan, frames, scan_list)
             for frame in range(1, frames + 1):
@@ -232,18 +233,20 @@ class ImgCIFEntryGenerators():
                 entries[base + ".id"].append(f"ext{counter}")
                 file_format = 'HDF5' if file_format == 'h5' else file_format
                 entries[base + ".format"].append(file_format.upper())
-                if external_url.startswith("file:"):
+                if any([external_url.startswith(prot) for prot in protocols]) or\
+                    file_format == 'HDF5':
+                    if file_format == 'HDF5':
+                        external_url = external_url.strip(external_url.split('/')[-1])
                     separator = '' if external_url.endswith(os.sep) else os.sep
                     local_url = external_url + separator + frame_name
                     entries[base + ".uri"].append(local_url)
                 else:
                     entries[base + ".uri"].append(external_url)
 
-                # TODO path and frame only for hdf5? repsectively containerized images?
+                # TODO path and frame only for hdf5? rspectively containerized images?
                 if file_format in ('h5', 'HDF5'):
                     entries[base + ".path"].append(all_frames[(scan, frame)]['path'])
                     entries[base + ".frame"].append(all_frames[(scan, frame)]['frame'])
-
                 # A too-clever-by-half way of optionally live constructing a URL
                 # TODO what is the archive path actually
                 if arch is not None:
