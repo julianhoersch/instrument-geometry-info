@@ -61,22 +61,22 @@ cbf and smv files please provide a directory. Exiting.')
 # )
 
 @click.command()
-@click.option(
-    "--gui",
-    "-g",
-    default=False,
-    type=bool,
-    is_flag=True,
-    help="Start the imgcif_creator with a graphical user interface.",
-)
+# @click.option(
+#     "--gui",
+#     "-g",
+#     default=False,
+#     type=bool,
+#     is_flag=True,
+#     help="Start the imgcif_creator with a graphical user interface.",
+# )
 
-@click.option(
-    "--external_url",
-    "-u",
-    type=str,
-    default='',
-    help='Final URL of files in output.'
-)
+# @click.option(
+#     "--external_url",
+#     "-u",
+#     type=str,
+#     default='',
+#     help='Final URL of files in output.'
+# )
 # this changed previously the uri, which is the file location before into the value
 # specified here
 # e.g. file://cbf_cyclohexane_crystal2/CBF_crystal_2/ciclohexano3_010001.cbf -->
