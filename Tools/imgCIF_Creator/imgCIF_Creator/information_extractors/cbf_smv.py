@@ -800,8 +800,10 @@ Try to provide the constant stem of the file name using the -s option.\n")
         # specified e.g. angle -> omega
         osc_axis = self._get_cbf_header_values(cbf_header, 'oscillation_axis',
                                                is_number=False, with_unit=False)
+        print('osx', osc_axis)                                        
 
-        if (scan_ax[0] not in imgcif_creator.ROT_AXES) and (osc_axis[0] is not None):
+        if osc_axis[0] is not None:
+            print('im here')
 
             ax_vals[osc_axis[0]] = ax_vals[scan_ax[0]]
             del ax_vals[scan_ax[0]]
