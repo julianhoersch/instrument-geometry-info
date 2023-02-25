@@ -3,6 +3,7 @@
 
 import re
 import os
+import requests
 import importlib
 from imgCIF_Creator.command_line_interfaces import parser
 from imgCIF_Creator.information_extractors import extractor_utils
@@ -454,10 +455,22 @@ class ImgCIFCreator:
 
         archive = None
         archive_path = None
+        enter_url = True
 
         if external_url == '':
-            external_url = self.cmd_parser.request_input('external_url')
-
+            while enter_url:
+                external_url = self.cmd_parser.request_input('external_url')
+                print(' ==> Checking url...')
+                url_is_reachable = self._check_url_is_reachable(external_url)
+                if not url_is_reachable:
+                    response = self.cmd_parser.request_input('url_not_reachable')
+                    enter_url = True if 'y' in response else False
+                else:
+                    print(f' ==> {external_url} is reachable!')
+                    enter_url = False
+                if enter_url:
+                    del self.cmd_parser.parsed['external_url']
+                
         if external_url == 'force local':
             filename = filename[1:] if filename.startswith(os.sep) else filename
             external_url = f"file:{os.sep}{os.sep}" + filename
@@ -473,6 +486,27 @@ class ImgCIFCreator:
                 return archive_type, external_url, archive_path
 
         return archive, external_url, archive_path
+
+
+    def _check_url_is_reachable(self, url):
+        """Check if an url is reachable.
+
+        Args:
+            url (str): the url to test
+
+        Returns:
+            bool: whether the url is reachable or not
+        """
+        
+        try:
+            get = requests.get(url)
+            if get.status_code == 200:
+                return True
+            else:
+                return False
+
+        except requests.exceptions.RequestException as e:
+            return False
 
 
     def _change_axes(self, axes_files, parser_label):
