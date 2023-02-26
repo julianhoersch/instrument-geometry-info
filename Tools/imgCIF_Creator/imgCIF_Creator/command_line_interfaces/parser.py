@@ -210,7 +210,7 @@ class CommandLineParser():
                            image_orientation,
                            # two_theta_sense,
                            array_info,
-                           scan_settings_info):
+                           first_scan_info):
         """Add information concerning the detector axes. We define our own axis names,
         with the detector distance being inserted when the data file is read. We
         choose det_x to be in the horizontal direction, and det_y to be vertical.
@@ -228,7 +228,7 @@ class CommandLineParser():
             image_orientation (str): the image orientation string, e.g. 'top left',...
             two_theta_sense (str): the sense of the two theta axis (e.g. clockwise)
             array_info (dict): information about the array
-            scan_settings_info (dict): information about the scan settings
+            first_scan_info (dict): information about the first scan settings
 
         Returns:
             dict: a dictionary containing the information about the detector axes
@@ -260,8 +260,6 @@ class CommandLineParser():
         # Detector translation always opposite to beam direction
         vector += [[0, 0, -1] for _ in det_trans_axes]
 
-        first_scan = sorted(scan_settings_info.keys())[0]
-        first_scan_info = scan_settings_info[first_scan][0]
         z_offsets = [first_scan_info.get(axis) for axis in det_trans_axes]
 
         for z in z_offsets:
