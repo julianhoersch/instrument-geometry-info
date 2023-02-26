@@ -5,14 +5,21 @@ import re
 import os
 import importlib
 from imgCIF_Creator.command_line_interfaces import parser
+from imgCIF_Creator.information_extractors import extractor_utils
+from . import block_generators
 
 # Configuration information
-#TODO always?
-ROT_AXES = ("chi", "phi", "detector_2theta", "two_theta", "omega",
-            "angle", "start_angle", "kappa")
-TRANS_AXES = ("detector_distance", "dx", "trans", "distance")
-ALWAYS_AXES = ("distance", "two_theta", "detector_2theta")
+# the order reflects the stacking
+GONIOMETER_AXES = ("phi", "kappa", "chi", "omega", "angle")
+DETECTOR_AXES = ('slow_pixel_direction', 'dety', 'fast_pixel_direction', 'detx',
+                 'dx', 'distance', 'det_z', 'trans', 'two_theta', 'detector_2theta')
 DETECTOR_ARRAY_AXES = ("detx", "dety")
+
+ROT_AXES = ("chi", "phi", "detector_2theta", "two_theta", "omega", "angle",
+            "start_angle", "kappa")
+TRANS_AXES = ("detector_distance", "dx", "trans", "distance", 'det_z')
+
+ALWAYS_AXES = ("distance", "two_theta", "detector_2theta")
 
 
 class ImgCIFCreator:
@@ -39,7 +46,7 @@ class ImgCIFCreator:
 
         self.extractor = extractor_module.Extractor(filename, stem)
         self.cmd_parser = parser.CommandLineParser()
-        self.generators = ImgCIFEntryGenerators()
+        self.generators = block_generators.ImgCIFEntryGenerators()
 
 
     def create_imgcif(self, cif_block, external_url, prepend_dir, filename, filetype):
@@ -74,12 +81,18 @@ class ImgCIFCreator:
         scan_setting_info = self.extractor.get_scan_settings_info()
         # TODO this is not checking anything right now
         scan_setting_info = self.check_scan_settings_completeness(scan_setting_info)
+        # if always axes do not change and are at their home positions we want to
+        # remove them from the scan list, but not from the axis description
+        scan_setting_info = extractor_utils.prune_scan_info(scan_setting_info,
+                                                            prune_always_axes=True)
         scan_list = self.generate_scan_list(scan_setting_info)
 
         # describe _axis block
+        # the axes_info still contain always axes, scan_setting_info only needed
+        # for offsets
         axes_info = self.extractor.get_axes_info()
-        axes_info = self.check_axes_completeness(
-            axes_info, array_info, scan_setting_info)
+        axes_info = self.check_axes_completeness(axes_info, array_info,
+                                                 scan_setting_info)
 
         # describe _diffrn_detector and _diffrn_detector_axis
         # this correlates with the detector axes in generate axes!
@@ -186,13 +199,13 @@ class ImgCIFCreator:
         return self.lists_to_values(source_info)
 
 
-    def check_axes_completeness(self, axes_info, array_info, scan_settings_info):
+    def check_axes_completeness(self, axes_info, array_info, scan_setting_info):
         """Check if the axes information is complete and request input if not.
 
         Args:
             axes_info (dict): information about the axes
             array_info (dict): information about the data array
-            scan_settings_info (dict): information about the scans
+            scan_setting_info (dict): information about the scans
 
         Returns:
             dict: the information completed
@@ -200,54 +213,26 @@ class ImgCIFCreator:
 
         # print('axinf', axes_info)
         lengths = [len(values) for values in axes_info.values() if values is not None]
-        hast_same_len = all([length == lengths[0] for length in lengths])
+        has_same_len = all([length == lengths[0] for length in lengths])
 
         missing_information = False
         for value in axes_info.values():
-
             if self.param_is_none(value):
                 missing_information = True
 
-        if missing_information or not hast_same_len:
-            print('\nSome information about the goiometer/detector is missing, please enter \
-the missing information.')
+        if missing_information or not has_same_len:
 
-            print('\nGoniometer information: \n\
-Answer the goniometer questions for all axes in zero position.')
-            goniometer_axes = self.cmd_parser.request_input('goniometer_axes')
-            goniometer_axes = self.cmd_parser.parse_axis_string(goniometer_axes)
-
-            new_regex_stem = r'(' + r'|'.join(goniometer_axes[0]) + r')'
-            # make case insensitve
-            new_regex = r'(?i)(' + new_regex_stem + r'((\s|,)(\s)*\d{1,3}){1,2}' + r')\Z'
-            self.cmd_parser.validation_regex['kappa_axis'] = new_regex
-            kappa_axis = self.cmd_parser.request_input('kappa_axis')
-
-            new_regex = r'(?i)(' + new_regex_stem + r'((\s|,)(\s)*\d{1,3})' + r')\Z'
-            self.cmd_parser.validation_regex['chi_axis'] = new_regex
-            chi_axis = self.cmd_parser.request_input('chi_axis')
-
-            gon_axes = self.cmd_parser.make_goniometer_axes(
-                goniometer_axes, kappa_axis, chi_axis)
-
-            print('\nDetector information: \nAnswer the following questions assuming \
-all detector positioning axes are at their home positions. If there is more than \
-one detector, or detectors are non-rectangular, please describe in the comments \
-(not implemented yet).')
-            principal_angle = self.cmd_parser.request_input('principal_angle')
-            image_orientation = self.cmd_parser.request_input('image_orientation')
-            two_theta_sense = self.cmd_parser.request_input('two_theta_sense')
-
-            det_axes = self.cmd_parser.make_detector_axes(
-                goniometer_axes, principal_angle, image_orientation, two_theta_sense,
-                array_info, scan_settings_info)
+            gon_axes, principal_sense = self._complete_goniometer_axes(axes_info)
+            det_axes = self._complete_detector_axes(axes_info, principal_sense,
+                                                    array_info, scan_setting_info)
 
             for key in gon_axes:
                 gon_axes[key] += det_axes[key]
 
-            # print('gohomoni', gon_axes)
-            axes_info = gon_axes
+            return gon_axes
 
+        # print('gox', gon_axes)
+        # print('dx', det_axes)
         return axes_info
 
 
@@ -354,8 +339,6 @@ one detector, or detectors are non-rectangular, please describe in the comments 
         if self.param_is_none(radiation_info['rad_type']):
             radiation_info['rad_type'] = \
                 self.cmd_parser.request_input('rad_type')
-            if radiation_info['rad_type'] == '':
-                radiation_info['rad_type'] = 'x-ray'
 
         if self.param_is_none(radiation_info['wavelength']):
             radiation_info['wavelength'] = \
@@ -492,502 +475,163 @@ one detector, or detectors are non-rectangular, please describe in the comments 
         return archive, external_url
 
 
-class ImgCIFEntryGenerators():
-
-    """See the documentation of the __init__ method
-    """
-
-    def __init__(self) -> None:
-        """This class provides methods to generate the entries in the imgCIF with
-        the extracted information.
-        """
-
-    def generate_misc(self, cif_block, misc_info):
-        """Generate the cif_block entries for the misc information.
+    def _change_axes(self, axes_files, parser_label):
+        """Change the ordering and rotation senses of axes and add additional axes.
 
         Args:
-            cif_block (CifFile.CifFile_module.CifBlock): the cif block into which
-                the information should be written.
-            misc_info (dict): the misc information
+            axes_files (list): the axes that were found in the files
+            parser_label (str): the label that identifies which type of axes the
+                parser must request
+
+        Returns:
+            axes_parsed (list): the list of parsed axes
+            senses_parsed (list): the list of parsed senses
         """
 
-        if misc_info.get('doi') is not None:
-            cif_block['_database.dataset_doi'] = misc_info['doi']
+        missing_axes = True
+        while missing_axes:
 
-        cif_block['_diffrn.ambient_temperature'] = misc_info['temperature']
-        if misc_info.get('overload') is not None:
-            cif_block['_array_intensities.overload'] = misc_info['overload']
+            axes_senses = self.cmd_parser.request_input(parser_label)
+            if parser_label == 'change_det_trans_axes':
+                axes_parsed = [sub.strip() for sub in axes_senses.split(',')]
+                senses_parsed = None
+            else:
+                axes_parsed, senses_parsed = \
+                    self.cmd_parser.parse_axis_string(axes_senses)
+
+            # only known axes are allowed
+            if not set(axes_files) == set(axes_parsed):
+                print(f" ==> The set of axes you entered ({', '.join(axes_parsed)}) \
+does not match the set of axes in the files ({', '.join(axes_files)})! Please try again.")
+                missing_axes = True
+                del self.cmd_parser.parsed[parser_label]
+            else:
+                missing_axes = False
+                return axes_parsed, senses_parsed
 
 
-    def generate_radiation(self, cif_block, radiation_info):
-        """Generate the cif_block entries for the radiation information.
+    def _complete_goniometer_axes(self, axes_info):
+        """Use the information found in the files and construct the complete
+        goniometer axes description. Ask for missing information. If no axes are
+        found, the same information is requested, but no axes are predefined.
 
         Args:
-            cif_block (CifFile.CifFile_module.CifBlock): the cif block into which
-                the information should be written.
-            radiation_info (dict): the information about the radiation
+            axes_info (dict): a dictionary that should contain the goniometer
+                axes (e.g. 'phi, c, omega, c') under the key 'gonio_axes_found'
+        Returns:
+            gon_axes (dict): a dictionary containing the information about the
+                settings of the goniometer
+            principal_sense (str): the sense of the principal axis
         """
 
-        # print('scaninf', scan_info)
-        cif_block["_diffrn_radiation.type"] = radiation_info['rad_type']
+        print('\nSome information about the goniometer is missing, please enter \
+the missing information. Answer the goniometer questions for all axes in zero position.')
 
-        base = "_diffrn_radiation_wavelength"
-        cif_block[base + ".id"] = [1]
-        cif_block[base + ".value"] = \
-            [radiation_info['wavelength']]
-        cif_block.CreateLoop([base + '.id', base + '.value'])
+        goniometer_axes_in_file = axes_info.get('gonio_axes_found') \
+            if axes_info.get('gonio_axes_found') is not None else ([], [])
 
+        axes_files, senses_files = goniometer_axes_in_file
+        message = ', '.join([f'{ax} ({senses_files[idx]})' \
+        for idx, ax in enumerate(axes_files)])
+        print(f"\nSome goniometer rotation axes and assumed rotations were found. \
+Rotations are, when looking from the crystal in the direction of the goniometer, \
+c=clockwise or a=anticlockwise. The output order reflects the stacking from \
+closest to the crystal to furthest from the crystal. The axes are: \n ==> {message}")
 
-    def generate_scan_settings(self, cif_block, scan_info):
-        """Generate the cif_block entries for the scan settings information.
-
-        Args:
-            cif_block (CifFile.CifFile_module.CifBlock): the cif block into which
-                the information should be written.
-            scan_info (dict): the information about the scan
-        """
-
-        base = "_diffrn_scan_axis"
-        entries = {
-            base + '.scan_id' : [],
-            base + '.axis_id': [],
-            base + '.displacement_start' : [],
-            base + '.displacement_increment' : [],
-            base + '.displacement_range' : [],
-            base + '.angle_start' : [],
-            base + '.angle_increment' : [],
-            base + '.angle_range' :[],
-        }
-
-        for scan in sorted(scan_info):
-            # print('scscan', scan_info[scan])
-            axes, dets = scan_info[scan]
-            # print("keylen", len(axes.keys()))
-            #TODO do this for all axes or only the one that changes? >> all
-            for axis, val in axes.items():
-                step, scan_range = 0, 0
-                if axis == dets["axis"]:
-                    step = dets["incr"]
-                    scan_range = dets["range"]
-                    val = dets["start"]
-
-                settings = [val, step, scan_range]
-                empty_settings = ['.', '.', '.']
-
-                if axis in TRANS_AXES:
-                    settings = settings + empty_settings
-                else:
-                    settings = empty_settings + settings
-
-                entries[base + '.scan_id'].append(f"SCAN{scan}")
-                entries[base + '.axis_id'].append(axis)
-                entries[base + '.displacement_start'].append(settings[0])
-                entries[base + '.displacement_increment'].append(settings[1])
-                entries[base + '.displacement_range'].append(settings[2])
-                entries[base + '.angle_start'].append(settings[3])
-                entries[base + '.angle_increment'].append(settings[4])
-                entries[base + '.angle_range'].append(settings[5])
-
-        for name, value in entries.items():
-            cif_block[name] = value
-
-        cif_block.CreateLoop(list(entries.keys()))
-
-
-    def generate_scan_info(self, cif_block, scan_list):
-        """Generate the cif_block entries for the scan information.
-        Fill in the scan information. We number the frames from
-        the start
-
-        Args:
-            cif_block (CifFile.CifFile_module.CifBlock): the cif block into which
-                the information should be written.
-            scan_list (list): a list consiting of tuples with the scan name and the number of
-                frames
-        """
-
-        base = '_diffrn_scan'
-        entries = {
-            base + ".id" : [],
-            base + ".frame_id_start" : [],
-            base + ".frame_id_end" : [],
-            base + ".frames" : [],
-            }
-
-        # println(op, header)
-        start_frame = 1
-        for scan, frame in scan_list:
-            # print(scan, frame)
-            end_frame = start_frame + frame - 1
-            entries[base + ".id"].append(f"SCAN{scan}")
-            entries[base + ".frame_id_start"].append(f"frm{start_frame}")
-            entries[base + ".frame_id_end"].append(f"frm{end_frame}")
-            entries[base + ".frames"].append(frame)
-
-            start_frame = end_frame + 1
-
-        for name, value in entries.items():
-            cif_block[name] = value
-
-        cif_block.CreateLoop(list(entries.keys()))
-
-
-    def generate_ids(self, cif_block, scan_list):
-        """Generate the cif_block entries for the ids.
-
-        Args:
-            cif_block (CifFile.CifFile_module.CifBlock): the cif block into which
-                the information should be written.
-            scan_list (list): a list consiting of tuples with the scan name and the number of
-                frames
-        """
-        # Array_id is just IMAGE (a single detector module). The
-        # binary_id is incremented with frame, and all of them
-        # are located externally so external_id is also incremented
-        # together with binary_id.
-
-        base = '_array_data'
-        entries = {
-            base + ".id" : [],
-            base + ".binary_id" : [],
-            base + ".external_data_id" : [],
-            }
-
-        counter = 0
-        for _, frames in scan_list:
-            for _ in range(1, frames + 1):
-                counter += 1
-                entries[base + ".id"].append("IMAGE01") #TODO is that always IMAGE?
-                entries[base + ".binary_id"].append(counter)
-                entries[base + ".external_data_id"].append(f'ext{counter}') # TODO put ext here?
-
-        for name, value in entries.items():
-            cif_block[name] = value
-
-        cif_block.CreateLoop(list(entries.keys()))
-
-
-    # new url from get arch typem all frames from get all frames, scan linst same
-    # prepend dir from creator call, file format from creator
-    def generate_external_ids(self, cif_block, external_url, all_frames, scan_list,
-                              arch, prepend_dir, file_format):
-        """Generate the cif_block entries for the external ids. `external_url` is
-        the location of a single archive file. The individual files
-        on the local storage are assumed to be at the same locations relative to
-        this top-level directory.
-
-        Args:
-            cif_block (CifFile.CifFile_module.CifBlock): the cif block into which
-                the information should be written.
-            external_url (str): the location of a single archive file
-            all_frames (dict): a dictionary with tuples of (scan, frame) as keys
-                and the filenames as values
-            scan_list (list): a list consisting of tuples with the scan name and
-                the number of frames
-            arch (str): the archive format of the external url
-            prepend_dir (str): the directory that is prepended to the path
-            file_format (str): the file format (cbf, smv, h5)
-        """
-        # print('my arch', arch)
-        # print('prepdoi', prepend_dir)
-        # print('allfrms', all_frames)
-
-        base = '_array_data_external_data'
-        entries = {
-            base + ".id" : [],
-            base + ".format" : [],
-            base + ".uri" : [],
-            }
-
-        if file_format == 'h5':
-            entries[base + ".path"] = []
-            entries[base + ".frame"] = []
-
-        if arch is not None:
-            entries[base + ".archive_format"] = []
-            entries[base + ".archive_path"] = []
-
-        counter = 0
-        protocols = ["file:", "rsync:"]
-        for scan, frames in scan_list:
-            # print('sc fr scl', scan, frames, scan_list)
-            for frame in range(1, frames + 1):
-                # print('allfr, scan, fram', all_frames[(scan, frame)])
-                counter += 1
-                frame_name = f"{all_frames[(scan, frame)]['filename']}"
-
-                entries[base + ".id"].append(f"ext{counter}")
-                file_format = 'HDF5' if file_format == 'h5' else file_format
-                entries[base + ".format"].append(file_format.upper())
-                if any([external_url.startswith(prot) for prot in protocols]):
-                    separator = '' if external_url.endswith(os.sep) else os.sep
-                    local_url = external_url + separator + frame_name
-                    entries[base + ".uri"].append(local_url)
-                else:
-                    entries[base + ".uri"].append(external_url)
-
-                # TODO path and frame only for hdf5? repsectively containerized images?
-                if file_format in ('h5', 'HDF5'):
-                    entries[base + ".path"].append(all_frames[(scan, frame)]['path'])
-                    entries[base + ".frame"].append(all_frames[(scan, frame)]['frame'])
-
-                # A too-clever-by-half way of optionally live constructing a URL
-                # TODO what is the archive path actually
-                if arch is not None:
-                    entries[base + ".archive_format"].append(arch)
-                    separator = '' if external_url.endswith(os.sep) else os.sep
-                    entries[base + ".archive_path"].append(
-                        prepend_dir + separator + frame_name)
-
-        for name, value in entries.items():
-            # print('name', name, 'value', value)
-            cif_block[name] = value
-
-        cif_block.CreateLoop(list(entries.keys()))
-
-
-    def generate_step_info(self, cif_block, scan_setting_info, scan_list):
-        """Generate the cif_block entries for the step information.
-        Fill in information about steps
-
-        Args:
-            cif_block (CifFile.CifFile_module.CifBlock): the cif block into which
-                the information should be written.
-            scan_settings_info (dict): the scan setting information where the
-                key is the scan and the informaton is stored in a tuple containing
-                dictionaries with information about the axes and the scan details
-            scan_list (list): a list consiting of tuples with the scan name and the number of
-                frames
-        """
-
-        base = '_diffrn_scan_frame'
-        entries = {
-            base + ".frame_id" : [],
-            base + ".scan_id" : [],
-            base + ".frame_number" : [],
-            base + ".integration_time" : [],
-            }
-
-        # println(op, header)
-        counter = 0
-        for scan, frames in scan_list:
-            for frame_number in range(1, frames + 1):
-                counter += 1
-                # println(op, "frm$ctr   SCAN$s    $f $(scan_times[s])")
-                entries[base + ".frame_id"].append(f"frm{counter}")
-                entries[base + ".scan_id"].append(f"SCAN{scan}")
-                entries[base + ".frame_number"].append(frame_number)
-                entries[base + ".integration_time"]\
-                    .append(scan_setting_info[scan][1]['time'])
-
-        for name, value in entries.items():
-            cif_block[name] = value
-
-        cif_block.CreateLoop(list(entries.keys()))
-
-
-
-    def generate_source(self, cif_block, source_info):
-        """Generate the cif_block entries for the source information.
-
-        Args:
-            cif_block (CifFile.CifFile_module.CifBlock): the cif block into which
-                the information should be written.
-            source_info (dict): information about the source
-        """
-
-        regex = r"[^A-Za-z0-9_]"
-        base = "_diffrn_source."
-        if source_info.get("beamline") is not None or\
-             source_info.get("facility") is not None:
-            # print('facilit', source_info["facility"])
-            cif_block[base + "beamline"] = source_info["beamline"]
-            cif_block[base + "facility"] = source_info["facility"]
-            audit_id_1 = re.sub(regex, '_', source_info["beamline"])
-            audit_id_2 = re.sub(regex, '_', source_info["facility"])
+        # offer possibility to change ordering and rotation senses, not names
+        keep_axes = self.cmd_parser.request_input('keep_axes')
+        if keep_axes in ['no', 'n']:
+            goniometer_axes = self._change_axes(
+                axes_files, 'change_goniometer_axes')
         else:
-            cif_block[base + "make"] = source_info["manufacturer"] + "-" + \
-                source_info["model"]
-            cif_block[base + "details"] = f"Located at {source_info['location']}"
-                # f"Located at {source_info['location']}"
-            audit_id_1 = re.sub(regex, '_', source_info["manufacturer"])
-            audit_id_2 = re.sub(regex, '_', source_info["model"])
+            goniometer_axes = (axes_files, senses_files)
 
-        cif_block['_audit.block_code'] = audit_id_1 + '_' + audit_id_2.strip('_')
+        new_regex_stem = r'(' + r'|'.join(goniometer_axes[0]) + r')'
 
+        # ask only if chi/kappa axis is there
+        if any(['chi' in axis.lower() for axis in axes_files]):
+            new_regex = r'(?i)(' + new_regex_stem + r'((\s|,)(\s)*\d{1,3})' + r')\Z'
+            self.cmd_parser.validation_regex['chi_axis'] = new_regex
+            chi_axis = self.cmd_parser.request_input('chi_axis')
+            kappa_axis = ''
+        elif any(['kappa' in axis.lower() for axis in axes_files]):
+            new_regex = r'(?i)(' + new_regex_stem + r'(,| )\s*\d{1,3}(,| )\s*(180|0)\Z' + r')\Z'
+            self.cmd_parser.validation_regex['kappa_axis'] = new_regex
+            kappa_axis = self.cmd_parser.request_input('kappa_axis')
+            chi_axis = ''
+        else:
+            chi_axis, kappa_axis = '', ''
 
-    def generate_array(self, cif_block, array_info):
-        """Generate the cif_block entries for the array information.
+        gon_axes = self.cmd_parser.make_goniometer_axes(
+            goniometer_axes, kappa_axis, chi_axis)
 
-        Produce the information required for array_structure_list. Here
-        we assume a rectangular detector with x horizontal, y vertical
+        principal_sense = goniometer_axes[1][-1]
 
-        Args:
-            cif_block (CifFile.CifFile_module.CifBlock): the cif block into which
-                the information should be written.
-            array_info (dict): information about the source
-        """
-        #TODO also works for one element input?
-        hor, vert = [float(element) for element in array_info['pixel_size']]
-        # array structure list axis
-        base = "_array_structure_list_axis."
-        # TODO always detx dety?
-        cif_block[base + "axis_id"] = array_info['axis_id']
-        cif_block[base + "axis_set_id"] = array_info['axis_set_id']
-        cif_block[base + "displacement"] = [hor / 2, vert / 2]   #half pixel size
-        cif_block[base + "displacement_increment"] = [hor, vert]
-        cif_block.CreateLoop([
-            base + "axis_id",
-            base + "axis_set_id",
-            base + "displacement",
-            base + "displacement_increment"])
-
-        # array structure list
-        base = "_array_structure_list."
-        cif_block[base + "array_id"] = array_info['array_id']
-        cif_block[base + "index"] = array_info['array_index']
-        cif_block[base + "axis_set_id"] = array_info['axis_set_id']
-        cif_block[base + "dimension"] = array_info['array_dimension']
-        cif_block[base + "direction"] = array_info['array_direction']
-        cif_block[base + "precedece"] = array_info['array_precedence']
-
-        # print('arryinfo', array_info)
-
-        cif_block.CreateLoop([
-            base + "array_id",
-            base + "index",
-            base + "axis_set_id",
-            base + "dimension",
-            base + "direction",
-            base + "precedece"])
+        return gon_axes, principal_sense
 
 
-    def generate_data_frame_info(self, cif_block, scan_list):
-        """Generate the cif_block entries for the data frame information.
+    def _complete_detector_axes(self, axes_info, principal_sense, array_info,
+                                scan_setting_info):
+        """Use the information found in the files and construct the complete
+        detector axes description. Ask for missing information. If no axes are
+        found, the same information is requested, but no axes are predefined.
 
         Args:
-            cif_block (CifFile.CifFile_module.CifBlock): the cif block into which
-                the information should be written.
-            scan_list (list): a list consiting of tuples with the scan name and
-                the number of
+            axes_info (dict): a dictionary that should contain the detector
+                axes under the key 'det_trans_axes_found' and 'det_rot_axes_found'
+            principal_sense (str): the rotation sense of the principal axis
+            array_info (dict): information about the data array
+            scan_setting_info (dict): information about the scans
         """
 
-        base = '_diffrn_data_frame'
-        entries = {
-            base + ".id" : [],
-            base + ".detector_element_id" : [],
-            base + ".array_id" : [],
-            base + ".binary_id" : [],
-            }
+        print('\nSome information about the detector is missing, please enter \
+the missing information. Answer the following questions assuming \
+all detector positioning axes are at their home positions. This does currently \
+not work for more than one detector, or non-rectangular detectors.')
 
-        # TODO how to include the counter into element and image? where is the information
-        # this probably needs the get_array_info method then
-        # println(op, header) for now hardcoded
-        counter = 0
-        for _, frames in scan_list:
-            for _ in range(1, frames + 1):
-                counter += 1
-                entries[base + ".id"].append(f"frm{counter}")
-                #TODO hardcoded element, image
-                entries[base + ".detector_element_id"].append(f"ELEMENT01")
-                #TODO element or 1? not present in hdf5 mapper
-                entries[base + ".array_id"].append("IMAGE01") # is 1 in hdf5 mapper
-                entries[base + ".binary_id"].append(counter)
+        principal_angle = self.cmd_parser.request_input('principal_angle')
+        image_orientation = self.cmd_parser.request_input('image_orientation')
 
-        for name, value in entries.items():
-            cif_block[name] = value
+        det_trans_axes = axes_info.get('det_trans_axes_found') \
+            if axes_info.get('det_trans_axes_found') is not None else []
 
-        cif_block.CreateLoop(list(entries.keys()))
+        if len(det_trans_axes) > 1:
+            print(f"\nSome detector translation axes were found. The output \
+order reflects the stacking from closest to the detector to furthest from the \
+detector: The axes are: \n ==> {', '.join(det_trans_axes)}")
 
+            del self.cmd_parser.parsed['keep_axes']
+            keep_axes = self.cmd_parser.request_input('keep_axes')
 
-    def generate_detector(self, cif_block, detector_info):
-        """Generate the cif_block entries for the detector information.
+            if keep_axes in ['no', 'n']:
+                det_trans_axes, _ = self._change_axes(
+                    det_trans_axes, 'change_det_trans_axes')
 
-        Args:
-            cif_block (CifFile.CifFile_module.CifBlock): the cif block into which
-                the information should be written.
-            detector_info (dict): information about the detector
-        """
+        det_rot_axes_in_file = axes_info.get('det_rot_axes_found') \
+            if axes_info.get('det_rot_axes_found') is not None else ([], [])
 
-        base = "_diffrn_detector."
-        cif_block[base + "id"] = detector_info["detector_id"]
-        cif_block[base + "number_of_axes"] = detector_info['number_of_axes']
-        cif_block.CreateLoop([base + "id", base + "number_of_axes"])
-        #
-        base = "_diffrn_detector_axis."
-        # print('olla', cif_block["_diffrn_detector.number_of_axes"])
-        cif_block[base + "axis_id"] = detector_info['axis_id']
-        cif_block[base + "detector_id"] = detector_info['detector_axis_id']
-        cif_block.CreateLoop([base + "axis_id", base + "detector_id"])
+        det_rot_axes, det_rot_senses = det_rot_axes_in_file
+        message = ', '.join([f'{ax} ({det_rot_senses[idx]})' \
+                                for idx, ax in enumerate(det_rot_axes)])
 
+        print(f"\nSome detector rotation axes and assumed rotations were found. \
+Rotations are when looking from above c=clockwise or a=anticlockwise. The output \
+order reflects the stacking from closest to the detector to furthest from the \
+detector. The axes are: \n ==> {message}")
 
-    def generate_axes(self, cif_block, axes_info):
-        """Generate the cif_block entries for the axes information.
+        del self.cmd_parser.parsed['keep_axes']
+        keep_axes = self.cmd_parser.request_input('keep_axes')
 
-        Create the goniometer axes corresponding to the data in `raw_info`,
-        placing the result in CIF block `cif_block`.
+        if keep_axes in ['no', 'n']:
+            det_rot_axes = self._change_axes(
+                det_rot_axes, 'change_det_rot_axes')
+        else:
+            det_rot_axes = (det_rot_axes, det_rot_senses)
 
-        Args:
-            cif_block (CifFile.CifFile_module.CifBlock): the cif block into which
-                the information should be written.
-            axes_info (dict): information about the axes
-        """
-        # print("gonaxes2", gon_axes)
-        base = "_axis."
-        cif_block[base + "id"] = axes_info['axes']
-        cif_block[base + "type"] = axes_info['axis_type']
-        cif_block[base + "equipment"] = axes_info['equip']
-        cif_block[base + "depends_on"] = axes_info['depends_on']
-        self.split_vectors(axes_info['vector'], base + "vector", cif_block)
-        self.split_vectors(axes_info['offset'], base + "offset", cif_block)
-        cif_block.CreateLoop([base + "id", base + "type", base + "equipment",
-                              base + "depends_on",
-                              base + "vector[1]", base + "vector[2]", base + "vector[3]",
-                              base + "offset[1]", base + "offset[2]", base + "offset[3]"])
+        det_axes = self.cmd_parser.make_detector_axes(
+            det_trans_axes, det_rot_axes,
+            principal_sense, principal_angle, image_orientation,
+            # two_theta_sense,
+            array_info, scan_setting_info)
 
-
-    def split_vectors(self, vectors, basename, cif_block):
-        """
-        Distribute the vectors in `vectors` over CIF data names, formatting as
-        integers if they are exact.
-
-        Args:
-            vectors (list): a list of vectors which are lists of 3 entries itself
-            basename (str): the basename of the imgCIF entry
-            cif_block (CifFile.CifFile_module.CifBlock): the cif block into which
-                the information should be written.
-        """
-        # print('veccoi', vectors)
-        # for idx_1, sub_vectors in enumerate(vectors):
-        #     for idx_2, element in enumerate(sub_vectors):
-        #         vectors[idx_1][idx_2] = float(element)
-
-        # TODO is the index correct? julia indexes different than python
-        def mapping_func(vector):
-            # i is local from the scope of the loop
-            try:
-                # the vector indices in cif start at 1
-                vector[i - 1] = float(vector[i - 1])
-                # display numbers without trailing zero? 1.0 -> 1
-                if round(vector[i - 1]) == vector[i - 1]:
-                    return f"{round(vector[i - 1]):.0f}"
-                # don't format if it has less than 5 decimal places
-                if len(str(vector[i - 1]).split('.')[1]) < 5:
-                    formatted = str(vector[i - 1])
-                else:
-                    formatted = f"{vector[i - 1]:1.5f}"
-                # it can be that some values are by computaional effects
-                # are very close to zero e.g. -1.2246467991473532e-16 -> map to 0
-                if float(formatted) == 0:
-                    formatted = "0"
-
-                return formatted # vector[i] @sprintf "%1.5f" vector[i]
-            except ValueError:
-                # print('exepted', vector[i-1])
-                return vector[i - 1]
-
-        for i in range(1, 4):
-            # print('vcodor', vectors)
-            # mppd = map(mapping_func, vectors)
-            # print('mppd', i, list(mppd))
-            cif_block[basename + f"[{i}]"] = map(mapping_func, vectors)
+        return det_axes

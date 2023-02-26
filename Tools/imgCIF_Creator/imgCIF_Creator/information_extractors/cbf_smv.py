@@ -7,8 +7,7 @@ import re
 import sys
 import numpy as np
 from imgCIF_Creator.output_creator import imgcif_creator
-from . import extractor_interface
-from . import full_cbf
+from . import extractor_interface, full_cbf, extractor_utils
 
 
 class Extractor(extractor_interface.ExtractorInterface):
@@ -181,7 +180,11 @@ class Extractor(extractor_interface.ExtractorInterface):
 
 
     def get_axes_info(self):
-        """Return the information about the axes settings. Cif block: _axis
+        """Return the information about the axes settings. Cif block: _axis.
+        If some of the returned dictionary values is None, this notifies about
+        missing information and in this case the names of axes extracted from
+        the scan must be contained in the keys 'gonio_axes_found', 'det_rot_axes_found'
+        and 'det_trans_axes_found'.
 
         Returns:
             dict: a dictionary containing the information about the axes settings
@@ -195,6 +198,7 @@ class Extractor(extractor_interface.ExtractorInterface):
 
         vector = []
         offset = []
+        # if this is from full cbf
         if axes is not None:
             for idx, _ in enumerate(axes):
                 sub_vector = []
@@ -214,14 +218,44 @@ class Extractor(extractor_interface.ExtractorInterface):
                 vector.append(sub_vector)
                 offset.append(sub_offset)
 
-        # print('vec', vector)
-        # print('off', offset)
-        axes_info = {'axes' : axes,
-                     'axis_type' : axis_type,
-                     'equip' : equip,
-                     'depends_on' : depends_on,
-                     'vector' : vector,
-                     'offset' : offset}
+            axes_info = {'axes' : axes,
+                        'axis_type' : axis_type,
+                        'equip' : equip,
+                        'depends_on' : depends_on,
+                        'vector' : vector,
+                        'offset' : offset}
+
+        else:
+            # 'None' notifies about missing information
+            axes_info = {'axes' : None}
+            found_axes = self._scan_info_mini_header[self._first_scan][0].keys()
+            gonio_axes = [axis for axis in found_axes if axis in
+                          imgcif_creator.GONIOMETER_AXES]
+            det_axes = [axis for axis in found_axes if axis in
+                          imgcif_creator.DETECTOR_AXES]
+            unidentified_axes = [axis for axis in found_axes if
+                                 axis not in gonio_axes and axis not in det_axes]
+            if len(unidentified_axes) > 0:
+                print(f"The axes: {', '.join(unidentified_axes)} could not be identified \
+as goniometer or detector axes.")
+
+            gonio_stacking = \
+                sorted(gonio_axes,
+                       key=lambda x: imgcif_creator.GONIOMETER_AXES.index(x))
+            gonio_rot_senses = ['c' for _ in gonio_stacking]
+
+            gon_axes_senses = (gonio_stacking, gonio_rot_senses)
+            axes_info['gonio_axes_found'] = gon_axes_senses
+
+            det_trans = [axis for axis in det_axes if axis in \
+                imgcif_creator.TRANS_AXES]
+            det_rot = [axis for axis in det_axes if axis in \
+                imgcif_creator.ROT_AXES]
+
+            det_rot_senses = ['c' for _ in det_rot]
+            det_axes_senses = (det_rot, det_rot_senses)
+            axes_info['det_rot_axes_found'] = det_axes_senses
+            axes_info['det_trans_axes_found'] = det_trans
 
         return axes_info
 
@@ -464,21 +498,23 @@ class Extractor(extractor_interface.ExtractorInterface):
             file_name = os.path.join(frame_dir, all_frames[(scan, 1)]['filename'])
             mini_header = self._get_mini_header(file_name, frame_type)
             # print('mini head', mini_header)
-            start_axes_settings, scan_ax, scan_incr, exposure, wavelength, = \
+            axes_settings, scan_ax, scan_incr, exposure, wavelength, = \
                 self._get_frame_info(mini_header, frame_type, axes)
             x_pixel_size, y_pixel_size, = self._get_pixel_sizes(mini_header)
+            print(f"Identified {scan_ax} as scan axis in scan {scan}")
             # print('pxsz', x_pixel_size, y_pixel_size)
-            # print("start_axes_settings ", start_axes_settings, "scanax ",
-            # scan_ax, "scaninc ", scan_incr, "exposure ", exposure, "wavelength ", wavelength)
-            start = start_axes_settings[scan_ax]
+            # print('scan', scan)
+            # print("start_axes_settings ", axes_settings, "scanax ",
+            #         scan_ax, "scaninc ", scan_incr, "exposure ", exposure,
+            #         "wavelength ", wavelength)
+            start = axes_settings[scan_ax]
 
             # Get information for last frame
             file_name = \
                 os.path.join(frame_dir, all_frames[(scan, len(frames))]['filename'])
             mini_header = self._get_mini_header(file_name, frame_type)
-            # print('mini headi', mini_header)
-            start_axes_settings, _, _, _, _ = self._get_frame_info(mini_header, frame_type, axes)
-            finish = start_axes_settings[scan_ax]
+            axes_settings, _, _, _, _ = self._get_frame_info(mini_header, frame_type, axes)
+            finish = axes_settings[scan_ax]
 
             # Check increment and range match
             if not np.isclose(start + scan_incr * (len(frames)-1), finish, atol=1e-6):
@@ -500,10 +536,9 @@ class Extractor(extractor_interface.ExtractorInterface):
             # print('start_axes_settings', start_axes_settings)
             # print('scan', scan)
             # print('scandet', scan_details)
-            scan_info[scan] = (start_axes_settings, scan_details)
+            scan_info[scan] = (axes_settings, scan_details)
 
-        #TODO do I need this?
-        # self._prune_scan_info(scan_info)
+        scan_info = extractor_utils.prune_scan_info(scan_info)
 
         return scan_info
 
@@ -713,7 +748,7 @@ Try to provide the constant stem of the file name using the -s option.\n")
             ax_vals (dict): the retrieved values for the given axes
             matching_scan_ax (str): the axis indentified as scan axis that also
                 matched with the given axes
-            scan_ax[1] (float): the scan axis increment
+            scan_ax (float): the scan axis increment
             exposure (float): the exposure time in seconds
             wavelength (float): the wavelength in Angstrom
         """
@@ -737,9 +772,7 @@ Try to provide the constant stem of the file name using the -s option.\n")
             cbf_header, "wavelength")), 'wavelength')
 
         # find the first element whose increment changes
-        # scan_ax = findfirst( x -> !isapprox(x[2], 0, atol = 1e-6), ax_incr)
         scan_ax = next(filter(lambda x: not np.isclose(x[1], 0, atol=1e-6), ax_incr), None)
-        # print('scax', scan_ax)
 
         matching_scan_ax = list(filter(lambda ax: scan_ax[0] in ax[0], ax_vals))
         if matching_scan_ax == []:
@@ -748,10 +781,8 @@ Try to provide the constant stem of the file name using the -s option.\n")
 
         matching_scan_ax = matching_scan_ax[0][0]
 
-        # print('mtchscax', matching_scan_ax)
         # Get rid of duplicate names
         ax_vals = dict(ax_vals)
-        # print('axvals', ax_vals)
 
         if "distance" in  ax_vals and "detector_distance" in ax_vals:
             del ax_vals["detector_distance"]
@@ -763,6 +794,9 @@ Try to provide the constant stem of the file name using the -s option.\n")
 
             if matching_scan_ax != "angle":   #we have an actual one
                 del ax_vals["angle"]
+
+        scan_ax, matching_scan_ax, ax_vals = self._replace_unspecified_oscillation_axis(
+            cbf_header, ax_vals, matching_scan_ax, scan_ax)
 
         return ax_vals, matching_scan_ax, scan_ax[1], exposure, wavelength
 
@@ -784,13 +818,15 @@ Try to provide the constant stem of the file name using the -s option.\n")
         return dict(ax_vals), "phi", ax_incr[0][1], exposure, wavelength
 
 
-    def _get_cbf_header_values(self, lines, matcher, with_unit=True):
+    def _get_cbf_header_values(self, lines, matcher, with_unit=True, is_number=True):
         """Get the value following the string given in matcher and units if present.
 
         Args:
             lines (list): the list of lines from the mini header
             matcher (str): the string that should be matched in the lines
-            with_unit (bool): wheter the header value has an unit at the end
+            with_unit (bool): wheter the header value has an unit at the end.
+                Defauls to True.
+            is_number (bool): wheter the header value is a number. Defauls to True.
 
         Returns:
             val (float): the value that has been matched
@@ -821,8 +857,11 @@ Try to provide the constant stem of the file name using the -s option.\n")
         else:
             units = None
 
+        if is_number:
+            val = float(val)
+
         # print('v', val, 'u', units)
-        return float(val), units
+        return val, units
 
 
     def _get_pixel_sizes(self, lines):
@@ -960,28 +999,38 @@ Try to provide the constant stem of the file name using the -s option.\n")
                 dets["axis"] = renaming_scheme[dets["axis"]]
 
 
-    def _prune_scan_info(self, scan_info):
+    def _replace_unspecified_oscillation_axis(self, cbf_header, ax_vals,
+                                              matching_scan_ax, scan_ax):
+        """Replace a generic name with a more useful one if the oscillation axis is
+        specified e.g. angle -> omega
+
+        Args:
+            cbf_header (list): a list of lines from the cbf mini header
+            ax_vals (dict): the retrieved values for the given axes
+            matching_scan_ax (str): the axis indentified as scan axis that also
+                matched with the given axes
+            scan_ax (float): the scan axis increment
+
+        Returns:
+            ax_vals (dict): same as input with possible name replacements
+            matching_scan_ax (str): same as input with possible name replacements
+            scan_ax (float): same as input with possible name replacements
         """
-        Remove reference to any axes that do not change position and are
-        essentially zero, but are not in `always_axes`.
-        """
 
-        #TODO check that this does the right thing
-        start_axes_settings, details = scan_info[list(scan_info.keys())[0]]
-        # print('iits', start_axes_settings, 'dets', details)
-        scan_axis = details["axis"]
-        keep_this = [scan_axis]
-        for name, ini_val in start_axes_settings.items():
-            for content in scan_info.values():
-                if content[0][name] != ini_val:
-                    keep_this.append(name)
-                    break
-        # print('wann kepp', keep_this)
+        osc_axis = self._get_cbf_header_values(cbf_header, 'oscillation_axis',
+                                               is_number=False, with_unit=False)
+        replace = False
+        if osc_axis[0] is not None:
+            if matching_scan_ax in imgcif_creator.GONIOMETER_AXES:
+                if matching_scan_ax == 'angle':
+                    replace = True
+            else:
+                replace = True
 
-        for name, ini_val in start_axes_settings.items():
-            if not (name in imgCIF_creator.ALWAYS_AXES) and not (name in keep_this) \
-                and np.isclose(ini_val, 0, atol=0.001):
+        if replace:
+            ax_vals[osc_axis[0]] = ax_vals[scan_ax[0]]
+            del ax_vals[scan_ax[0]]
+            scan_ax = (osc_axis[0], scan_ax[1])
+            matching_scan_ax = osc_axis[0]
 
-                for scan in scan_info:
-                    print('I pruned:', scan_info[scan][0], name)
-                    del(scan_info[scan][0], name)
+        return scan_ax, matching_scan_ax, ax_vals

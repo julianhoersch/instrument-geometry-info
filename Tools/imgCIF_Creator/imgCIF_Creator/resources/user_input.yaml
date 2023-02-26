@@ -62,8 +62,7 @@ rad_type:
     label: Radiation type
     required: false
     description: >
-      Please enter the type of the radaition, e.g. x-ray
-      (defaults to x-ray).
+      Please enter the type of the radaition, e.g. 'Synchrotron X-ray Source'.
 
 wavelength:
     label: Wavelength
@@ -139,6 +138,7 @@ principal_angle:
       '3 o'clock' and angles are measured counter-clockwise, so 90 is 12 o'clock
       and 270 is 6 o'clock.
 
+# not accessed anymore
 goniometer_axes:
     label: Goniometer axes
     required: true
@@ -149,6 +149,39 @@ goniometer_axes:
       each value by a comma, for example 'Chi, c, Omega, a'. List the axes in
       order of stacking from closest to the crystal to furthest (phi would
       typically be first if present, omega is usually last).
+
+change_goniometer_axes:
+    label: Goniometer axes
+    required: true
+    description: >
+      For each axis attached to the goniometer, give the axis name (as used in
+      data files if known) and sense of rotation (a=anticlockwise, c=clockwise)
+      when looking from the crystal in the direction of the goniometer. Separate
+      each value by a comma, for example 'Chi, c, Omega, a'. List the axes in
+      order of stacking from closest to the crystal to furthest (phi would
+      typically be first if present, omega is usually last). You need to use
+      the axis names which were already found in the file.
+
+change_det_rot_axes:
+    label: Detector rotation axes
+    required: true
+    description: >
+      For each rotation axis attached to the detector, give the axis name (as used
+      in data files if known) and sense of rotation (a=anticlockwise, c=clockwise)
+      when looking from above. Separate each value by a comma, for example:
+      'detector_2theta, c'. List the axes in order of stacking from closest to
+      the crystal to furthest. You need to use the axis names which were already
+      found in the file.
+
+change_det_trans_axes:
+    label: Detector translation axes
+    required: true
+    description: >
+      For each translation axis attached to the detector, give the axis name (as used
+      in data files if known). Separate each value by a comma, for example:
+      'trans'. List the axes in order of stacking from closest to the crystal to
+      furthest. You need to use the axis names which were already found in the file.
+
 
 rotation_axis:
     label: Rotation axis name
@@ -170,14 +203,16 @@ kappa_axis:
     label: kappa
     required: false
     description: >
-      If your goniometer has a kappa axis, please give its name and its;
-      angle here, for example "kappa 50". When looking from above, with the
-      beam going from left to right and all axes at their zero positions, the
-      kappa base is assumed to be at the left. If this is not the case,
+      Your goniometer seems to have a kappa axis, please provide its name followed
+      by its angle (for example "kappa, 50"). Consider the angle when looking from
+      above, with the beam going from left to right and all axes at their zero positions,
+      the kappa base is assumed to be at the left. If this is not the case,
       please append the base location as a counterclockwise rotation from this
       position when looking from above. For example, if the kappa base is
-      located on the detector side, type "kappa 50 180". The name of the kappa
-      axis must be included in the goniometer axes.
+      located on the detector side, type "kappa, 50, 180". The name of the kappa
+      axis must be included in the goniometer axes and only 0 or 180 is allowed
+      for the second angle. If you don't provide a kappa
+      axis although there is one, the description of the axes might be incorrect.
 # - type: input
 #   id: kappa
 #   attributes:
@@ -189,7 +224,7 @@ chi_axis:
     label: chi
     required: false
     description: >
-      If your goniometer has a chi axis, please give its name here, followed
+      Your goniometer seems to have a chi axis, please provide its name followed
       by an omega angle at which the chi rotation axis is parallel to the
       beam. The sense of rotation provided for chi in the "Goniometer axes"
       question above is the sense of rotation when the omega axis has been
@@ -197,9 +232,10 @@ chi_axis:
       For example, if omega is rotated by 90 to bring the chi axis parallel
       to the beam and moving to positive chi rotates the crystal
       anticlockwise when viewed from the source, 'chi, a' should be given for
-      "Goniometer axes" and `chi 90` should be provided here. 'chi, c' with
-      'chi -90' would also describe the same situation. The name of the chi
-      axis must be included in the goniometer axes.
+      "Goniometer axes" and `chi, 90` should be provided here. 'chi, c' with
+      'chi, -90' would also describe the same situation. The name of the chi
+      axis must be included in the goniometer axes. If you don't provide a chi
+      axis although there is one, the description of the axes might be incorrect.
 
 # - type: markdown
 #   attributes:
@@ -326,3 +362,14 @@ temperature:
     description: >
       Please provide the mean temperature in Kelvins at which the intensities
       were measured.
+
+keep_axes:
+    label: Keep axes
+    required: true
+    description: >
+      Are these axes, their stacking and possible rotation senses correct? If not,
+      please enter "No" to change them.
+    options:
+      - 'Yes'
+      - 'No'
+    abbreviate: true

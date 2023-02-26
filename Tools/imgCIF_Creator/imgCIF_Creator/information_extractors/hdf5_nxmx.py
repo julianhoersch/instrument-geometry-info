@@ -6,12 +6,8 @@ from collections import defaultdict
 import h5py as h5
 import numpy as np
 from imgCIF_Creator.command_line_interfaces import parser
-from . import extractor_interface
-
-# TODO this should be defined in the imgcif_creator
-GONIOMETER_AXES = ("phi", "kappa", "chi", "omega")
-DETECTOR_AXES = ('slow_pixel_direction', 'dety', 'fast_pixel_direction', 'detx',
-                 'det_z', 'trans', 'two_theta')
+from . import extractor_interface, extractor_utils
+from imgCIF_Creator.output_creator import imgcif_creator
 
 
 class Extractor(extractor_interface.ExtractorInterface):
@@ -296,6 +292,8 @@ class Extractor(extractor_interface.ExtractorInterface):
                 # print('start_axes_settings', start_axes_settings)
                 scan_info[scan_no] = (start_axes_settings, scan_details)
 
+        scan_info = extractor_utils.prune_scan_info(scan_info)
+
         return scan_info
 
 
@@ -462,13 +460,13 @@ of files. Please try again!')
 
         goniometer_axes = {}
         with h5.File(master_file, 'r') as h5_master:
-            for axis in GONIOMETER_AXES + DETECTOR_AXES:
+            for axis in imgcif_creator.GONIOMETER_AXES + imgcif_creator.DETECTOR_AXES:
                 axis = axis.lower()
                 # TODO right now this does not work for multiple scans in a file
                 scan = list(file_mapping.keys())[0][1]
-                if axis in GONIOMETER_AXES:
+                if axis in imgcif_creator.GONIOMETER_AXES:
                     path = f'{scan}/sample/sample_{axis}/{axis}'
-                elif axis in DETECTOR_AXES:
+                elif axis in imgcif_creator.DETECTOR_AXES:
                     if axis == 'det_z':
                         path = f'{scan}/instrument/detector_z/{axis}'
                     else:
@@ -685,9 +683,9 @@ of files. Please try again!')
             axes.append(axis)
             ax_type = goniometer_axes[axis]['axis_type']
             axis_type.append(ax_type)
-            if axis in GONIOMETER_AXES:
+            if axis in imgcif_creator.GONIOMETER_AXES:
                 equip.append('goniometer')
-            elif axis in DETECTOR_AXES:
+            elif axis in imgcif_creator.DETECTOR_AXES:
                 equip.append('detector')
             else:
                 equip.append('equipment')

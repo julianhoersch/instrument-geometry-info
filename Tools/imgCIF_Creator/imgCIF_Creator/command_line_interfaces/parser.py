@@ -39,19 +39,14 @@ class CommandLineParser():
             "model" : None,
             "location" : None,
             "manufacturer" : self._create_options_regex('manufacturer'),
-            # 'Is updated?': r'yes|no\Z', # no effect?
-            # 'Start date': r'\d{4}-\d{2}-\d{2}\Z', # does not prevent the user from putting
-            # in unrealistic values, no effect?
-            # 'Finish date': r'\d{4}-\d{2}-\d{2}\Z', # no effect?
             'principal_angle': r'\d{1,3}\Z',
-            # 'goniometer_axes': r'(?:.+,\s*(a|c))+\Z', # matches n patterns xxxxx, a|c
             'goniometer_axes' : r'((?:[^,]*,\s*(a|c),\s*)*[^,]*,\s*(a|c))\Z',
+            'change_goniometer_axes' : r'((?:[^,]*,\s*(a|c),\s*)*[^,]*,\s*(a|c))\Z',
+            'change_det_rot_axes' : r'((?:[^,]*,\s*(a|c),\s*)*[^,]*,\s*(a|c))\Z',
             'rotation_axis': None, # no effect?
-            # "two_theta_sense" : r'(a|c|anticlockwise|clockwise)\Z', # no effect?
             "two_theta_sense" : self._create_options_regex('two_theta_sense'),
-            # "detector_repositioning" : None, # no effect?
-            'detector_repositioning': None, # no effect? almost the same as the above
-            "detector_axes" : None, #r'(?:\S*,\s*)+(\S*)\Z', # this is not exact
+            # "detector_axes" : None, #r'(?:\S*,\s*)+(\S*)\Z', # this is not exact
+            'detector_axes' : r'((?:[^, ]*,\s*)*[^, ]+)\Z',
             # r"(?:\d+,\s*)+(?:\d+)\s*\Z",
             "chi_axis" : r'.*(?:\s+\d{1,3})\Z',
             #(?:\s+\d{1,3}){1,2}\Z
@@ -71,6 +66,7 @@ class CommandLineParser():
             'frame_numbers': r'^\d+(,\s*\d+)*$',
             'external_url': None,
             'temperature': r'\d+\Z',
+            'keep_axes': self._create_options_regex('keep_axes'),
         }
 
 
@@ -209,8 +205,11 @@ class CommandLineParser():
         return axes_dict
 
 
-    def make_detector_axes(self, goniometer_axes, principal_angle,
-                           image_orientation, two_theta_sense, array_info,
+    def make_detector_axes(self, det_trans_axes, det_rot_axes,
+                           principal_sense, principal_angle,
+                           image_orientation,
+                           # two_theta_sense,
+                           array_info,
                            scan_settings_info):
         """Add information concerning the detector axes. We define our own axis names,
         with the detector distance being inserted when the data file is read. We
@@ -223,68 +222,76 @@ class CommandLineParser():
         (5. offset -> beam centre, not added here)
 
         Args:
-            goniometer_axes (str): the goniometer axes as parsed from the user input
+            principal_sense (str): the sense of the principal axis (a or c)
             principal_angle (int): the orientation of the principal axis in
                 degree
             image_orientation (str): the image orientation string, e.g. 'top left',...
             two_theta_sense (str): the sense of the two theta axis (e.g. clockwise)
             array_info (dict): information about the array
-            scan_settings_info (dict): information about the scan settings
+            scan_setting_info (dict): information about the scan settings
 
         Returns:
             dict: a dictionary containing the information about the detector axes
         """
 
         # Insert assumed axis names and orientations
-        axis_id = ["source", "gravity", "two_theta", "trans", "detx", "dety"]
-        axis_type = ['.', '.', "rotation", "translation", "translation", "translation"]
-        equip = ["source", "gravity", "detector", "detector", "detector", "detector"]
-        depends_on = ['.', '.', '.', "two_theta", "trans", "detx"]
+        # TODO is there any case where there can be multiple of those trans axes?
+        # because ther is only detector_2theta allowed in the detector axes
+        # this is hardcoded
 
-        # Read necessary information, last axis is first in stack
-        principal_sense = goniometer_axes[1][-1]
-        corner = image_orientation
-
-        # Adjust two theta direction
-        if two_theta_sense in ['anticlockwise', 'a']:
-            rotsense = 1 if principal_sense == 'a' else -1
-        elif two_theta_sense in ['clockwise', 'c']:
-            rotsense = 1 if principal_sense == 'c' else -1
-        else:
-            rotsense = 1
-        # rotsense = 1 if two_theta_sense == principal_sense else -1
-        gravity = self._determine_gravity(principal_angle, principal_sense)
-
-        vector = [[0, 0, 1], gravity, [rotsense, 0, 0]]
-        # vector = [[rotsense, 0, 0]]
-
-        # Detector translation always opposite to beam direction
-        vector.append([0, 0, -1])
-
-        # add z offset
-        first_scan = sorted(scan_settings_info.keys())[0]
-        first_scan_info = scan_settings_info[first_scan][0]
-        z_offset = first_scan_info.get('distance')
-        if z_offset is None:
-            z_offset = first_scan_info.get('detector_distance')
-        if z_offset is None:
-            z_offset = 0
+        axis_id = ['dety', 'detx']
+        axis_type = ['translation', 'translation']
+        equip = ['detector', 'detector']
 
         # Work out det_x and det_y
         beam_x, beam_y = self._calculate_beam_centre(
             array_info['array_dimension'], array_info['pixel_size'])
 
         x_d, y_d, x_c, y_c = self._determine_detx_dety(
-            principal_angle, principal_sense, corner, beam_x, beam_y)
-        # x_d, y_d = self._determine_detx_dety(principal_angle, principal_sense, corner)
-        vector.append(x_d)
-        vector.append(y_d)
+            principal_angle, principal_sense, image_orientation, beam_x, beam_y)
+        vector = [y_d, x_d]
+        offset = [[0, 0, 0], [x_c, y_c, 0]]
 
-        # TODO Beam centre is unknown for now
-        # TODO z offset negative?
-        offset = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, -z_offset], [x_c, y_c, 0],
-                  [0, 0, 0]]
-        # offset = [[0, 0, 0], [0, 0, 0], ['?', '?', 0], [0, 0, 0]]
+        # translational axes
+        axis_id += det_trans_axes
+        axis_type += ['translation' for _ in det_trans_axes]
+        equip += ['detector' for _ in det_trans_axes]
+        # TODO also for multiple axes correct?
+        # Detector translation always opposite to beam direction
+        vector += [[0, 0, -1] for _ in det_trans_axes]
+        self._transform_translation_axes(scan_settings_info, det_trans_axes)
+
+        first_scan = sorted(scan_settings_info.keys())[0]
+        first_scan_info = scan_settings_info[first_scan][0]
+        z_offsets = [first_scan_info.get(axis) for axis in det_trans_axes]
+
+        for z in z_offsets:
+            #TODO this sets unknown offsets to zero...
+            # z = z if z is not None else 0
+            offset.append([0, 0, z])
+
+        # rotational axes
+        rot_axes, rot_senses = det_rot_axes
+        # Adjust two theta direction
+        # two_theta_sense is 'anticlockwise' or 'a' first letter is a
+        axis_id += rot_axes
+        axis_type += ['rotation' for _ in rot_axes]
+        equip += ['detector' for _ in rot_axes]
+        for idx, axis in enumerate(rot_axes):
+            rotsense = 1 if rot_senses[idx] == principal_sense else -1
+            vector.append([rotsense, 0, 0])
+            offset.append([0, 0, 0])
+
+        axis_id += ['gravity', 'source']
+        axis_type += ['.', '.']
+        equip += ['gravity', 'source']
+        gravity = self._determine_gravity(principal_angle, principal_sense)
+        vector += [gravity, [0, 0, 1]]
+        offset += [[0, 0, 0], [0, 0, 0]]
+
+        # the above ordering must reflect the stacking!
+        depends_on = axis_id[1:-(len(rot_axes)+1)] + ['.' for _ in range(len(rot_axes)+2)]
+        # print('def', depends_on)
 
         axes_dict = {
             'axes' : axis_id,
@@ -295,6 +302,7 @@ class CommandLineParser():
             'offset' : offset,
         }
         return axes_dict
+
 
     def _validated_user_input(self, label):
         """Request an user input and validate the input according to an apppropriate
@@ -544,3 +552,21 @@ please try again.')
         pix_x, pix_y = pixel_size
 
         return float(pix_x) * float(dim_x)/2, float(pix_y) * float(dim_y)/2
+
+
+    def _transform_translation_axes(self, scan_info, trans_axes):
+        """Transform the translation axes to negative values.
+
+        Args:
+            scan_info (dict): information about the scans
+            trans_axes (list): the translational axes to transform
+        """
+
+        for scan in scan_info:
+            for axis in trans_axes:
+                scan_info[scan][0][axis] *= -1
+
+                if scan_info[scan][1]['axis'] == axis:
+                    scan_info[scan][1]['incr'] *= -1
+                    scan_info[scan][1]['start'] *= -1
+                    scan_info[scan][1]['range'] *= -1
