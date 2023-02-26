@@ -210,7 +210,7 @@ class CommandLineParser():
                            image_orientation,
                            # two_theta_sense,
                            array_info,
-                           first_scan_info):
+                           scan_settings_info):
         """Add information concerning the detector axes. We define our own axis names,
         with the detector distance being inserted when the data file is read. We
         choose det_x to be in the horizontal direction, and det_y to be vertical.
@@ -228,7 +228,7 @@ class CommandLineParser():
             image_orientation (str): the image orientation string, e.g. 'top left',...
             two_theta_sense (str): the sense of the two theta axis (e.g. clockwise)
             array_info (dict): information about the array
-            first_scan_info (dict): information about the first scan settings
+            scan_setting_info (dict): information about the scan settings
 
         Returns:
             dict: a dictionary containing the information about the detector axes
@@ -259,13 +259,16 @@ class CommandLineParser():
         # TODO also for multiple axes correct?
         # Detector translation always opposite to beam direction
         vector += [[0, 0, -1] for _ in det_trans_axes]
+        self._transform_translation_axes(scan_settings_info, det_trans_axes)
 
+        first_scan = sorted(scan_settings_info.keys())[0]
+        first_scan_info = scan_settings_info[first_scan][0]
         z_offsets = [first_scan_info.get(axis) for axis in det_trans_axes]
 
         for z in z_offsets:
             #TODO this sets unknown offsets to zero...
-            z = z if z is not None else 0
-            offset.append([0, 0, -z])
+            # z = z if z is not None else 0
+            offset.append([0, 0, z])
 
         # rotational axes
         rot_axes, rot_senses = det_rot_axes
@@ -549,3 +552,21 @@ please try again.')
         pix_x, pix_y = pixel_size
 
         return float(pix_x) * float(dim_x)/2, float(pix_y) * float(dim_y)/2
+
+
+    def _transform_translation_axes(self, scan_info, trans_axes):
+        """Transform the translation axes to negative values.
+
+        Args:
+            scan_info (dict): information about the scans
+            trans_axes (list): the translational axes to transform
+        """
+
+        for scan in scan_info:
+            for axis in trans_axes:
+                scan_info[scan][0][axis] *= -1
+
+                if scan_info[scan][1]['axis'] == axis:
+                    scan_info[scan][1]['incr'] *= -1
+                    scan_info[scan][1]['start'] *= -1
+                    scan_info[scan][1]['range'] *= -1

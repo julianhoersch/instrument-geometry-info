@@ -79,20 +79,20 @@ class ImgCIFCreator:
         array_info = self.check_array_completeness(array_info)
 
         scan_setting_info = self.extractor.get_scan_settings_info()
-        first_scan = sorted(scan_setting_info.keys())[0]
-        first_scan_info = scan_setting_info[first_scan][0]
         # TODO this is not checking anything right now
         scan_setting_info = self.check_scan_settings_completeness(scan_setting_info)
-        # if always axes do not change and are at their home positions we want to 
+        # if always axes do not change and are at their home positions we want to
         # remove them from the scan list, but not from the axis description
         scan_setting_info = extractor_utils.prune_scan_info(scan_setting_info,
-                                                            prune_always_axes=True)        
+                                                            prune_always_axes=True)
         scan_list = self.generate_scan_list(scan_setting_info)
 
         # describe _axis block
+        # the axes_info still contain always axes, scan_setting_info only needed
+        # for offsets
         axes_info = self.extractor.get_axes_info()
         axes_info = self.check_axes_completeness(axes_info, array_info,
-                                                 first_scan_info)
+                                                 scan_setting_info)
 
         # describe _diffrn_detector and _diffrn_detector_axis
         # this correlates with the detector axes in generate axes!
@@ -199,13 +199,13 @@ class ImgCIFCreator:
         return self.lists_to_values(source_info)
 
 
-    def check_axes_completeness(self, axes_info, array_info, first_scan_info):
+    def check_axes_completeness(self, axes_info, array_info, scan_setting_info):
         """Check if the axes information is complete and request input if not.
 
         Args:
             axes_info (dict): information about the axes
             array_info (dict): information about the data array
-            first_scan_info (dict): information about the first scan
+            scan_setting_info (dict): information about the scans
 
         Returns:
             dict: the information completed
@@ -224,7 +224,7 @@ class ImgCIFCreator:
 
             gon_axes, principal_sense = self._complete_goniometer_axes(axes_info)
             det_axes = self._complete_detector_axes(axes_info, principal_sense,
-                                                    array_info, first_scan_info)
+                                                    array_info, scan_setting_info)
 
             for key in gon_axes:
                 gon_axes[key] += det_axes[key]
@@ -571,7 +571,7 @@ closest to the crystal to furthest from the crystal. The axes are: \n ==> {messa
 
 
     def _complete_detector_axes(self, axes_info, principal_sense, array_info,
-                                first_scan_info):
+                                scan_setting_info):
         """Use the information found in the files and construct the complete
         detector axes description. Ask for missing information. If no axes are
         found, the same information is requested, but no axes are predefined.
@@ -581,7 +581,7 @@ closest to the crystal to furthest from the crystal. The axes are: \n ==> {messa
                 axes under the key 'det_trans_axes_found' and 'det_rot_axes_found'
             principal_sense (str): the rotation sense of the principal axis
             array_info (dict): information about the data array
-            first_scan_info (dict): information about the first scans
+            scan_setting_info (dict): information about the scans
         """
 
         print('\nSome information about the detector is missing, please enter \
@@ -632,6 +632,6 @@ detector. The axes are: \n ==> {message}")
             det_trans_axes, det_rot_axes,
             principal_sense, principal_angle, image_orientation,
             # two_theta_sense,
-            array_info, first_scan_info)
+            array_info, scan_setting_info)
 
         return det_axes

@@ -799,7 +799,7 @@ Try to provide the constant stem of the file name using the -s option.\n")
         # replace an generic name with a more useful one if oscillation axis is
         # specified e.g. angle -> omega
         osc_axis = self._get_cbf_header_values(cbf_header, 'oscillation_axis',
-                                               is_number=False, with_unit=False)                                   
+                                               is_number=False, with_unit=False)
 
         if osc_axis[0] is not None:
             ax_vals[osc_axis[0]] = ax_vals[scan_ax[0]]
