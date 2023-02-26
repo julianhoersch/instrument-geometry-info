@@ -388,7 +388,7 @@ url_not_reachable:
     required: true
     description: >
        The url you have entered is (currently) not reachable - do you want to enter it
-       again?
+       again? Please provide the full url.
     options:
       - 'Yes'
       - 'No'

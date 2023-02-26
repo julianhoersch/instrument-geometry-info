@@ -465,7 +465,8 @@ class ImgCIFCreator:
                 enter_url = False
             if enter_url:
                 del self.cmd_parser.parsed['external_url']
-                
+                del self.cmd_parser.parsed['url_not_reachable']
+
         if external_url == 'force local':
             filename = filename[1:] if filename.startswith(os.sep) else filename
             external_url = f"file:{os.sep}{os.sep}" + filename
@@ -492,7 +493,7 @@ class ImgCIFCreator:
         Returns:
             bool: whether the url is reachable or not
         """
-        
+
         try:
             get = requests.get(url)
             if get.status_code == 200:
