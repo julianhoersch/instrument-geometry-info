@@ -748,7 +748,7 @@ Try to provide the constant stem of the file name using the -s option.\n")
             ax_vals (dict): the retrieved values for the given axes
             matching_scan_ax (str): the axis indentified as scan axis that also
                 matched with the given axes
-            scan_ax[1] (float): the scan axis increment
+            scan_ax (float): the scan axis increment
             exposure (float): the exposure time in seconds
             wavelength (float): the wavelength in Angstrom
         """
@@ -795,17 +795,8 @@ Try to provide the constant stem of the file name using the -s option.\n")
             if matching_scan_ax != "angle":   #we have an actual one
                 del ax_vals["angle"]
 
-
-        # replace an generic name with a more useful one if oscillation axis is
-        # specified e.g. angle -> omega
-        osc_axis = self._get_cbf_header_values(cbf_header, 'oscillation_axis',
-                                               is_number=False, with_unit=False)
-
-        if osc_axis[0] is not None:
-            ax_vals[osc_axis[0]] = ax_vals[scan_ax[0]]
-            del ax_vals[scan_ax[0]]
-            scan_ax = (osc_axis[0], scan_ax[1])
-            matching_scan_ax = osc_axis[0]
+        scan_ax, matching_scan_ax, ax_vals = self._replace_unspecified_oscillation_axis(
+            cbf_header, ax_vals, matching_scan_ax, scan_ax)
 
         return ax_vals, matching_scan_ax, scan_ax[1], exposure, wavelength
 
@@ -1007,3 +998,39 @@ Try to provide the constant stem of the file name using the -s option.\n")
             if dets["axis"] in renaming_scheme.keys():
                 dets["axis"] = renaming_scheme[dets["axis"]]
 
+
+    def _replace_unspecified_oscillation_axis(self, cbf_header, ax_vals,
+                                              matching_scan_ax, scan_ax):
+        """Replace a generic name with a more useful one if the oscillation axis is
+        specified e.g. angle -> omega
+
+        Args:
+            cbf_header (list): a list of lines from the cbf mini header
+            ax_vals (dict): the retrieved values for the given axes
+            matching_scan_ax (str): the axis indentified as scan axis that also
+                matched with the given axes
+            scan_ax (float): the scan axis increment
+
+        Returns:
+            ax_vals (dict): same as input with possible name replacements
+            matching_scan_ax (str): same as input with possible name replacements
+            scan_ax (float): same as input with possible name replacements
+        """
+
+        osc_axis = self._get_cbf_header_values(cbf_header, 'oscillation_axis',
+                                               is_number=False, with_unit=False)
+        replace = False
+        if osc_axis[0] is not None:
+            if matching_scan_ax in imgcif_creator.GONIOMETER_AXES:
+                if matching_scan_ax == 'angle':
+                    replace = True
+            else:
+                replace = True
+
+        if replace:
+            ax_vals[osc_axis[0]] = ax_vals[scan_ax[0]]
+            del ax_vals[scan_ax[0]]
+            scan_ax = (osc_axis[0], scan_ax[1])
+            matching_scan_ax = osc_axis[0]
+
+        return scan_ax, matching_scan_ax, ax_vals
