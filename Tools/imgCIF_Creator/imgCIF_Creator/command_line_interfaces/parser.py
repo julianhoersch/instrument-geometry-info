@@ -240,12 +240,15 @@ class CommandLineParser():
         vector += [[0, 0, -1] for _ in det_trans_axes]
         self._transform_translation_axes(scan_settings_info, det_trans_axes)
 
-        first_scan = sorted(scan_settings_info.keys())[0]
-        first_scan_info = scan_settings_info[first_scan][0]
-        z_offsets = [first_scan_info.get(axis) for axis in det_trans_axes]
+        # first_scan = sorted(scan_settings_info.keys())[0]
+        # first_scan_info = scan_settings_info[first_scan][0]
+        # z_offsets = [first_scan_info.get(axis) for axis in det_trans_axes]
 
-        for z in z_offsets:
-            offset.append([0, 0, z])
+        # for z in z_offsets:
+            #TODO this sets unknown offsets to zero...
+            # z = z if z is not None else 0
+        # offset is zero and non zero in scans
+        offset.append([0, 0, 0])
 
         # rotational axes
         rot_axes, rot_senses = det_rot_axes
