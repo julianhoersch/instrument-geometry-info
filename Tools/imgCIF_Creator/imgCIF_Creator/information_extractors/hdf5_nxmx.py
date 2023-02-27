@@ -251,7 +251,8 @@ class Extractor(extractor_interface.ExtractorInterface):
                             if goniometer_rot_direction in ['anticlockwise', 'a']:
                                 scan_incr = scan_incr * -1
                                 scan_stop *= -1
-                            scan_range = n_frames * scan_incr
+                            # because of 0.1*137 = 13.700000000000001 we round
+                            scan_range = round(scan_incr * n_frames, 10)
                     except TypeError:
                         # for fast and slow this is a scalar and no list
                         pass
