@@ -523,12 +523,6 @@ of files. Please try again!')
             axes[axis]['offset'] = \
                 self._rotate_from_nexus_to_cbf(content['offset'], goniometer_pos)
 
-        # scan start for trans must also be transformed
-        for scan in self.scan_info:
-            rot_sense = self._rotate_from_nexus_to_cbf(np.array([0,0,1]),
-                                                       goniometer_pos)
-            self.scan_info[scan][0]['trans'] *= rot_sense[-1]
-
         return axes
 
 
