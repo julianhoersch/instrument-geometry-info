@@ -35,31 +35,19 @@ class Extractor(extractor_interface.ExtractorInterface):
         self._unique_scans, self.all_frames = \
             self._get_scans_and_frames(directory, stem=stem)
 
-        # print('u sca', self._unique_scans)
-        # print('all fr', self.all_frames)
         # retrieve mini header info
         # only mini header info contains scan details regarding increment etc
-        # otherwise it would be duplicated
         self._scan_info_mini_header = \
             self._get_scan_info_mini_header(directory, self._unique_scans, self.all_frames)
-
-        # TODO optional axis renaming?
-        # print('mini info:', self._scan_info_mini_header)
+        self._first_scan = sorted(self._scan_info_mini_header.keys())[0]
+        self.first_mini_header = \
+            self._scan_info_mini_header[self._first_scan][1]['mini_header']
 
         # retrieve full header info
         self._scan_info_full_header = \
             self._get_info_full_header(directory, self._unique_scans, self.all_frames)
-        # print('full info', self._scan_info_full_header)
-
-        self._first_scan = sorted(self._scan_info_mini_header.keys())[0]
-        # print('frst sc', self._first_scan)
-
-        self.first_mini_header = \
-            self._scan_info_mini_header[self._first_scan][1]['mini_header']
-        # print('full info first:', self.first_mini_header)
 
         full_header_is_empty = self._scan_info_full_header[self._first_scan].keys() == []
-
         if full_header_is_empty:
             self._data_name = None
             self._full_header_dict = {}
@@ -68,8 +56,6 @@ class Extractor(extractor_interface.ExtractorInterface):
                 list(self._scan_info_full_header[self._first_scan].keys())[0]
             self._full_header_dict = \
                 self._scan_info_full_header[self._first_scan][self._data_name]
-
-        # print('full header dict', self._full_header_dict)
 
 
     def get_all_frames(self):
@@ -97,7 +83,6 @@ class Extractor(extractor_interface.ExtractorInterface):
         overload = self._full_header_dict.get('_array_intensities.overload')
         temperature = self._full_header_dict.get('_diffrn.ambient_temperature')
 
-        #TODO for smv?
         if overload is None:
             overload, _ = self._get_cbf_header_values(
                 self.first_mini_header, 'count_cutoff', with_unit=False)
@@ -110,7 +95,6 @@ class Extractor(extractor_interface.ExtractorInterface):
             if unit is not None and 'k' in unit.lower():
                 temperature -= 273.15
 
-        # get doi also from mini header?
         return {'doi' : doi,
                 'overload' : overload,
                 'temperature': temperature,
@@ -129,7 +113,6 @@ class Extractor(extractor_interface.ExtractorInterface):
         beamline = None
 
         # TODO can it appear in the mini header?
-        # print(self._scan_info_full_header[self._first_scan][self._data_name].keys())
         block_ids = ['_diffrn_source.diffrn_id', '_diffrn.id']
         for b_id in block_ids:
             block_id = self._lists_to_values(self._full_header_dict.get(b_id))
@@ -151,9 +134,6 @@ class Extractor(extractor_interface.ExtractorInterface):
                 if beamline is None:
                     beamline = beamline_source
 
-            # print('fac', facility, 'bl', beamline)
-
-        # TODO match facility and manufacturer?
         manufacturer = None
         model = None
         location = None
@@ -163,7 +143,6 @@ class Extractor(extractor_interface.ExtractorInterface):
         if make_string is not None:
             manufacturer, model = make_string.split('-')
 
-        # is this meant like general details?
         location_string = self._lists_to_values(
             self._full_header_dict.get('_diffrn_source.details'))
 
@@ -191,7 +170,6 @@ class Extractor(extractor_interface.ExtractorInterface):
         """
 
         axes = self._full_header_dict.get('_axis.id')
-        # print('axes', axes)
         axis_type = self._full_header_dict.get('_axis.type')
         equip = self._full_header_dict.get('_axis.equipment')
         depends_on = self._full_header_dict.get('_axis.depends_on')
@@ -270,9 +248,7 @@ as goniometer or detector axes.")
 
         # array structure list axis
         base = "_array_structure_list_axis."
-        # TODO always detx dety?
         axis_id = self._full_header_dict.get(base + "axis_id")
-        # TODO is the axis_set_id the same for structure list and list_axis?
         axis_set_id = self._full_header_dict.get(base + "axis_set_id")
         pixel_size = self._full_header_dict.get(base + "displacement_increment")
 
@@ -350,8 +326,7 @@ as goniometer or detector axes.")
            dict: a dictionary containing the information about the radiation
         """
 
-        # TODO not creating a list of wavelength id's here (yet)
-        # TODO could infer rad type from wavelength...
+        # TODO not creating a list of wavelength id's here (yet?)
         rad_type = \
             self._full_header_dict.get('_diffrn_radiation.type')
 
@@ -363,8 +338,7 @@ as goniometer or detector axes.")
                 wavelength = self._full_header_dict.get(base + identifier)
 
         # get from mini header
-        # TODO can this differ from scan to scan? it better shouldnt...\
-        # assert that it is the same wavelength?
+        # assert that it is the same wavelength in each scan?
         if wavelength is None:
             wavelength = self._scan_info_mini_header[self._first_scan][1].get('wavelength')
 
@@ -417,8 +391,6 @@ as goniometer or detector axes.")
         """
 
         scan_frame_regex, all_names = self._get_scan_frame_fmt(frame_dir, stem=stem)
-        # print('scan_frame_regex', scan_frame_regex)
-        # print('all_names', all_names)
 
         pattern = re.compile(scan_frame_regex)
         all_frames = {}
@@ -493,20 +465,12 @@ as goniometer or detector axes.")
             frames = [x[1] for x in scan_frame_map]
 
             # Get information for first frame
-            # print('frdir', frame_dir)
-            # print('allfrs', all_frames[(scan, 1)])
             file_name = os.path.join(frame_dir, all_frames[(scan, 1)]['filename'])
             mini_header = self._get_mini_header(file_name, frame_type)
-            # print('mini head', mini_header)
             axes_settings, scan_ax, scan_incr, exposure, wavelength, = \
                 self._get_frame_info(mini_header, frame_type, axes)
             x_pixel_size, y_pixel_size, = self._get_pixel_sizes(mini_header)
             print(f"Identified {scan_ax} as scan axis in scan {scan}")
-            # print('pxsz', x_pixel_size, y_pixel_size)
-            # print('scan', scan)
-            # print("start_axes_settings ", axes_settings, "scanax ",
-            #         scan_ax, "scaninc ", scan_incr, "exposure ", exposure,
-            #         "wavelength ", wavelength)
             start = axes_settings[scan_ax]
 
             # Get information for last frame
@@ -534,9 +498,6 @@ as goniometer or detector axes.")
                             "y_pixel_size" : y_pixel_size,
                             "mini_header" : mini_header
                             }
-            # print('start_axes_settings', start_axes_settings)
-            # print('scan', scan)
-            # print('scandet', scan_details)
             scan_info[scan] = (axes_settings, scan_details)
 
         scan_info = extractor_utils.prune_scan_info(scan_info)
@@ -567,19 +528,16 @@ as goniometer or detector axes.")
         all_names = list(filter(
             lambda f_name: f_name.endswith(".cbf") or f_name.endswith(".img"),
             all_names))
-        # print('all_names', all_names)
 
         # if given a file stem filter out only the files that start with the stem/file_pattern
         all_names = list(filter(lambda f_name: file_pattern.match(f_name), all_names))
         all_names.sort()
-        # print('all names', all_names)
 
         # Analyse number of digits between stem and extension: if less than
         # 5, no scan present the default stem matches everything until the _
         test_name = all_names[0]
         stem_len = len(file_pattern.match(test_name).group(0))
         num_digits = len(re.sub("[^0-9]", "", test_name[(stem_len-1):-4]))
-        # num_digits = count(r"[0-9]", test_name[stem_len:end-4])
 
         if num_digits >= 5:
             scan_frame_regex = None
@@ -588,10 +546,8 @@ as goniometer or detector axes.")
                 regex = r"(?:" + stem + r")" +\
                     r"(?:(?P<scan>[0-9]*" + re.escape(scan) + \
                     r")(?P<sep>0|_)(?P<frame>[0-9]+1)(?P<ext>\.cbf|img))"
-                # rr = stem * r"(?<scan>[0-9]*$scan)(?<sep>0|_)(?<frame>[0-9]+1)\\.(cbf|img)"
                 # keep in mind that re.match matche only the beginning of string
                 match = re.match(regex, all_names[0])
-                # m = match(rr,all_names[1])
 
                 if match:
                     scan_len = len(match.group("scan"))
@@ -601,16 +557,12 @@ as goniometer or detector axes.")
                     if match.group("sep") == "0":
                         frame_len += 1
 
-                    # scan_frame_regex = stem * \
-                    # Regex("(?<scan>[0-9]{$scan_len})_?(?<frame>[0-9]{$frame_len})")
                     scan_frame_regex = r"(?:" + stem + r")" +\
                         r"(?:(?P<scan>[0-9]{" + re.escape(str(scan_len)) + r"})" +\
                         r"_?(?P<frame>[0-9]{" + re.escape(str(frame_len)) + r"}))"
 
-                    # print('scrfreg', scan_frame_regex)
                     break
         else:
-            # scan_frame_regex = stem * r"(?<frame>[0-9]+)"
             scan_frame_regex = r"(?:" + stem + r")" + r"(?:(?P<frame>[0-9]+))"
 
         if scan_frame_regex is None:
@@ -618,7 +570,6 @@ as goniometer or detector axes.")
 Try to provide the constant stem of the file name using the -s option.\n")
             sys.exit()
 
-        # print('matched', re.match(scan_frame_regex, all_names[-1]))
         assert re.match(scan_frame_regex, all_names[-1]), "Regular expression for first \
     frame is not matching the last frame."
 
@@ -713,7 +664,7 @@ Try to provide the constant stem of the file name using the -s option.\n")
                 # with same names could be problematic
                 if b'_array_data.header_contents' in line:
                     found_header = True
-                # consider that the mini header is enclosed within two lines of ;
+                # consider that the mini header is enclosed within two lines of ';'
                 elif line in (b';\n', b';\r\n', b';\r'):
                     within_mini_header = not within_mini_header
                 elif b"-BINARY-FORMAT-SECTION-" in line:
@@ -723,13 +674,11 @@ Try to provide the constant stem of the file name using the -s option.\n")
                     try:
                         binary_info.append(line.decode('utf-8').lower().strip('\n').strip('\r'))
                     except UnicodeDecodeError:
-                        # binary part starts here
                         break
 
                 if found_header and within_mini_header and line.startswith(b'#'):
                     cbf_header.append(line.decode('utf-8').lower().strip('\n').strip('\r'))
 
-        # print('lns', cbf_header)
         return cbf_header + binary_info
 
 
@@ -759,13 +708,11 @@ Try to provide the constant stem of the file name using the -s option.\n")
                      (ax.lower(), self._get_cbf_header_values(cbf_header, ax)), axes))
         ax_vals = list(filter(lambda x: x[1][0] is not None, ax_vals))
         ax_vals = [self._convert_units(ax_val, 'length') for ax_val in ax_vals]
-        # print('ax vals', ax_vals)
 
         ax_incr = list(map(lambda ax: (ax.lower(), self._get_cbf_header_values(
             cbf_header, ax + "_increment")), axes))
         ax_incr = list(filter(lambda x: x[1][0] is not None, ax_incr))
         ax_incr = [self._convert_units(incr, 'length') for incr in ax_incr]
-        # print('axinc 2', ax_incr)
 
         _, exposure = self._convert_units(('et', self._get_cbf_header_values(
             cbf_header, "exposure_time")), 'time')
@@ -803,7 +750,7 @@ Try to provide the constant stem of the file name using the -s option.\n")
 
 
     def _get_frame_info_smv(self, filename):
-        # TODO
+        # TODO most likely this does not work for smv
         # For a single-axis diffractometer currently
 
         smv_header = self._get_smv_header(filename)
@@ -835,11 +782,9 @@ Try to provide the constant stem of the file name using the -s option.\n")
         """
 
         pattern = re.compile(re.escape(matcher) + r"[ =]+")
-        # print('pattern', pattern)
         matching_lines = list(filter(lambda x: pattern.search(x) is not None, lines))
-        # print('mtch lng', matching_lines)
 
-        # TODO is it now ensured that there are not more than one lines matching?
+        # TODO possible issues if there is more than one line matching?
         if len(matching_lines) < 1:
             return None, None
 
@@ -850,8 +795,6 @@ Try to provide the constant stem of the file name using the -s option.\n")
         val_unit = [re.search(val_unit_regex, matching_line)
                     for matching_line in matching_lines]
 
-        # print('valuns', val_unit)
-        # if val_unit[0] is not None:
         val = val_unit[0]["val"].strip()
         if with_unit:
             units = val_unit[0]["units"].strip()
@@ -861,7 +804,6 @@ Try to provide the constant stem of the file name using the -s option.\n")
         if is_number:
             val = float(val)
 
-        # print('v', val, 'u', units)
         return val, units
 
 
@@ -886,7 +828,6 @@ Try to provide the constant stem of the file name using the -s option.\n")
         val_unit_regex = re.escape(matcher) + r'[ =]+' + dim + r' [A-Za-z] ' + dim
         val_unit = [re.search(val_unit_regex, matching_line)
                     for matching_line in matching_lines]
-        # print('valuns', val_unit)
         val_unit = val_unit[0]
         pixel_sizes = [group.strip() for group in val_unit.groups()]
 
@@ -896,7 +837,6 @@ Try to provide the constant stem of the file name using the -s option.\n")
             ('x_size', (float(pixel_sizes[0]), pixel_sizes[1])), 'length')
         _, y_pixel = self._convert_units(
             ('y_size', (float(pixel_sizes[2]), pixel_sizes[3])), 'length')
-        # print(x_pixel, y_pixel)
 
         return round(x_pixel, 5), round(y_pixel, 5)
 
@@ -915,8 +855,7 @@ Try to provide the constant stem of the file name using the -s option.\n")
         """
         Get the value following the string given in matcher and units if present
         """
-        #TODO
-
+        # TODO most likely this does not work for smv
         pattern = re.compile(r"^" + re.escape(matcher) + r"[ =]+")
         # rr = Regex("^$matcher[ =]+")
         matching_line = list(filter(lambda x: pattern.search(x) is not None, lines))
@@ -977,27 +916,6 @@ Try to provide the constant stem of the file name using the -s option.\n")
             val = val * conversion_map[(val_type, unit)]
 
         return name, val
-
-
-    def _rename_axes(self, scan_info, renaming_scheme):
-        """
-        Axes in `scan_info` and `renaming_scheme` should already be lowercase.
-        """
-        #TODO is not used right now
-
-        if len(renaming_scheme) == 0:
-            return
-
-        for content in scan_info.values():
-            vals, dets = content
-
-            for axis, value in vals.items():
-                if axis in renaming_scheme.keys():
-                    vals[renaming_scheme[axis]] = value
-                    del vals[axis]
-
-            if dets["axis"] in renaming_scheme.keys():
-                dets["axis"] = renaming_scheme[dets["axis"]]
 
 
     def _replace_unspecified_oscillation_axis(self, cbf_header, ax_vals,

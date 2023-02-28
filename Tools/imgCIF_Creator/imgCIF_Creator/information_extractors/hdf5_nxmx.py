@@ -35,12 +35,10 @@ class Extractor(extractor_interface.ExtractorInterface):
         file_mapping = self._get_scan_file_mapping(filename)
         self.scan_info = self._get_scan_info(filename, file_mapping)
         self._first_scan = sorted(self.scan_info.keys())[0]
-        # print('frst sc', self._first_scan)
         n_frames_first_scan = self.scan_info[self._first_scan][1]['frames']
         frames_per_file = self._get_frames_per_file(
             file_mapping, n_frames_first_scan)
         self.all_frames = self._get_all_frames(file_mapping, frames_per_file)
-        # print('all frames', self.all_frames)
 
         self.setup_info = self._get_setup_info(filename, file_mapping)
         self.goniometer_axes = self._get_goniometer_settings(filename, file_mapping)
@@ -124,10 +122,9 @@ class Extractor(extractor_interface.ExtractorInterface):
         else:
             array_precedence = [2, 1]
 
-        # can I find any of this information in the h5?
         array_info = {
-            'axis_id' : None, # names as array_x, array_y
-            'axis_set_id': None, # integers as 1, 2
+            'axis_id' : None,
+            'axis_set_id': None,
             'pixel_size' : pixel_size,
             'array_id' : None,
             'array_index' : None,
@@ -167,7 +164,6 @@ class Extractor(extractor_interface.ExtractorInterface):
         """
 
         # TODO not creating a list of wavelength id's here (yet)
-        # TODO could infer rad type from wavelength...
         wavelength = self.scan_info[self._first_scan][1]['wavelength']
         rad_type = self.scan_info[self._first_scan][1]['rad_type']
 
@@ -213,15 +209,11 @@ class Extractor(extractor_interface.ExtractorInterface):
         goniometer_rot_direction =  \
             parser.CommandLineParser().request_input('goniometer_rot_direction')
 
-        # print('ff', file_mapping)
-
         with h5.File(master_file, 'r') as h5_master:
             for scan_no, scan in file_mapping.keys():
                 scan_axis_found = False
                 start_axes_settings = {}
                 h5item = h5_master.get(f'{scan}/sample')
-                # print('kkeys', [grp.name for grp in h5item.values()])
-                # print('kkeys', h5item.keys())
 
                 sample = h5_master.get(f'{scan}/sample')
                 for path in [grp.name for grp in sample.values()]:
@@ -235,7 +227,6 @@ class Extractor(extractor_interface.ExtractorInterface):
                         continue
                     # take only first
                     dataset = list(h5item.values())[0]
-                    # print('Collect INFO for', axis)
                     try:
                         if len(dataset) > 1:
                             print(f'\nIdentified {axis} as scan axis')
@@ -260,7 +251,6 @@ class Extractor(extractor_interface.ExtractorInterface):
                     # TODO convert units if neccessary?
                     start_axes_settings[axis] = dataset[0]
 
-                # TODO add trans axis - always named like this?
                 path = f'{scan}/instrument/detector_z/det_z'
                 h5item = self._get_hdf5_item(h5_master, path)
                 start_axes_settings['trans'] = h5item[0]
@@ -290,7 +280,6 @@ class Extractor(extractor_interface.ExtractorInterface):
                                 "wavelength" : wavelength,
                                 "rad_type" : rad_type,
                                 }
-                # print('start_axes_settings', start_axes_settings)
                 scan_info[scan_no] = (start_axes_settings, scan_details)
 
         scan_info = extractor_utils.prune_scan_info(scan_info)
@@ -318,8 +307,6 @@ class Extractor(extractor_interface.ExtractorInterface):
             counter = 1
             for i, entry in enumerate(sorted(file_mapping[(scan_no, scan)])):
                 filename, dpath = entry
-                # print('filen', filename)
-                # print('filen', dpath)
                 for frame_in_file in range(1, frames_per_file[i] + 1):
                     all_frames[(scan_no, counter)] = {
                         'filename' : filename,
@@ -328,7 +315,6 @@ class Extractor(extractor_interface.ExtractorInterface):
                     }
                     counter += 1
 
-        # print('affr', all_frames)
         return all_frames
 
 
@@ -342,7 +328,6 @@ class Extractor(extractor_interface.ExtractorInterface):
             defaultdict(list): a dictionary with a list of the external file links
         """
 
-        # print('myfname', file_name)
         scan_file_mapping = defaultdict(list)
         with h5.File(file_name, 'r') as h5_master:
             # if there are multiple scans the ordering is not ensured
@@ -351,10 +336,9 @@ class Extractor(extractor_interface.ExtractorInterface):
                 for key in group:
                     link = group.get(key, getlink=True)
                     if isinstance(link, h5.ExternalLink):
-                        # print(f'  {key} -> {link.filename}/{link.path}')
                         scan_file_mapping[(scan_no, scan)].append(
                             (link.filename, link.path))
-        # print('sr', scan_file_mapping)
+
         return scan_file_mapping
 
 
@@ -370,7 +354,7 @@ class Extractor(extractor_interface.ExtractorInterface):
         Returns:
             list: a list with the number of frames per file
         """
-        # print('sccfr', file_mapping)
+
         first_key = list(file_mapping.keys())[0]
         n_files = len(file_mapping[first_key])
         frame_numbers = []
@@ -389,7 +373,6 @@ the master file ({sum(frame_numbers)} != {n_frames}), please try again.')
             elif len(frame_numbers) != n_files:
                 print('The numbers of frames per file does not match the number \
 of files. Please try again!')
-            # print('frame nums', frame_numbers)
 
         return frame_numbers
 
@@ -408,13 +391,12 @@ of files. Please try again!')
 
         setup_info = {}
         with h5.File(master_file, 'r') as h5_master:
-            # TODO right now this does not work for multiple scans in a file
             for _, scan in file_mapping.keys():
 
                 path = f'{scan}/instrument/source/name'
                 setup_info['facility'] = self._get_hdf5_item(h5_master, path)
 
-                path = f'{scan}/instrument/source/beamline' #TODO can this path in theory exist?
+                path = f'{scan}/instrument/source/beamline' #can this path in exist?
                 setup_info['beamline'] = self._get_hdf5_item(h5_master, path)
 
                 path = f'{scan}/entry/instrument/detector/description'
@@ -431,9 +413,6 @@ of files. Please try again!')
 
                 path = f'{scan}/instrument/detector/module/data_size'
                 setup_info['array_dimensions'] = self._get_hdf5_item(h5_master, path)
-
-                # path = f'{scan}/instrument/detector/depends_on'
-                # setup_info['detector_axis_id'] = self._get_hdf5_item(h5_master, path)
 
                 path = f'{scan}/instrument/detector/module/fast_pixel_direction'
                 fast_direction = self._get_hdf5_item(h5_master, path, 'vector')
@@ -463,7 +442,6 @@ of files. Please try again!')
         with h5.File(master_file, 'r') as h5_master:
             for axis in imgcif_creator.GONIOMETER_AXES + imgcif_creator.DETECTOR_AXES:
                 axis = axis.lower()
-                # TODO right now this does not work for multiple scans in a file
                 scan = list(file_mapping.keys())[0][1]
                 if axis in imgcif_creator.GONIOMETER_AXES:
                     path = f'{scan}/sample/sample_{axis}/{axis}'
@@ -518,7 +496,6 @@ of files. Please try again!')
             # the kind of transformations (rotation) which have to be performed depend
             # on the position and rotation direction of the goniometer (seen from
             # the source)
-            # TODO is this correct?
             if goniometer_axes['omega']['vector'].all() == np.array([-1, 0, 0]).all():
                 goniometer_pos = 'right'
             elif goniometer_axes['omega']['vector'].all() == np.array([1, 0, 0]).all():
@@ -563,7 +540,7 @@ of files. Please try again!')
             str: the axis name replaced
         """
 
-        #TODO this is hardcoded
+        # this is hardcoded
         if name == 'fast_pixel_direction':
             return 'detx'
         if name == 'slow_pixel_direction':
@@ -605,7 +582,7 @@ of files. Please try again!')
         Returns:
             rotated_vector (string): The rotated vector.
         """
-        # print('vector to rotate', vector)
+
         if rotation_axis == 'x':
             rot = vector * np.array([1, -1, -1])
         elif rotation_axis == 'y':
@@ -616,24 +593,6 @@ of files. Please try again!')
             rot = None
 
         return rot
-
-        # attempts to sort the axes
-        #  goniometer_axes_sorted = []
-        # def recursive_sort(axis):
-
-        #     if goniometer_axes[axis]['dep'] == '.':
-        #         goniometer_axes_sorted
-
-        #     for axis, attrs in goniometer_axes.items():
-        #         if attrs['dep'] == '.':
-        #             return
-
-        #     # goniometer_axes_sorted.append(axis)
-        #     goniometer_axes.keys()   [axis]['depends_on']
-        #     if goniometer_axes[axis]['depends_on'] in goniometer_axes:
-        #         dependent_axis = goniometer_axes[axis]['axis']
-        #         goniometer_axes_sorted.append(dependent_axis)
-        #         return recursive_sort(dependent_axis)
 
 
     def _get_hdf5_item(self, h5_master, path, attr=None):

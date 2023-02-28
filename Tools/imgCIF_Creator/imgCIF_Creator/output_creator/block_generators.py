@@ -41,7 +41,6 @@ class ImgCIFEntryGenerators():
             radiation_info (dict): the information about the radiation
         """
 
-        # print('scaninf', scan_info)
         if radiation_info['rad_type'] is not '':
             cif_block["_diffrn_radiation.type"] = radiation_info['rad_type']
 
@@ -74,10 +73,7 @@ class ImgCIFEntryGenerators():
         }
 
         for scan in sorted(scan_info):
-            # print('scscan', scan_info[scan])
             axes, dets = scan_info[scan]
-            # print("keylen", len(axes.keys()))
-            #TODO do this for all axes or only the one that changes? >> all
             for axis, val in axes.items():
                 step, scan_range = 0, 0
                 if axis == dets["axis"]:
@@ -128,10 +124,8 @@ class ImgCIFEntryGenerators():
             base + ".frames" : [],
             }
 
-        # println(op, header)
         start_frame = 1
         for scan, frame in scan_list:
-            # print(scan, frame)
             end_frame = start_frame + frame - 1
             entries[base + ".id"].append(f"SCAN{scan}")
             entries[base + ".frame_id_start"].append(f"frm{start_frame}")
@@ -171,9 +165,9 @@ class ImgCIFEntryGenerators():
         for _, frames in scan_list:
             for _ in range(1, frames + 1):
                 counter += 1
-                entries[base + ".id"].append("IMAGE01") #TODO is that always IMAGE?
+                entries[base + ".id"].append("IMAGE01")
                 entries[base + ".binary_id"].append(counter)
-                entries[base + ".external_data_id"].append(f'ext{counter}') # TODO put ext here?
+                entries[base + ".external_data_id"].append(f'ext{counter}')
 
         for name, value in entries.items():
             cif_block[name] = value
@@ -181,8 +175,6 @@ class ImgCIFEntryGenerators():
         cif_block.CreateLoop(list(entries.keys()))
 
 
-    # new url from get arch typem all frames from get all frames, scan linst same
-    # prepend dir from creator call, file format from creator
     def generate_external_ids(self, cif_block, external_url, all_frames, scan_list,
                               arch, prepend_dir, file_format):
         """Generate the cif_block entries for the external ids. `external_url` is
@@ -202,9 +194,6 @@ class ImgCIFEntryGenerators():
             prepend_dir (str): the directory that is prepended to the path
             file_format (str): the file format (cbf, smv, h5)
         """
-        # print('my arch', arch)
-        # print('prepdoi', prepend_dir)
-        # print('allfrms', all_frames)
 
         base = '_array_data_external_data'
         entries = {
@@ -223,9 +212,7 @@ class ImgCIFEntryGenerators():
 
         counter = 0
         for scan, frames in scan_list:
-            # print('sc fr scl', scan, frames, scan_list)
             for frame in range(1, frames + 1):
-                # print('allfr, scan, fram', all_frames[(scan, frame)])
                 counter += 1
                 frame_name = f"{all_frames[(scan, frame)]['filename']}"
 
@@ -253,7 +240,6 @@ class ImgCIFEntryGenerators():
                         prepend_dir + separator + frame_name)
 
         for name, value in entries.items():
-            # print('name', name, 'value', value)
             cif_block[name] = value
 
         cif_block.CreateLoop(list(entries.keys()))
@@ -281,12 +267,10 @@ class ImgCIFEntryGenerators():
             base + ".integration_time" : [],
             }
 
-        # println(op, header)
         counter = 0
         for scan, frames in scan_list:
             for frame_number in range(1, frames + 1):
                 counter += 1
-                # println(op, "frm$ctr   SCAN$s    $f $(scan_times[s])")
                 entries[base + ".frame_id"].append(f"frm{counter}")
                 entries[base + ".scan_id"].append(f"SCAN{scan}")
                 entries[base + ".frame_number"].append(frame_number)
@@ -297,7 +281,6 @@ class ImgCIFEntryGenerators():
             cif_block[name] = value
 
         cif_block.CreateLoop(list(entries.keys()))
-
 
 
     def generate_source(self, cif_block, source_info):
@@ -313,7 +296,6 @@ class ImgCIFEntryGenerators():
         base = "_diffrn_source."
         if source_info.get("beamline") is not None or\
              source_info.get("facility") is not None:
-            # print('facilit', source_info["facility"])
             cif_block[base + "beamline"] = source_info["beamline"]
             cif_block[base + "facility"] = source_info["facility"]
             audit_id_1 = re.sub(regex, '_', source_info["beamline"])
@@ -322,7 +304,6 @@ class ImgCIFEntryGenerators():
             cif_block[base + "make"] = source_info["manufacturer"] + "-" + \
                 source_info["model"]
             cif_block[base + "details"] = f"Located at {source_info['location']}"
-                # f"Located at {source_info['location']}"
             audit_id_1 = re.sub(regex, '_', source_info["manufacturer"])
             audit_id_2 = re.sub(regex, '_', source_info["model"])
 
@@ -340,11 +321,9 @@ class ImgCIFEntryGenerators():
                 the information should be written.
             array_info (dict): information about the source
         """
-        #TODO also works for one element input?
+
         hor, vert = [float(element) for element in array_info['pixel_size']]
-        # array structure list axis
         base = "_array_structure_list_axis."
-        # TODO always detx dety?
         cif_block[base + "axis_id"] = array_info['axis_id']
         cif_block[base + "axis_set_id"] = array_info['axis_set_id']
         cif_block[base + "displacement"] = [hor / 2, vert / 2]   #half pixel size
@@ -355,7 +334,6 @@ class ImgCIFEntryGenerators():
             base + "displacement",
             base + "displacement_increment"])
 
-        # array structure list
         base = "_array_structure_list."
         cif_block[base + "array_id"] = array_info['array_id']
         cif_block[base + "index"] = array_info['array_index']
@@ -363,8 +341,6 @@ class ImgCIFEntryGenerators():
         cif_block[base + "dimension"] = array_info['array_dimension']
         cif_block[base + "direction"] = array_info['array_direction']
         cif_block[base + "precedence"] = array_info['array_precedence']
-
-        # print('arryinfo', array_info)
 
         cif_block.CreateLoop([
             base + "array_id",
@@ -393,18 +369,15 @@ class ImgCIFEntryGenerators():
             base + ".binary_id" : [],
             }
 
-        # TODO how to include the counter into element and image? where is the information
+        # TODO include the counter into element and image? where is the information
         # this probably needs the get_array_info method then
-        # println(op, header) for now hardcoded
         counter = 0
         for _, frames in scan_list:
             for _ in range(1, frames + 1):
                 counter += 1
                 entries[base + ".id"].append(f"frm{counter}")
-                #TODO hardcoded element, image
                 entries[base + ".detector_element_id"].append(f"ELEMENT01")
-                #TODO element or 1? not present in hdf5 mapper
-                entries[base + ".array_id"].append("IMAGE01") # is 1 in hdf5 mapper
+                entries[base + ".array_id"].append("IMAGE01")
                 entries[base + ".binary_id"].append(counter)
 
         for name, value in entries.items():
@@ -426,9 +399,7 @@ class ImgCIFEntryGenerators():
         cif_block[base + "id"] = detector_info["detector_id"]
         cif_block[base + "number_of_axes"] = detector_info['number_of_axes']
         cif_block.CreateLoop([base + "id", base + "number_of_axes"])
-        #
         base = "_diffrn_detector_axis."
-        # print('olla', cif_block["_diffrn_detector.number_of_axes"])
         cif_block[base + "axis_id"] = detector_info['axis_id']
         cif_block[base + "detector_id"] = detector_info['detector_axis_id']
         cif_block.CreateLoop([base + "axis_id", base + "detector_id"])
@@ -445,7 +416,7 @@ class ImgCIFEntryGenerators():
                 the information should be written.
             axes_info (dict): information about the axes
         """
-        # print("gonaxes2", gon_axes)
+
         base = "_axis."
         cif_block[base + "id"] = axes_info['axes']
         cif_block[base + "type"] = axes_info['axis_type']
@@ -470,12 +441,7 @@ class ImgCIFEntryGenerators():
             cif_block (CifFile.CifFile_module.CifBlock): the cif block into which
                 the information should be written.
         """
-        # print('veccoi', vectors)
-        # for idx_1, sub_vectors in enumerate(vectors):
-        #     for idx_2, element in enumerate(sub_vectors):
-        #         vectors[idx_1][idx_2] = float(element)
 
-        # TODO is the index correct? julia indexes different than python
         def mapping_func(vector):
             # i is local from the scope of the loop
             try:
@@ -489,18 +455,14 @@ class ImgCIFEntryGenerators():
                     formatted = str(vector[i - 1])
                 else:
                     formatted = f"{vector[i - 1]:1.5f}"
-                # it can be that some values are by computaional effects
-                # are very close to zero e.g. -1.2246467991473532e-16 -> map to 0
+                # it can be that some values are by computational effects
+                # very close to zero e.g. -1.2246467991473532e-16 -> map to 0
                 if float(formatted) == 0:
                     formatted = "0"
 
-                return formatted # vector[i] @sprintf "%1.5f" vector[i]
+                return formatted
             except ValueError:
-                # print('exepted', vector[i-1])
                 return vector[i - 1]
 
         for i in range(1, 4):
-            # print('vcodor', vectors)
-            # mppd = map(mapping_func, vectors)
-            # print('mppd', i, list(mppd))
             cif_block[basename + f"[{i}]"] = map(mapping_func, vectors)

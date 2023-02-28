@@ -131,8 +131,6 @@ of miniCBF
         stem (str): Constant portion of frame file name.
         output_file (str): Output file to write to.
     """
-    # stem = '010_Ni_dppe_Cl_2_150K'
-    # stem = r".*?_"
 
     print('\n--------------------------- imgCIF Creator ---------------------------\n')
     print("""This is an interactive command line interface to collect the necessary
