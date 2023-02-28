@@ -41,7 +41,7 @@ class Extractor(extractor_interface.ExtractorInterface):
         self.all_frames = self._get_all_frames(file_mapping, frames_per_file)
 
         self.setup_info = self._get_setup_info(filename, file_mapping)
-        self.goniometer_axes = self._get_goniometer_settings(filename, file_mapping)
+        self.axes = self.get_axes_description(filename, file_mapping)
 
 
     def get_misc_info(self):
@@ -94,7 +94,7 @@ class Extractor(extractor_interface.ExtractorInterface):
         """
 
         axes, axis_type, equip, depends_on, vector, offset = \
-            self._make_axes(self.goniometer_axes)
+            self._make_axes(self.axes)
 
         axes_info = {'axes' : axes,
                      'axis_type' : axis_type,
@@ -425,7 +425,7 @@ of files. Please try again!')
         return setup_info
 
 
-    def _get_goniometer_settings(self, master_file, file_mapping):
+    def get_axes_description(self, master_file, file_mapping):
         """Retrieve the goniometer axis settings from hdf5.
 
         Args:
@@ -434,11 +434,11 @@ of files. Please try again!')
                 are multiple files the values are lists)
 
         Returns:
-            goniometer_axes (dict): a dictionary containing the gonimeter axes and
+            axes (dict): a dictionary containing the gonimeter axes and
                 their vectors, offsets, etc.
         """
 
-        goniometer_axes = {}
+        axes = {}
         with h5.File(master_file, 'r') as h5_master:
             for axis in imgcif_creator.GONIOMETER_AXES + imgcif_creator.DETECTOR_AXES:
                 axis = axis.lower()
@@ -475,7 +475,7 @@ of files. Please try again!')
                     depends_on = 'two_theta'
 
                 vector = h5item.attrs['vector']
-                goniometer_axes[axis] = \
+                axes[axis] = \
                     {
                         'depends_on': depends_on,
                         'vector': vector,
@@ -485,7 +485,7 @@ of files. Please try again!')
                 # TODO is an omega axis always present?
                 if axis == 'omega':
                     # two_theta axis is duplicate of omega except for the equipment
-                    goniometer_axes['two_theta'] = \
+                    axes['two_theta'] = \
                         {
                             'depends_on': depends_on,
                             'vector': vector,
@@ -496,38 +496,34 @@ of files. Please try again!')
             # the kind of transformations (rotation) which have to be performed depend
             # on the position and rotation direction of the goniometer (seen from
             # the source)
-            if goniometer_axes['omega']['vector'].all() == np.array([-1, 0, 0]).all():
+            # TODO is this correct?
+            if axes['omega']['vector'].all() == np.array([-1, 0, 0]).all():
                 goniometer_pos = 'right'
-            elif goniometer_axes['omega']['vector'].all() == np.array([1, 0, 0]).all():
+            elif axes['omega']['vector'].all() == np.array([1, 0, 0]).all():
                 goniometer_pos = 'left'
             else:
                 print('Could not identify goniometer position! Aborting!')
                 sys.exit()
             print(f'\nIdentified goiniometer position (from source): {goniometer_pos}')
 
-            for axis in goniometer_axes:
-                goniometer_axes[axis]['offset'] = np.array([0.0, 0.0, 0.0])
+            for axis in axes:
+                axes[axis]['offset'] = np.array([0.0, 0.0, 0.0])
 
             path = f'{scan}/instrument/detector/module/module_offset'
-            goniometer_axes['detx']['offset'] = self._get_hdf5_item(h5_master, path, 'offset')
+            axes['detx']['offset'] = self._get_hdf5_item(h5_master, path, 'offset')
 
             path = f'{scan}/instrument/detector_distance'
-            off_z = self._get_hdf5_item(h5_master, path)
-            off_z = off_z[0] if isinstance(off_z, np.ndarray) else off_z
-            goniometer_axes['trans']['offset'] = np.array([0.0, 0.0, off_z])
+            # off_z = self._get_hdf5_item(h5_master, path)
+            # off_z = off_z[0] if isinstance(off_z, np.ndarray) else off_z
+            axes['trans']['offset'] = np.array([0.0, 0.0, 0.0])
 
-        for axis, content in goniometer_axes.items():
-            goniometer_axes[axis]['vector'] = \
+        for axis, content in axes.items():
+            axes[axis]['vector'] = \
                 self._rotate_from_nexus_to_cbf(content['vector'], goniometer_pos)
-            goniometer_axes[axis]['offset'] = \
+            axes[axis]['offset'] = \
                 self._rotate_from_nexus_to_cbf(content['offset'], goniometer_pos)
 
-        # scan start for trans must also be transformed
-        if goniometer_axes['trans']['offset'][-1] == -off_z:
-            for scan in self.scan_info:
-                self.scan_info[scan][0]['trans'] *= -1
-
-        return goniometer_axes
+        return axes
 
 
     def _replace_names(self, name):
@@ -594,7 +590,6 @@ of files. Please try again!')
 
         return rot
 
-
     def _get_hdf5_item(self, h5_master, path, attr=None):
         """Return the hdf5 item at the given path with optional attribute. Return
         the utf-8 decoded string if possible, return None if not present.
@@ -621,11 +616,11 @@ of files. Please try again!')
         return h5item
 
 
-    def _make_axes(self, goniometer_axes):
+    def _make_axes(self, axes_info):
         """Return the axes information in the required format for get_axes_info.
 
         Args:
-            goniometer_axes (dict): a dictionary containing the gonimeter axes and
+            axes (dict): a dictionary containing the gonimeter axes and
                 their vectors, offsets, etc.
 
         Returns:
@@ -639,9 +634,9 @@ of files. Please try again!')
         vector = []
         offset = []
 
-        for axis in goniometer_axes:
+        for axis in axes_info:
             axes.append(axis)
-            ax_type = goniometer_axes[axis]['axis_type']
+            ax_type = axes_info[axis]['axis_type']
             axis_type.append(ax_type)
             if axis in imgcif_creator.GONIOMETER_AXES:
                 equip.append('goniometer')
@@ -649,8 +644,8 @@ of files. Please try again!')
                 equip.append('detector')
             else:
                 equip.append('equipment')
-            depends_on.append(goniometer_axes[axis]['depends_on'])
-            vector.append(list(goniometer_axes[axis]['vector']))
-            offset.append(list(goniometer_axes[axis]['offset']))
+            depends_on.append(axes_info[axis]['depends_on'])
+            vector.append(list(axes_info[axis]['vector']))
+            offset.append(list(axes_info[axis]['offset']))
 
         return [axes, axis_type, equip, depends_on, vector, offset]
