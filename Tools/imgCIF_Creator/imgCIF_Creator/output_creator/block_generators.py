@@ -362,7 +362,7 @@ class ImgCIFEntryGenerators():
         cif_block[base + "axis_set_id"] = array_info['axis_set_id']
         cif_block[base + "dimension"] = array_info['array_dimension']
         cif_block[base + "direction"] = array_info['array_direction']
-        cif_block[base + "precedece"] = array_info['array_precedence']
+        cif_block[base + "precedence"] = array_info['array_precedence']
 
         # print('arryinfo', array_info)
 
@@ -372,7 +372,7 @@ class ImgCIFEntryGenerators():
             base + "axis_set_id",
             base + "dimension",
             base + "direction",
-            base + "precedece"])
+            base + "precedence"])
 
 
     def generate_data_frame_info(self, cif_block, scan_list):
