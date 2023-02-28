@@ -436,21 +436,23 @@ class ImgCIFCreator:
 
         while enter_url:
             external_url = self.cmd_parser.request_input('external_url')
-            print(' ==> Checking url...')
-            url_is_reachable = self._check_url_is_reachable(external_url)
-            if not url_is_reachable:
-                response = self.cmd_parser.request_input('url_not_reachable')
-                enter_url = True if 'y' in response else False
-            else:
-                print(f' ==> {external_url} is reachable!')
+            if external_url == 'force local':
+                filename = filename[1:] if filename.startswith(os.sep) else filename
+                external_url = f"file:{os.sep}{os.sep}" + os.getcwd() + filename
                 enter_url = False
-            if enter_url:
-                del self.cmd_parser.parsed['external_url']
-                del self.cmd_parser.parsed['url_not_reachable']
+            else:
+                print(' ==> Checking url...')
+                url_is_reachable = self._check_url_is_reachable(external_url)
+                if not url_is_reachable:
+                    response = self.cmd_parser.request_input('url_not_reachable')
+                    enter_url = True if 'y' in response else False
+                else:
+                    print(f' ==> {external_url} is reachable!')
+                    enter_url = False
+                if enter_url:
+                    del self.cmd_parser.parsed['external_url']
+                    del self.cmd_parser.parsed['url_not_reachable']
 
-        if external_url == 'force local':
-            filename = filename[1:] if filename.startswith(os.sep) else filename
-            external_url = f"file:{os.sep}{os.sep}" + filename
 
         archives = {"TGZ" : r"(\.tgz)|(\.tar.gz)\Z",
                     "TBZ" : r"(\.tbz)|(\.tar\.bz2)\Z",
