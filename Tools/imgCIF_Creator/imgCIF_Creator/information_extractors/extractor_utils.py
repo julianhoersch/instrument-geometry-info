@@ -39,6 +39,8 @@ def prune_scan_info(scan_info, prune_always_axes=False):
         condition = axis not in keep_this and np.isclose(inital_val, 0, atol=0.001)
         if not prune_always_axes:
             condition = condition and axis not in imgcif_creator.ALWAYS_AXES
+        if inital_val == -9999:
+            condition = True
 
         if condition:
             for scan in scan_info:
