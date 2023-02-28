@@ -3,6 +3,7 @@
 
 import re
 import os
+import requests
 import importlib
 from imgCIF_Creator.command_line_interfaces import parser
 from imgCIF_Creator.information_extractors import extractor_utils
@@ -49,16 +50,13 @@ class ImgCIFCreator:
         self.generators = block_generators.ImgCIFEntryGenerators()
 
 
-    def create_imgcif(self, cif_block, external_url, prepend_dir, filename, filetype):
+    def create_imgcif(self, cif_block, filename, filetype):
         """Add the required information to a cif_block and request the missing
         information from the user.
 
         Args:
             cif_block (CifFile.CifFile_module.CifBlock): A cif block created with
                 the pycifrw package to which the information is added.
-            external_url (str): An external url of the files e.g. a zeondo url
-            prepend_dir (str): If the directory name is included as part of the archive
-                path name this is the prepended directory name.
             filename (str): The filename or directory where the data is located.
             filetype (str): The filetype (smv, cbf or h5)
         """
@@ -99,8 +97,7 @@ class ImgCIFCreator:
         detector_info = self.extractor.get_detector_info()
         detector_info = self.check_detector_completeness(detector_info, axes_info)
 
-        archive, external_url = self.check_external_url(external_url, filename)
-
+        archive, external_url, archive_path = self.check_external_url(filename)
 
         # now generate the cif block
         # _diffrn_source block
@@ -127,7 +124,7 @@ class ImgCIFCreator:
         # self.generate _array_data_external_data
         self.generators.generate_external_ids(
             cif_block, external_url, self.extractor.all_frames,
-            scan_list, archive, prepend_dir, filetype)
+            scan_list, archive, archive_path, filetype)
 
 
     def check_misc_completeness(self, misc_info):
@@ -441,13 +438,11 @@ class ImgCIFCreator:
         return param_dict
 
 
-    def check_external_url(self, external_url, filename):
+    def check_external_url(self, filename):
         """Get the archive type of the provided external url or return the default
         filename/path as external url if no external url was provided.
 
         Args:
-            external_url (str): the external url wich possibly points to an archive
-                format
             filename (str): The filename or directory where the data is located.
 
         Returns:
@@ -455,9 +450,22 @@ class ImgCIFCreator:
         """
 
         archive = None
+        archive_path = None
+        enter_url = True
 
-        if external_url == '':
+        while enter_url:
             external_url = self.cmd_parser.request_input('external_url')
+            print(' ==> Checking url...')
+            url_is_reachable = self._check_url_is_reachable(external_url)
+            if not url_is_reachable:
+                response = self.cmd_parser.request_input('url_not_reachable')
+                enter_url = True if 'y' in response else False
+            else:
+                print(f' ==> {external_url} is reachable!')
+                enter_url = False
+            if enter_url:
+                del self.cmd_parser.parsed['external_url']
+                del self.cmd_parser.parsed['url_not_reachable']
 
         if external_url == 'force local':
             filename = filename[1:] if filename.startswith(os.sep) else filename
@@ -470,9 +478,31 @@ class ImgCIFCreator:
         for archive_type, regex in archives.items():
             searched = re.search(regex, external_url)
             if bool(searched) and searched.group(0) != '':
-                return archive_type, external_url
+                archive_path = self.cmd_parser.request_input('archive_path')
+                return archive_type, external_url, archive_path
 
-        return archive, external_url
+        return archive, external_url, archive_path
+
+
+    def _check_url_is_reachable(self, url):
+        """Check if an url is reachable.
+
+        Args:
+            url (str): the url to test
+
+        Returns:
+            bool: whether the url is reachable or not
+        """
+
+        try:
+            get = requests.get(url)
+            if get.status_code == 200:
+                return True
+            else:
+                return False
+
+        except requests.exceptions.RequestException as e:
+            return False
 
 
     def _change_axes(self, axes_files, parser_label):

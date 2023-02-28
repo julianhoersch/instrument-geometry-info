@@ -67,6 +67,7 @@ class CommandLineParser():
             'external_url': None,
             'temperature': r'\d+\Z',
             'keep_axes': self._create_options_regex('keep_axes'),
+            'url_not_reachable': self._create_options_regex('url_not_reachable'),
         }
 
 
