@@ -527,7 +527,8 @@ as goniometer or detector axes.")
                             "incr" : scan_incr,
                             "time" : exposure,
                             "start" : start,
-                            "range" : scan_incr * len(frames),
+                            # because of 0.1*137 = 13.700000000000001 we round
+                            "range" : round(scan_incr * len(frames), 10),
                             "wavelength" : wavelength,
                             "x_pixel_size" : x_pixel_size,
                             "y_pixel_size" : y_pixel_size,
