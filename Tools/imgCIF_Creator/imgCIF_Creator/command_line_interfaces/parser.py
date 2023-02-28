@@ -43,26 +43,17 @@ class CommandLineParser():
             'goniometer_axes' : r'((?:[^,]*,\s*(a|c),\s*)*[^,]*,\s*(a|c))\Z',
             'change_goniometer_axes' : r'((?:[^,]*,\s*(a|c),\s*)*[^,]*,\s*(a|c))\Z',
             'change_det_rot_axes' : r'((?:[^,]*,\s*(a|c),\s*)*[^,]*,\s*(a|c))\Z',
-            'rotation_axis': None, # no effect?
             "two_theta_sense" : self._create_options_regex('two_theta_sense'),
-            # "detector_axes" : None, #r'(?:\S*,\s*)+(\S*)\Z', # this is not exact
             'detector_axes' : r'((?:[^, ]*,\s*)*[^, ]+)\Z',
-            # r"(?:\d+,\s*)+(?:\d+)\s*\Z",
             "chi_axis" : r'.*(?:\s+\d{1,3})\Z',
-            #(?:\s+\d{1,3}){1,2}\Z
             'kappa_axis': r'.*(((\s|,)(\s)*\d{1,3}){1,2})\Z', # capture something like kappa, 50, 50
             'image_orientation': self._create_options_regex('image_orientation'),
             'fast_direction': self._create_options_regex('fast_direction'),
-            'pixel_size': r'(\d+\.?\d*\Z)|(\d+\.?\d*,\s*\d+\.?\d*\Z)', # matches either
-            # one pixel dimension or both separated by a comma
-            # 'array_dimension': r'(\d+,{0,1}\s*\d+\Z)', # matches two numbers separated by
+            'pixel_size': r'(\d+\.?\d*\Z)|(\d+\.?\d*,\s*\d+\.?\d*\Z)',
             'array_dimension': r'(\d+(,\s*)\d+\Z)',
-            # a comma or a whitespace
-            # 'xds.inp': None, # no effect
-            'comments': None, # no effect?
             'filename': r'.*((\.h5)\Z|(\.cbf)\Z|(\.smv)\Z)',
             'goniometer_rot_direction' : \
-                self._create_options_regex('goniometer_rot_direction'), # no effect
+                self._create_options_regex('goniometer_rot_direction'),
             'frame_numbers': r'^\d+(,\s*\d+)*$',
             'external_url': None,
             'temperature': r'\d+\Z',
@@ -73,7 +64,7 @@ class CommandLineParser():
 
     def request_input(self, label):
         """Request input from the user for the given label and the associated
-        informatio in the resources file.
+        information in the resources file.
 
         Args:
             label (str): the label that identifies the request
@@ -118,7 +109,7 @@ class CommandLineParser():
 
         axes = []
         senses = []
-        for i in range(0, len(ax_str), 2): #1:2:length(ax_str)
+        for i in range(0, len(ax_str), 2):
             axes.append(ax_str[i])
             sense = ax_str[i+1].lower()
             senses.append(sense)
@@ -127,7 +118,7 @@ class CommandLineParser():
 
 
     def make_goniometer_axes(self, goniometer_axes, kappa_info, chi_info):
-        """Create the goniometer axes from user input. The list of gonio axes
+        """Create the goniometer axes from the user input. The list of gonio axes
         goes in order from top to bottom, meaning that the first "depends on"
         the second and so forth. We assume a two theta axis.
         The items we have to fill in are:
@@ -150,8 +141,6 @@ class CommandLineParser():
             dict: a dictionary containing the information about the goniometer axes
         """
 
-        # print('gonx', goniometer_axes)
-        # print('kappa is now', kappa_info)
         axes, senses = goniometer_axes
         axis_type = ["rotation" for _ in axes]
         equip = ["goniometer" for _ in axes]
@@ -168,7 +157,6 @@ class CommandLineParser():
         else:
             chi_info = ['']
 
-        # print('chi is now', chi_info)
         # Construct axis dependency chain
         depends_on = []
         depends_on += axes[1:]
@@ -181,7 +169,6 @@ class CommandLineParser():
         vector = []
         offset = []
         for (axis, sense) in zip(axes, senses):
-            # print(axis, sense)
             rotfac = 1 if sense == principal else -1
             if axis.lower() == kappa_info[0].lower():
                 kappa_vec = self._make_kappa_vector(kappa_info)
@@ -191,7 +178,6 @@ class CommandLineParser():
                 vector.append(self._make_chi_vector(goniometer_axes, chi_info))
             else:
                 vector.append([i * rotfac for i in [1, 0, 0]])
-            # print('vec', vector)
             # TODO offset is always 0?
             offset.append([0, 0, 0])
 
@@ -206,11 +192,8 @@ class CommandLineParser():
         return axes_dict
 
 
-    def make_detector_axes(self, det_trans_axes, det_rot_axes,
-                           principal_sense, principal_angle,
-                           image_orientation,
-                           # two_theta_sense,
-                           array_info,
+    def make_detector_axes(self, det_trans_axes, det_rot_axes, principal_sense,
+                           principal_angle, image_orientation, array_info,
                            scan_settings_info):
         """Add information concerning the detector axes. We define our own axis names,
         with the detector distance being inserted when the data file is read. We
@@ -234,11 +217,6 @@ class CommandLineParser():
         Returns:
             dict: a dictionary containing the information about the detector axes
         """
-
-        # Insert assumed axis names and orientations
-        # TODO is there any case where there can be multiple of those trans axes?
-        # because ther is only detector_2theta allowed in the detector axes
-        # this is hardcoded
 
         axis_id = ['dety', 'detx']
         axis_type = ['translation', 'translation']
@@ -267,14 +245,10 @@ class CommandLineParser():
         z_offsets = [first_scan_info.get(axis) for axis in det_trans_axes]
 
         for z in z_offsets:
-            #TODO this sets unknown offsets to zero...
-            # z = z if z is not None else 0
             offset.append([0, 0, z])
 
         # rotational axes
         rot_axes, rot_senses = det_rot_axes
-        # Adjust two theta direction
-        # two_theta_sense is 'anticlockwise' or 'a' first letter is a
         axis_id += rot_axes
         axis_type += ['rotation' for _ in rot_axes]
         equip += ['detector' for _ in rot_axes]
@@ -292,7 +266,6 @@ class CommandLineParser():
 
         # the above ordering must reflect the stacking!
         depends_on = axis_id[1:-(len(rot_axes)+1)] + ['.' for _ in range(len(rot_axes)+2)]
-        # print('def', depends_on)
 
         axes_dict = {
             'axes' : axis_id,
@@ -314,7 +287,6 @@ class CommandLineParser():
         """
 
         user_input = input(' >> ')
-        # validation pattern
         if self.validation_regex.get(label) is not None:
             pattern = re.compile(
                 self.validation_regex[label])
@@ -365,7 +337,7 @@ please try again.')
         up_comp = np.cos(kapang)
         across_comp = np.sin(kapang)
         if kappoise == 0:
-            #is under incident beam collimator in X-Z plane
+            # is under incident beam collimator in X-Z plane
             z_comp = -1 * across_comp
         elif kappoise == 180:
             z_comp = across_comp
@@ -426,7 +398,7 @@ please try again.')
             angle = angle - 360
 
         if angle == 0:
-            gravity = [0, 1, 0]  #spindle at 3 o'clock, rotating anticlockwise
+            gravity = [0, 1, 0]  # spindle at 3 o'clock, rotating anticlockwise
         elif angle == 90:
             gravity = [1, 0, 0]
         elif angle == 180:
@@ -489,7 +461,7 @@ please try again.')
             temp_centre = x_centre
             x_direction = y_direction
             x_centre = y_centre
-            y_direction = [i * -1 for i in temp] #-1*temp
+            y_direction = [i * -1 for i in temp]
             y_centre = temp_centre
         elif angle == 180:
             x_direction = [i * -1 for i in x_direction]
@@ -499,8 +471,8 @@ please try again.')
         elif angle == 270:
             temp = x_direction
             temp_centre = x_centre
-            x_direction = [i * -1 for i in y_direction] #-1*y_direction
-            x_centre = -1 * y_centre #-1*y_direction
+            x_direction = [i * -1 for i in y_direction]
+            x_centre = -1 * y_centre
             y_direction = temp
             y_centre = temp_centre
 
@@ -549,7 +521,6 @@ please try again.')
         """
 
         dim_x, dim_y = array_dimension
-        # dim_x, dim_y = parse.(Int64,split(raw_info["Number of pixels"],","))
         pix_x, pix_y = pixel_size
 
         return float(pix_x) * float(dim_x)/2, float(pix_y) * float(dim_y)/2

@@ -10,7 +10,7 @@ from imgCIF_Creator.information_extractors import extractor_utils
 from . import block_generators
 
 # Configuration information
-# the order reflects the stacking
+# the order must reflect the stacking
 GONIOMETER_AXES = ("phi", "kappa", "chi", "omega", "angle")
 DETECTOR_AXES = ('slow_pixel_direction', 'dety', 'fast_pixel_direction', 'detx',
                  'dx', 'distance', 'det_z', 'trans', 'two_theta', 'detector_2theta')
@@ -72,12 +72,12 @@ class ImgCIFCreator:
         radiation_info = self.extractor.get_radiation_info()
         radiation_info = self.check_radiation_completeness(radiation_info)
 
-        # # describe _array_structure_list_axis and _array_structure_list
+        # describe _array_structure_list_axis and _array_structure_list
         array_info = self.extractor.get_array_info()
         array_info = self.check_array_completeness(array_info)
 
         scan_setting_info = self.extractor.get_scan_settings_info()
-        # TODO this is not checking anything right now
+        # this is not checking anything right now
         scan_setting_info = self.check_scan_settings_completeness(scan_setting_info)
         # if always axes do not change and are at their home positions we want to
         # remove them from the scan list, but not from the axis description
@@ -86,7 +86,7 @@ class ImgCIFCreator:
         scan_list = self.generate_scan_list(scan_setting_info)
 
         # describe _axis block
-        # the axes_info still contain always axes, scan_setting_info only needed
+        # the axes_info still contains always axes, scan_setting_info only needed
         # for offsets
         axes_info = self.extractor.get_axes_info()
         axes_info = self.check_axes_completeness(axes_info, array_info,
@@ -99,29 +99,29 @@ class ImgCIFCreator:
 
         archive, external_url, archive_path = self.check_external_url(filename)
 
-        # now generate the cif block
-        # _diffrn_source block
+        # now generate the cif blocks
+        # _diffrn_source
         self.generators.generate_source(cif_block, source_info)
         self.generators.generate_misc(cif_block, misc_info)
-        # self.generate _diffrn_wavelength block
+        # _diffrn_wavelength
         self.generators.generate_radiation(cif_block, radiation_info)
-        # describe _axis block
+        # _axis block
         self.generators.generate_axes(cif_block, axes_info)
-        # # describe _array_structure_list_axis and _array_structure_list
+        # _array_structure_list_axis and _array_structure_list
         self.generators.generate_array(cif_block, array_info)
-        # describe _diffrn_detector and _diffrn_detector_axis
+        # _diffrn_detector and _diffrn_detector_axis
         self.generators.generate_detector(cif_block, detector_info)
-        # self.generate _diffrn_scan_axis block
+        # _diffrn_scan_axis
         self.generators.generate_scan_settings(cif_block, scan_setting_info)
-        # self.generate _diffrn_scan block
+        # _diffrn_scan
         self.generators.generate_scan_info(cif_block, scan_list)
-        # self.generate _diffrn_scan_frame block
+        # _diffrn_scan_frame
         self.generators.generate_step_info(cif_block, scan_setting_info, scan_list)
-        # self.generate _diffrn_data_frame block
+        # _diffrn_data_frame
         self.generators.generate_data_frame_info(cif_block, scan_list)
-        # self.generate _array_data block
+        # _array_data
         self.generators.generate_ids(cif_block, scan_list)
-        # self.generate _array_data_external_data
+        # _array_data_external_data
         self.generators.generate_external_ids(
             cif_block, external_url, self.extractor.all_frames,
             scan_list, archive, archive_path, filetype)
@@ -181,17 +181,6 @@ class ImgCIFCreator:
             else:
                 print(f'\nFound the following information about the {info}: \
 {source_info[info]}')
-        # print('')
-
-        # base = "_diffrn_source."
-        # if "Beamline name" in raw_info or "Facility name" in raw_info:
-        #     cif_block[base + "beamline"] = [raw_info["Beamline name"]]
-        #     cif_block[base + "facility"] = [raw_info["Facility name"]]
-        # else:
-        #     cif_block[base + "make"] = [raw_info["Name of manufacturer"] + "-" + \
-        #         raw_info["Model"]]
-        #     if "Location" in raw_info:
-        #         cif_block[base + "details"] = [f"Located at {raw_info['Location']}"]
 
         return self.lists_to_values(source_info)
 
@@ -208,7 +197,6 @@ class ImgCIFCreator:
             dict: the information completed
         """
 
-        # print('axinf', axes_info)
         lengths = [len(values) for values in axes_info.values() if values is not None]
         has_same_len = all([length == lengths[0] for length in lengths])
 
@@ -222,14 +210,11 @@ class ImgCIFCreator:
             gon_axes, principal_sense = self._complete_goniometer_axes(axes_info)
             det_axes = self._complete_detector_axes(axes_info, principal_sense,
                                                     array_info, scan_setting_info)
-
             for key in gon_axes:
                 gon_axes[key] += det_axes[key]
 
             return gon_axes
 
-        # print('gox', gon_axes)
-        # print('dx', det_axes)
         return axes_info
 
 
@@ -244,7 +229,6 @@ class ImgCIFCreator:
             dict: the completed information
         """
 
-        # TODO check hardcoded stuff
         array_structure_labels = ['axis_id', 'axis_set_id', 'pixel_size']
         if any([self.param_is_none(array_info[label]) for label in array_structure_labels]):
 
@@ -290,8 +274,7 @@ class ImgCIFCreator:
             dict: the information completed
         """
 
-        # TODO does not include multiple detectors yet
-
+        # does not include multiple detectors (yet?)
         if self.param_is_none(detector_info["detector_id"]):
             detector_info["detector_id"] = ['det1']
 
@@ -315,7 +298,7 @@ class ImgCIFCreator:
             detector_info["number_of_axes"] = [len(det_axes)]
             detector_info["axis_id"] = det_axes
 
-        #TODO it's not ensured that this is always a list...
+        #TODO probably it's not ensured that this is always a list
         detector_info["detector_axis_id"] = \
             detector_info["detector_id"] * len(detector_info["axis_id"])
 
@@ -359,9 +342,8 @@ class ImgCIFCreator:
 
         # does not need to ask for wl since this is done in radiation_info
         # same for pixel size, which is done in array_info
-        # the other parameters are scan dependent? doesn't make sense to request
-        # that from the user?
-        # TODO
+        # the other parameters are scan dependent, seems not to make sense to request
+        # that from the user
 
         return scan_settings_info
 
@@ -433,7 +415,6 @@ class ImgCIFCreator:
         for key, value in param_dict.items():
             if isinstance(value, list) and (len(value) == 1):
                 param_dict[key] = value[0]
-                # print('set', value, 'to', param_dict[key])
 
         return param_dict
 
@@ -659,9 +640,7 @@ detector. The axes are: \n ==> {message}")
             det_rot_axes = (det_rot_axes, det_rot_senses)
 
         det_axes = self.cmd_parser.make_detector_axes(
-            det_trans_axes, det_rot_axes,
-            principal_sense, principal_angle, image_orientation,
-            # two_theta_sense,
-            array_info, scan_setting_info)
+            det_trans_axes, det_rot_axes, principal_sense, principal_angle,
+            image_orientation, array_info, scan_setting_info)
 
         return det_axes

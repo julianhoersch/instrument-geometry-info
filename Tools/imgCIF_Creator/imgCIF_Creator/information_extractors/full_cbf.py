@@ -67,7 +67,7 @@ def extract_full_cbf_header_information(filename):
             could_read = True
         except CifFile.StarFile.StarError:
             # remove the last character of the text until the CifFile module can
-            # read the file
+            # read the file, this is not super fast...
             container.remove_char_from_tail()
 
     return full_cbf_info

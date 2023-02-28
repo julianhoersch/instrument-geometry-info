@@ -35,26 +35,6 @@ class ExtractorInterface(metaclass=abc.ABCMeta):
                 callable(subclass.get_array_info) or
                 NotImplemented)
 
-    # mot working
-    # @property
-    # @abc.abstractproperty
-    # def all_frames(self):
-    #     """the scan name / scan frame file mapping
-    #     Example:
-    #     {('scan name', frame number): {'filename': 'ciclohexano3_010001.cbf'}, ...}
-    #     """
-
-    # @abc.abstractmethod
-    # def __init__(directory_or_filename, stem, palim):
-    #     """Return the information about the facility and beamline or the instrument,
-    #     model and location. Cif block: _diffrn_source
-
-    #     Returns:
-    #         dict: a dictionary containing the information about the source
-    #     """
-
-    #     raise NotImplementedError
-
 
     @abc.abstractmethod
     def get_source_info():
