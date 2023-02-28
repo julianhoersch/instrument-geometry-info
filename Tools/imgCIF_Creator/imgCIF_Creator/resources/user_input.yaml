@@ -298,14 +298,14 @@ keep_axes:
 
 archive_path:
     label: Archive path
-    required: true
+    required: false
     description: >
       The exteral url points to an archive, please specify the path within the archive
       where the files can be found.
 
 
 url_not_reachable:
-    label: The url is not reachable
+    label: Enter url again?
     required: true
     description: >
        The url you have entered is (currently) not reachable - do you want to enter it
